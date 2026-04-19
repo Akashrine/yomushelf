@@ -1,0 +1,9 @@
+{
+  "regions": ["cdg1"],
+  "crons": [
+    {
+      "path": "/api/cron/ingest-mangas",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}

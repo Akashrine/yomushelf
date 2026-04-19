@@ -1,0 +1,23 @@
+{
+  "name": "Yomushelf",
+  "short_name": "Yomushelf",
+  "description": "Ta collection physique de mangas",
+  "start_url": "/bibliotheque",
+  "display": "standalone",
+  "background_color": "#0e0b0b",
+  "theme_color": "#0e0b0b",
+  "orientation": "portrait",
+  "lang": "fr",
+  "categories": ["entertainment", "books"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "related_applications": [],
+  "prefer_related_applications": false
+}
