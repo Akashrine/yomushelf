@@ -4,6 +4,7 @@ import type { Database } from "@/lib/types/database";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://yomushelf.app";
 
+export const dynamic = "force-dynamic";
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
