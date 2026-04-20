@@ -30,6 +30,14 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // OAuth code landed at root — forward to the callback handler
+  const url = request.nextUrl;
+  if (url.pathname === "/" && url.searchParams.has("code")) {
+    const callbackUrl = url.clone();
+    callbackUrl.pathname = "/auth/callback";
+    return NextResponse.redirect(callbackUrl);
+  }
+
   const { pathname } = request.nextUrl;
   const protectedPaths = [
     "/bibliotheque",
