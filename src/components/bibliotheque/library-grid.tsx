@@ -46,17 +46,42 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 type FilterStatus = "all" | "reading" | "caught_up" | "completed" | "dropped" | "not_started";
+type FilterPubStatus = "all" | "ongoing" | "completed" | "paused";
+
+const PUB_STATUS_LABELS: Record<string, string> = {
+  ongoing: "En cours de publication",
+  completed: "Terminée",
+  paused: "En pause",
+};
 
 export function LibraryGrid({ collections }: Props) {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
+  const [filterGenre, setFilterGenre] = useState("all");
+  const [filterPubStatus, setFilterPubStatus] = useState<FilterPubStatus>("all");
   const [sortBy, setSortBy] = useState<"updated" | "title" | "volumes">("updated");
+
+  const genres = useMemo(() => {
+    const set = new Set<string>();
+    collections.forEach((c) => {
+      if (c.mangas?.genre_primary) set.add(c.mangas.genre_primary);
+    });
+    return [...set].sort();
+  }, [collections]);
 
   const filtered = useMemo(() => {
     let items = collections;
 
     if (filterStatus !== "all") {
       items = items.filter((c) => c.status === filterStatus);
+    }
+
+    if (filterGenre !== "all") {
+      items = items.filter((c) => c.mangas?.genre_primary === filterGenre);
+    }
+
+    if (filterPubStatus !== "all") {
+      items = items.filter((c) => c.mangas?.status === filterPubStatus);
     }
 
     if (search.trim()) {
@@ -77,7 +102,7 @@ export function LibraryGrid({ collections }: Props) {
       }
       return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
     });
-  }, [collections, filterStatus, search, sortBy]);
+  }, [collections, filterStatus, filterGenre, filterPubStatus, search, sortBy]);
 
   if (collections.length === 0) {
     return <EmptyState />;
@@ -86,20 +111,20 @@ export function LibraryGrid({ collections }: Props) {
   return (
     <div>
       {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+      <div className="flex flex-col gap-3 mb-6">
         <input
           type="search"
           placeholder="Rechercher une série…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
+          className="w-full px-3 py-2 rounded-lg text-sm outline-none"
           style={{
             background: "var(--surface)",
             border: "1px solid var(--border)",
             color: "var(--foreground)",
           }}
         />
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
@@ -116,6 +141,38 @@ export function LibraryGrid({ collections }: Props) {
             <option value="not_started">Non commencé</option>
             <option value="completed">Terminé</option>
             <option value="dropped">Abandonné</option>
+          </select>
+          {genres.length > 0 && (
+            <select
+              value={filterGenre}
+              onChange={(e) => setFilterGenre(e.target.value)}
+              className="px-3 py-2 rounded-lg text-sm outline-none cursor-pointer"
+              style={{
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                color: "var(--foreground)",
+              }}
+            >
+              <option value="all">Tous les genres</option>
+              {genres.map((g) => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+          )}
+          <select
+            value={filterPubStatus}
+            onChange={(e) => setFilterPubStatus(e.target.value as FilterPubStatus)}
+            className="px-3 py-2 rounded-lg text-sm outline-none cursor-pointer"
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              color: "var(--foreground)",
+            }}
+          >
+            <option value="all">Toutes les séries</option>
+            {Object.entries(PUB_STATUS_LABELS).map(([val, label]) => (
+              <option key={val} value={val}>{label}</option>
+            ))}
           </select>
           <select
             value={sortBy}
@@ -137,7 +194,9 @@ export function LibraryGrid({ collections }: Props) {
       {/* Count */}
       <p className="text-xs mb-4" style={{ color: "var(--muted)" }}>
         {filtered.length} série{filtered.length !== 1 ? "s" : ""}
-        {filterStatus !== "all" || search ? " filtrées" : ""}
+        {filterStatus !== "all" || filterGenre !== "all" || filterPubStatus !== "all" || search
+          ? " filtrées"
+          : ""}
       </p>
 
       {filtered.length === 0 ? (

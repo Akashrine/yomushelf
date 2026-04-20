@@ -140,6 +140,54 @@ export async function updateStatus(
   return { success: true };
 }
 
+const AddVolumeRangeSchema = z
+  .object({
+    manga_id: z.string().uuid(),
+    from: z.coerce.number().int().positive(),
+    to: z.coerce.number().int().positive(),
+  })
+  .refine((d) => d.from <= d.to, { message: "Plage invalide." });
+
+export async function addVolumeRange(
+  formData: FormData
+): Promise<UpdateProgressResult> {
+  const parsed = AddVolumeRangeSchema.safeParse({
+    manga_id: formData.get("manga_id"),
+    from: formData.get("from"),
+    to: formData.get("to"),
+  });
+  if (!parsed.success) return { success: false, error: "Plage invalide." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Non authentifié." };
+
+  const { manga_id, from, to } = parsed.data;
+  const range = Array.from({ length: to - from + 1 }, (_, i) => from + i);
+
+  const col = await getUserCollection(supabase, user.id, manga_id);
+
+  if (!col) {
+    const { error } = await supabase.from("user_collections").insert({
+      user_id: user.id,
+      manga_id,
+      owned_volumes: range,
+      status: "not_started",
+    });
+    if (error) return { success: false, error: "Erreur lors de l'ajout." };
+    return { success: true };
+  }
+
+  const newVolumes = [...new Set([...col.owned_volumes, ...range])].sort(
+    (a, b) => a - b
+  );
+  const { error } = await updateCollectionVolumes(supabase, col.id, newVolumes);
+  if (error) return { success: false, error: "Erreur lors de la mise à jour." };
+  return { success: true };
+}
+
 const RemoveVolumeSchema = z.object({
   manga_id: z.string().uuid(),
   volume_number: z.coerce.number().int().positive(),

@@ -7,6 +7,7 @@ import {
   toggleVolume,
   updateReadingProgress,
   updateStatus,
+  addVolumeRange,
 } from "@/app/(app)/bibliotheque/actions";
 
 type Manga = {
@@ -50,18 +51,40 @@ export function SerieDetail({ manga, collection }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [lastRead, setLastRead] = useState(collection?.last_read_volume ?? 0);
+  const [rangeFrom, setRangeFrom] = useState("1");
+  const [rangeTo, setRangeTo] = useState("");
 
   const totalVolumes = manga.total_volumes ?? 0;
+
+  type OptimisticUpdate = number | { range: number[] };
   const [optimisticOwned, addOptimistic] = useOptimistic(
-    collection?.owned_volumes ?? [] as number[],
-    (state: number[], vol: number) =>
-      state.includes(vol)
-        ? state.filter((v) => v !== vol)
-        : [...state, vol].sort((a, b) => a - b)
+    collection?.owned_volumes ?? ([] as number[]),
+    (state: number[], update: OptimisticUpdate) => {
+      if (typeof update === "object") {
+        return [...new Set([...state, ...update.range])].sort((a, b) => a - b);
+      }
+      return state.includes(update)
+        ? state.filter((v) => v !== update)
+        : [...state, update].sort((a, b) => a - b);
+    }
   );
 
   const ownedCount = optimisticOwned.length;
   const budget = (ownedCount * manga.avg_price_eur).toFixed(2);
+
+  const minOwned = optimisticOwned.length > 0 ? Math.min(...optimisticOwned) : 0;
+  const maxOwned = optimisticOwned.length > 0 ? Math.max(...optimisticOwned) : 0;
+  const gapCount =
+    optimisticOwned.length > 1
+      ? maxOwned - minOwned + 1 - optimisticOwned.length
+      : 0;
+
+  function getVolumeState(vol: number): "owned" | "gap" | "not_owned" {
+    if (optimisticOwned.includes(vol)) return "owned";
+    if (optimisticOwned.length > 0 && vol > minOwned && vol < maxOwned)
+      return "gap";
+    return "not_owned";
+  }
 
   function handleToggle(vol: number) {
     startTransition(async () => {
@@ -70,6 +93,22 @@ export function SerieDetail({ manga, collection }: Props) {
       fd.set("manga_id", manga.id);
       fd.set("volume_number", String(vol));
       await toggleVolume(fd);
+      router.refresh();
+    });
+  }
+
+  function handleBulkAdd() {
+    const from = parseInt(rangeFrom, 10);
+    const to = parseInt(rangeTo, 10);
+    if (isNaN(from) || isNaN(to) || from > to || from < 1) return;
+    const range = Array.from({ length: to - from + 1 }, (_, i) => from + i);
+    startTransition(async () => {
+      addOptimistic({ range });
+      const fd = new FormData();
+      fd.set("manga_id", manga.id);
+      fd.set("from", String(from));
+      fd.set("to", String(to));
+      await addVolumeRange(fd);
       router.refresh();
     });
   }
@@ -211,29 +250,33 @@ export function SerieDetail({ manga, collection }: Props) {
         </Section>
 
         {/* Volume grid */}
-        <Section title={`Tomes possédés — ${ownedCount}${totalVolumes ? `/${totalVolumes}` : ""}`}>
-          <div className="flex flex-wrap gap-2">
+        <Section
+          title={`Tomes possédés — ${ownedCount}${totalVolumes ? `/${totalVolumes}` : ""}${gapCount > 0 ? ` · ${gapCount} manquant${gapCount > 1 ? "s" : ""}` : ""}`}
+        >
+          <div className="flex flex-wrap gap-2 mb-4">
             {Array.from({ length: volumeCount }, (_, i) => i + 1).map((vol) => {
-              const owned = optimisticOwned.includes(vol);
+              const state = getVolumeState(vol);
               return (
                 <button
                   key={vol}
                   type="button"
                   onClick={() => handleToggle(vol)}
                   disabled={isPending}
-                  aria-pressed={owned}
+                  aria-pressed={state === "owned"}
+                  title={state === "gap" ? `Tome ${vol} — manquant` : undefined}
                   className="w-9 h-9 rounded-lg text-xs font-semibold tabular-nums transition-all active:scale-90 disabled:opacity-60"
-                  style={{
-                    background: owned ? "var(--accent)" : "var(--surface)",
-                    color: owned ? "white" : "var(--muted)",
-                    border: owned ? "none" : "1px solid var(--border)",
-                  }}
+                  style={
+                    state === "owned"
+                      ? { background: "var(--accent)", color: "white", border: "none" }
+                      : state === "gap"
+                      ? { background: "var(--surface)", color: "var(--accent)", border: "1px dashed var(--accent)", opacity: 0.7 }
+                      : { background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)" }
+                  }
                 >
                   {vol}
                 </button>
               );
             })}
-            {/* "Ajouter tome suivant" if ongoing */}
             {manga.status === "ongoing" && totalVolumes === 0 && (
               <button
                 type="button"
@@ -249,6 +292,55 @@ export function SerieDetail({ manga, collection }: Props) {
                 +
               </button>
             )}
+          </div>
+
+          {/* Bulk range add */}
+          <div
+            className="flex flex-wrap items-center gap-2 pt-3"
+            style={{ borderTop: "1px solid var(--border)" }}
+          >
+            <span className="text-xs" style={{ color: "var(--muted)" }}>
+              Ajouter du tome
+            </span>
+            <input
+              type="number"
+              min={1}
+              max={totalVolumes || undefined}
+              value={rangeFrom}
+              onChange={(e) => setRangeFrom(e.target.value)}
+              className="w-14 px-2 py-1 rounded-lg text-xs text-center tabular-nums outline-none"
+              style={{
+                background: "var(--background)",
+                border: "1px solid var(--border)",
+                color: "var(--foreground)",
+              }}
+            />
+            <span className="text-xs" style={{ color: "var(--muted)" }}>
+              au tome
+            </span>
+            <input
+              type="number"
+              min={1}
+              max={totalVolumes || undefined}
+              value={rangeTo}
+              placeholder={totalVolumes ? String(totalVolumes) : "N"}
+              onChange={(e) => setRangeTo(e.target.value)}
+              className="w-14 px-2 py-1 rounded-lg text-xs text-center tabular-nums outline-none"
+              style={{
+                background: "var(--background)",
+                border: "1px solid var(--border)",
+                color: "var(--foreground)",
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleBulkAdd}
+              disabled={isPending || !rangeTo}
+              className="px-3 py-1 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-40"
+              style={{ background: "var(--accent)", color: "white" }}
+            >
+              Ajouter
+            </button>
           </div>
         </Section>
 
