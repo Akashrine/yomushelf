@@ -228,7 +228,7 @@ export default async function LandingPage({ searchParams }: Props) {
         <div className="flex flex-wrap items-center justify-center gap-4 text-xs" style={{ color: "var(--muted)" }}>
           <Link href="/mentions-legales" className="hover:opacity-80 transition-opacity">Mentions légales</Link>
           <Link href="/confidentialite" className="hover:opacity-80 transition-opacity">Confidentialité</Link>
-          <span>Vos données restent privées. Désinscription en 1 clic.</span>
+          <span>Vos données restent privées.</span>
         </div>
         <p className="text-xs" style={{ color: "var(--muted)" }}>
           © {new Date().getFullYear()} Yomushelf
