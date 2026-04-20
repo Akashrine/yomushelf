@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { joinWaitlist } from "@/app/(public)/actions";
 
 type Props = {
-  source?: "landing_hero" | "landing_footer";
+  source?: "landing_hero" | "landing_footer" | "tiktok_campaign" | "other";
   compact?: boolean;
 };
 
