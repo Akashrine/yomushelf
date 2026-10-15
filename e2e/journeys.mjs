@@ -38,14 +38,21 @@ async function signIn(email) {
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto(`${BASE}/login`, { waitUntil: "networkidle", timeout: 180000 });
+  await page.goto(`${BASE}/login`, { waitUntil: "load", timeout: 180000 });
+  await page.locator('input[name="email"]').waitFor({ timeout: 60000 });
   await page.fill('input[name="email"]', email);
   await page.fill('input[name="password"]', "e2e-yomushelf");
   await Promise.all([page.waitForURL(/\/bibliotheque/, { timeout: 120000 }), page.press('input[name="password"]', "Enter")]);
   return { ctx, page, errors };
 }
 
-const go = (page, path) => page.goto(`${BASE}${path}`, { waitUntil: "networkidle", timeout: 180000 });
+// "load" + the page's main landmark : production builds keep prefetching
+// links, so the network never goes idle.
+const go = async (page, path) => {
+  await page.goto(`${BASE}${path}`, { waitUntil: "load", timeout: 180000 });
+  await page.locator("main").first().waitFor({ timeout: 60000 });
+  await page.waitForTimeout(400);
+};
 const text = async (page, sel = "main") => (await page.locator(sel).first().innerText()).replace(/\s+/g, " ");
 const shot = async (page, name) => SHOTS && page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
 
@@ -119,7 +126,8 @@ await step("Lecture : Je commence puis Je l'ai fini, compteur après confirmatio
   await page.getByRole("button", { name: "Annuler" }).waitFor({ timeout: 60000 });
   await page.waitForTimeout(1200);
   const after = Number(await page.locator("section[aria-label$='lus'] span.text-5xl").innerText());
-  await page.reload({ waitUntil: "networkidle" });
+  await page.reload({ waitUntil: "load" });
+  await page.locator("section[aria-label$='lus'] span.text-5xl").waitFor({ timeout: 60000 });
   const reloaded = Number(await page.locator("section[aria-label$='lus'] span.text-5xl").innerText());
   check("Lecture : Je commence puis Je l'ai fini, compteur après confirmation", after === before + 1 && reloaded === after, `${before} → ${after} → ${reloaded}`);
 });
@@ -176,7 +184,7 @@ await step("Une série privée reste invisible pour un autre compte", async () =
   const leaked = (json.results ?? []).some((r) => /Mon Cousin/i.test(r.title));
   // and directly by id
   const url = await seriesUrl(page, "Le Manga De Mon Cousin");
-  const direct = await other.page.goto(`${BASE}${url}`, { waitUntil: "networkidle" });
+  const direct = await other.page.goto(`${BASE}${url}`, { waitUntil: "load" });
   check("Une série privée reste invisible pour un autre compte", res.ok() && !leaked && direct.status() === 404, `recherche ${leaked ? "VISIBLE" : "invisible"}, page ${direct.status()}`);
   await other.ctx.close();
 });
@@ -190,13 +198,15 @@ await step("Retirer une série garde ses lectures, puis la remettre", async () =
   await page.getByRole("button", { name: "Retirer de ma bibliothèque" }).click();
   await page.getByRole("button", { name: "Oui, la retirer" }).click();
   await page.waitForURL(/\/bibliotheque$/, { timeout: 60000 });
-  await page.waitForLoadState("networkidle");
+  await page.locator("main").first().waitFor();
+  await page.waitForTimeout(800);
   const t = await text(page);
   const gone = !/Spy x Family\s+\d+ lus/.test(t) && /Séries retirées · 1/.test(t);
   await page.getByText("Séries retirées").click();
   await page.getByRole("button", { name: "Remettre dans ma bibliothèque" }).click();
   await page.waitForTimeout(2000);
-  await page.reload({ waitUntil: "networkidle" });
+  await page.reload({ waitUntil: "load" });
+  await page.locator("section[aria-label$='lus'] span.text-5xl").waitFor({ timeout: 60000 });
   const after = Number(await page.locator("section[aria-label$='lus'] span.text-5xl").innerText());
   check("Retirer une série garde ses lectures, puis la remettre", gone && after === before && /Spy x Family/.test(await text(page)), `lus ${before} → ${after}`);
 });
