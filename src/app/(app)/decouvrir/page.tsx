@@ -19,8 +19,9 @@ export default async function DecouvrirPage() {
   if (!user) redirect("/login");
 
   const [catalogueResult, selectionsResult, series, volumes, readings, wishesResult, { data: profile }] = await Promise.all([
-    // Shared catalogue only : private series never appear in discovery.
-    supabase.from("mangas").select(CATALOGUE_SELECT).is("created_by", null),
+    // Curated shared catalogue only : private series and raw imports (no
+    // reviewed age) never appear in discovery.
+    supabase.from("mangas").select(CATALOGUE_SELECT).is("created_by", null).not("audience_min_age", "is", null),
     supabase
       .from("editorial_selections")
       .select("slug, title, description, position, editorial_selection_items ( manga_id, position, note )")

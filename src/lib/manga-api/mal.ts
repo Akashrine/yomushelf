@@ -2,7 +2,14 @@ import type { MALMangaNode, MangaSearchResult } from "./types";
 
 const MAL_BASE = "https://api.myanimelist.net/v2";
 const FIELDS =
-  "id,title,main_picture,alternative_titles,status,num_volumes,genres,authors{first_name,last_name},serialization{name}";
+  "id,title,main_picture,alternative_titles,status,num_volumes,genres,authors{first_name,last_name},serialization{name},nsfw,media_type";
+
+// Only Japanese manga suitable for everyone enter the shared catalogue :
+// no adult content, no manhwa, manhua, novels or doujinshi.
+const ALLOWED_MEDIA = new Set(["manga", "one_shot"]);
+export function isAllowedMalEntry(node: Pick<MALMangaNode, "nsfw" | "media_type">): boolean {
+  return node.nsfw === "white" && ALLOWED_MEDIA.has(node.media_type ?? "");
+}
 
 function getClientId(): string {
   const id = process.env.MAL_CLIENT_ID;
@@ -77,7 +84,7 @@ export async function searchMangaMAL(
   }
 
   const data = (await res.json()) as { data: Array<{ node: MALMangaNode }> };
-  return data.data.map((d) => normalizeMalManga(d.node));
+  return data.data.filter((d) => isAllowedMalEntry(d.node)).map((d) => normalizeMalManga(d.node));
 }
 
 export async function getMangaByIdMAL(
@@ -94,6 +101,8 @@ export async function getMangaByIdMAL(
   if (!res.ok) throw new Error(`MAL get manga failed: ${res.status}`);
 
   const node = (await res.json()) as MALMangaNode;
+  // Ids come from the client : refuse what search would never have offered.
+  if (!isAllowedMalEntry(node)) return null;
   return normalizeMalManga(node);
 }
 
@@ -116,5 +125,5 @@ export async function getMangaRankingMAL(
   const data = (await res.json()) as {
     data: Array<{ node: MALMangaNode; ranking: { rank: number } }>;
   };
-  return data.data.map((d) => normalizeMalManga(d.node));
+  return data.data.filter((d) => isAllowedMalEntry(d.node)).map((d) => normalizeMalManga(d.node));
 }
