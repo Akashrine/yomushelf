@@ -58,11 +58,12 @@ async function applyReadingChoice(
 const UpsertVolumeSchema = VolumeDetailsSchema.extend({
   manga_id: z.string().uuid(),
   volume_number: z.coerce.number().int().positive(),
+  mode: z.enum(["add", "edit"]).default("add"),
 });
 
 export async function upsertUserVolume(formData: FormData): Promise<ActionResult> {
   const parsed = UpsertVolumeSchema.safeParse(
-    formValues(formData, ["manga_id", "volume_number", "price_eur", "acquisition_type", "acquired_at", "reading"])
+    formValues(formData, ["manga_id", "volume_number", "price_eur", "acquisition_type", "acquired_at", "reading", "mode"])
   );
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Données invalides." };
@@ -73,36 +74,50 @@ export async function upsertUserVolume(formData: FormData): Promise<ActionResult
 
   const d = parsed.data;
 
-  const { data: existing } = await supabase
-    .from("user_volumes")
-    .select("acquired_at")
-    .eq("user_id", user.id)
-    .eq("manga_id", d.manga_id)
-    .eq("volume_number", d.volume_number)
-    .maybeSingle();
-
-  const { error } = await supabase.from("user_volumes").upsert(
-    {
+  if (d.mode === "add") {
+    // INSERT and the unique constraint protect against both duplicate forms
+    // and concurrent additions. An add must never become an implicit edit.
+    const { error } = await supabase.from("user_volumes").insert({
       user_id: user.id,
       manga_id: d.manga_id,
       volume_number: d.volume_number,
       price_eur: d.price_eur,
       acquisition_type: d.acquisition_type,
-      // A volume added right now arrived today; an edit keeps what was known.
-      acquired_at: d.acquired_at ?? (existing ? existing.acquired_at : todayIso()),
-    },
-    { onConflict: "user_id,manga_id,volume_number" }
-  );
-  if (error) return { success: false, error: "Pas enregistré. Vérifie ta connexion et réessaie." };
-
-  const reading = await applyReadingChoice(
-    supabase,
-    { userId: user.id, mangaId: d.manga_id, volumeNumber: d.volume_number },
-    d.reading
-  );
-  if (reading.error) return { success: false, error: "Tome enregistré, mais pas sa lecture. Réessaie." };
+      acquired_at: d.acquired_at ?? todayIso(),
+    });
+    if (error?.code === "23505") {
+      return { success: false, error: "Ce tome est déjà sur ton étagère. Ouvre sa fiche pour le modifier." };
+    }
+    if (error) return { success: false, error: "Pas enregistré. Vérifie ta connexion et réessaie." };
+  } else {
+    const { data, error } = await supabase
+      .from("user_volumes")
+      .update({
+        price_eur: d.price_eur,
+        acquisition_type: d.acquisition_type,
+        ...(d.acquired_at !== undefined ? { acquired_at: d.acquired_at } : {}),
+      })
+      .eq("user_id", user.id)
+      .eq("manga_id", d.manga_id)
+      .eq("volume_number", d.volume_number)
+      .select("volume_number")
+      .maybeSingle();
+    if (error) return { success: false, error: "Pas enregistré. Vérifie ta connexion et réessaie." };
+    if (!data) return { success: false, error: "Ce tome n'est plus sur ton étagère. Recharge la page." };
+  }
 
   revalidateSeries(d.manga_id);
+  try {
+    const reading = await applyReadingChoice(
+      supabase,
+      { userId: user.id, mangaId: d.manga_id, volumeNumber: d.volume_number },
+      d.reading
+    );
+    if (reading.error) throw new Error("Reading not saved");
+  } catch {
+    return { success: false, error: "Tome enregistré, mais sa lecture n'a pas pu être confirmée. Ouvre sa fiche pour la vérifier." };
+  }
+
   return { success: true };
 }
 

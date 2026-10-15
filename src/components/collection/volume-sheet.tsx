@@ -98,11 +98,12 @@ export function VolumeSheet({
       const fd = new FormData();
       fd.set("manga_id", mangaId);
       fd.set("volume_number", String(volumeNumber));
+      fd.set("mode", existing ? "edit" : "add");
       fd.set("price_eur", value.acquisition === "borrowed" ? "" : value.price);
       fd.set("acquisition_type", value.acquisition ?? "");
       // Only a new volume asks "déjà lu ?" ; an edit never touches the reading.
       fd.set("reading", !existing && !reading && alreadyRead === "read_earlier" ? "read_earlier" : "unchanged");
-      const result = await upsertUserVolume(fd);
+      const result = await upsertUserVolume(fd).catch(() => ({ success: false as const, error: "Impossible de confirmer l’enregistrement. Vérifie ta connexion puis réessaie." }));
       if (!result.success) {
         setError(result.error);
         return;
@@ -117,7 +118,7 @@ export function VolumeSheet({
       const fd = new FormData();
       fd.set("manga_id", mangaId);
       fd.set("volume_number", String(volumeNumber));
-      const result = await removeUserVolume(fd);
+      const result = await removeUserVolume(fd).catch(() => ({ success: false as const, error: "Impossible de confirmer l’enregistrement. Vérifie ta connexion puis réessaie." }));
       if (!result.success) {
         setError(result.error);
         return;
