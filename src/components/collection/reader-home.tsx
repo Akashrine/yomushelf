@@ -12,6 +12,7 @@ import {
   pickHome,
   readerCounts,
   readSpines,
+  shelfState,
   type Candidate,
   type SeriesShelf,
 } from "@/lib/collection/reading";
@@ -20,13 +21,15 @@ type Props = { shelves: SeriesShelf[] };
 
 const PILE_MAX = 80;
 
-// Reader home : one volume to act on, the volumes read, the ones waiting.
-// No amounts here : they live in the parent space.
-export function ReaderHome({ shelves }: Props) {
+// The reading of the moment : one volume to act on, the other volumes in
+// progress, and a way to choose another one. Renders nothing for an empty
+// library (the page shows its own welcome).
+export function CurrentReading({ shelves }: Props) {
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [choosing, setChoosing] = useState(false);
   const reading = useReadingAction();
 
+  const state = shelfState(shelves);
   const pick = pickHome(shelves);
   const chosen = chosenId ? shelves.find((s) => s.manga_id === chosenId) : undefined;
   const chosenCandidate = chosen ? nextToRead(chosen) : null;
@@ -35,21 +38,12 @@ export function ReaderHome({ shelves }: Props) {
   if (main && main.shelf !== pick.main?.shelf && pick.main?.candidate.kind === "reading") {
     alsoReading.unshift({ shelf: pick.main.shelf, volume: pick.main.candidate.volume });
   }
-  const { volumesRead, waitingAtHome } = readerCounts(shelves);
 
   function act(intent: ReadingIntent, shelf: SeriesShelf, volume: number) {
     reading.run(intent, { mangaId: shelf.manga_id, title: shelf.title, volume }, () => setChosenId(null));
   }
 
-  if (shelves.length === 0) {
-    return (
-      <EmptyState
-        title="Ta bibliothèque est vide."
-        text="Ajoute ta première série."
-        cta={{ href: "/ajouter", label: "Ajouter un tome" }}
-      />
-    );
-  }
+  if (state === "empty") return null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -63,16 +57,20 @@ export function ReaderHome({ shelves }: Props) {
           onPick={(id) => setChosenId(id)}
           onChoose={() => setChoosing(true)}
         />
+      ) : state === "no_volumes" ? (
+        <EmptyState
+          title="Tes séries n'ont pas encore de tomes."
+          text="Indique les tomes que tu as : on te dira quoi lire ensuite."
+          cta={{ href: `/bibliotheque/${shelves[0].slug}`, label: "Indiquer mes tomes" }}
+        />
       ) : (
         <EmptyState
           title="Tu as lu tous tes tomes !"
-          text="Quand un nouveau tome arrive, ajoute-le ici."
-          cta={{ href: "/ajouter", label: "Ajouter un tome" }}
+          text="Envie d'une nouvelle série ? Regarde ce qui pourrait te plaire."
+          cta={{ href: "/decouvrir", label: "Découvrir" }}
           done
         />
       )}
-
-      <ReadCount volumesRead={volumesRead} waitingAtHome={waitingAtHome} shelves={shelves} />
 
       {choosing && (
         <ChooseSheet
@@ -126,7 +124,7 @@ function MainCard({
       }}
     >
       <p id="main-card-label" className="text-sm font-bold uppercase tracking-[0.1em]" style={{ color: "var(--read)" }}>
-        {isReading ? "Tu lis…" : "Tu peux lire…"}
+        {isReading ? "Tu lis…" : candidate.kind === "skipped" ? "Tu as laissé de côté…" : "Tu peux lire…"}
       </p>
 
       <Link href={`/bibliotheque/${shelf.slug}`} className="flex items-center gap-4">
@@ -199,8 +197,18 @@ function MainCard({
   );
 }
 
-function Cover({ shelf, volume, small }: { shelf: SeriesShelf; volume: number; small?: boolean }) {
-  const size = small ? { width: 36, height: 50 } : { width: 84, height: 118 };
+export function Cover({
+  shelf,
+  volume,
+  small,
+  full,
+}: {
+  shelf: Pick<SeriesShelf, "manga_id" | "title" | "cover_url">;
+  volume: number;
+  small?: boolean;
+  full?: boolean; // fills its container (series cards)
+}) {
+  const size = full ? { width: "100%", height: "100%" } : small ? { width: 36, height: 50 } : { width: 84, height: 118 };
   if (shelf.cover_url) {
     return (
       <span
@@ -208,7 +216,7 @@ function Cover({ shelf, volume, small }: { shelf: SeriesShelf; volume: number; s
         className="relative shrink-0 overflow-hidden rounded-lg"
         style={{ ...size, background: `url(${shelf.cover_url}) center/cover no-repeat, #1a1010`, boxShadow: "0 8px 20px rgba(0,0,0,0.45)" }}
       >
-        {!small && (
+        {!small && !full && (
           <span className="absolute bottom-1 right-1 rounded-md px-1.5 text-sm font-black" style={{ background: "rgba(0,0,0,0.7)" }}>
             {volume}
           </span>
@@ -220,16 +228,16 @@ function Cover({ shelf, volume, small }: { shelf: SeriesShelf; volume: number; s
   return (
     <span
       aria-hidden="true"
-      className="flex shrink-0 flex-col justify-between overflow-hidden rounded-lg p-1.5 font-black"
+      className={`flex shrink-0 flex-col justify-between overflow-hidden rounded-lg font-black ${full ? "rounded-xl p-3" : "p-1.5"}`}
       style={{ ...size, background: seriesColor(shelf.manga_id), color: "#1a0f0c", boxShadow: "inset -6px 0 0 rgba(0,0,0,0.18), 0 8px 20px rgba(0,0,0,0.45)" }}
     >
-      {!small && <span className="text-[10px] uppercase leading-tight">{shelf.title}</span>}
-      <span className={`self-end leading-none ${small ? "text-sm" : "text-3xl"}`}>{volume}</span>
+      {!small && <span className={`${full ? "text-sm" : "text-[10px]"} uppercase leading-tight`}>{shelf.title}</span>}
+      <span className={`self-end leading-none ${small ? "text-sm" : full ? "text-5xl" : "text-3xl"}`}>{volume}</span>
     </span>
   );
 }
 
-function ReadCount({
+export function ReadCount({
   volumesRead,
   waitingAtHome,
   shelves,
@@ -356,7 +364,7 @@ function ChooseSheet({
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-bold">{shelf.title}</span>
                     <span className="block text-sm" style={{ color: "var(--muted)" }}>
-                      {volume != null ? `Tome ${volume}` : "Tout lu pour l'instant"}
+                      {volume != null ? `Tome ${volume}` : shelf.owned.length === 0 ? "Aucun tome chez toi" : "Tout lu pour l'instant"}
                     </span>
                   </span>
                   {c?.kind === "reading" && <Chip color="var(--read)">En cours</Chip>}

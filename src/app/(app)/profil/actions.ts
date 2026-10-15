@@ -82,3 +82,29 @@ export async function signOutAction(): Promise<void> {
   await supabase.auth.signOut();
   redirect("/login");
 }
+
+// ─────────────────────────────────────────
+// changePassword — also the landing of the "mot de passe oublié" email.
+// ─────────────────────────────────────────
+
+const PasswordSchema = z
+  .object({
+    password: z.string().min(8, "8 caractères minimum.").max(72, "72 caractères maximum."),
+    confirm: z.string(),
+  })
+  .refine((d) => d.password === d.confirm, { message: "Les deux mots de passe ne sont pas identiques.", path: ["confirm"] });
+
+export async function changePassword(formData: FormData): Promise<Result> {
+  const parsed = PasswordSchema.safeParse({ password: formData.get("password"), confirm: formData.get("confirm") });
+  if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Non authentifié." };
+
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+  if (error) return { success: false, error: "Le mot de passe n'a pas été changé. Réessaie." };
+  return { success: true };
+}

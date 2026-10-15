@@ -21,6 +21,7 @@ export type WishSeries = {
   cover_url: string | null;
   nextVolume: number;
   lastPrice: number | null;
+  estimate: number | null; // average price of a volume, shown as an estimate only
 };
 
 type Props = {
@@ -37,6 +38,9 @@ export function WishlistView({ items, series }: Props) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // "Je l'ai" asks how it arrived and the price really paid (optional).
+  const [acquiring, setAcquiring] = useState<{ id: string; how: "bought" | "gift" } | null>(null);
+  const [paid, setPaid] = useState("");
 
   const seriesById = new Map(series.map((s) => [s.manga_id, s]));
 
@@ -69,7 +73,12 @@ export function WishlistView({ items, series }: Props) {
     const fd = new FormData();
     fd.set("id", item.id);
     fd.set("acquisition_type", how);
-    run(acquireWishlistItem, fd, () => setNotice(`Tome ${item.volume_number} sur ton étagère !`));
+    fd.set("price_eur", paid);
+    run(acquireWishlistItem, fd, () => {
+      setAcquiring(null);
+      setPaid("");
+      setNotice(`Tome ${item.volume_number} sur ton étagère !`);
+    });
   }
 
   function remove(item: WishItem) {
@@ -129,14 +138,24 @@ export function WishlistView({ items, series }: Props) {
                     className="tabular-nums font-semibold"
                     style={{ color: item.target_price != null ? "var(--gold)" : "var(--muted)" }}
                   >
-                    {item.target_price != null ? formatEur(item.target_price) : "prix inconnu"}
+                    {item.target_price != null
+                      ? formatEur(item.target_price)
+                      : s?.estimate != null
+                        ? `≈ ${formatEur(s.estimate)}`
+                        : "prix inconnu"}
                   </span>
+                  {item.target_price == null && s?.estimate != null && (
+                    <span className="sr-only">estimation au prix moyen d&apos;un tome</span>
+                  )}
                   <span className="ml-auto flex items-center gap-1.5">
                     {item.volume_number != null && (
                       <>
                         <button
                           type="button"
-                          onClick={() => acquire(item, "bought")}
+                          onClick={() => {
+                            setPaid("");
+                            setAcquiring({ id: item.id, how: "bought" });
+                          }}
                           disabled={isPending}
                           className="min-h-11 rounded-xl px-3 text-sm font-bold text-white transition-transform active:scale-95 disabled:opacity-50"
                           style={{ background: "linear-gradient(135deg, var(--read), var(--read-deep))" }}
@@ -145,7 +164,10 @@ export function WishlistView({ items, series }: Props) {
                         </button>
                         <button
                           type="button"
-                          onClick={() => acquire(item, "gift")}
+                          onClick={() => {
+                            setPaid("");
+                            setAcquiring({ id: item.id, how: "gift" });
+                          }}
                           disabled={isPending}
                           className="flex min-h-11 items-center gap-1 rounded-xl px-3 text-sm font-bold transition-transform active:scale-95 disabled:opacity-50"
                           style={{ background: "rgba(248,192,74,0.14)", color: "var(--gold)" }}
@@ -165,6 +187,37 @@ export function WishlistView({ items, series }: Props) {
                       <AppIcon name="trash" size={17} />
                     </button>
                   </span>
+                  {acquiring?.id === item.id && (
+                    <form
+                      className="flex w-full flex-wrap items-end gap-2 pt-1"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        acquire(item, acquiring.how);
+                      }}
+                    >
+                      <label className="flex flex-col gap-1 text-xs font-semibold" style={{ color: "var(--muted)" }}>
+                        {acquiring.how === "gift" ? "Son prix en magasin (facultatif)" : "Prix payé (facultatif)"}
+                        <input
+                          value={paid}
+                          onChange={(e) => setPaid(e.target.value.replace(/[^\d.,]/g, ""))}
+                          inputMode="decimal"
+                          placeholder={item.target_price != null ? String(item.target_price).replace(".", ",") : "7,20"}
+                          className="min-h-11 w-28 rounded-xl px-3 text-base tabular-nums outline-none focus:ring-2"
+                          style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+                          autoFocus
+                        />
+                      </label>
+                      <button type="submit" disabled={isPending} className="min-h-11 rounded-xl px-4 text-sm font-bold text-white disabled:opacity-60" style={{ background: "linear-gradient(135deg, var(--read), var(--read-deep))" }}>
+                        {acquiring.how === "gift" ? "C'est un cadeau !" : "Je l'ai acheté"}
+                      </button>
+                      <button type="button" onClick={() => setAcquiring(null)} className="min-h-11 rounded-xl px-3 text-sm" style={{ color: "var(--muted)" }}>
+                        Annuler
+                      </button>
+                      <p className="w-full text-xs" style={{ color: "var(--muted)" }}>
+                        Laisse vide si tu ne sais pas : rien n&apos;est inventé.
+                      </p>
+                    </form>
+                  )}
                 </li>
               ))}
             </ul>
@@ -194,7 +247,7 @@ function AddWishForm({
   const [mangaId, setMangaId] = useState(first?.manga_id ?? "");
   const current = series.find((s) => s.manga_id === mangaId);
   const [volume, setVolume] = useState(first ? String(first.nextVolume) : "");
-  const [price, setPrice] = useState(first?.lastPrice != null ? formatPriceInput(first.lastPrice) : "");
+  const [price, setPrice] = useState("");
 
   if (series.length === 0) {
     return (
@@ -208,7 +261,7 @@ function AddWishForm({
     setMangaId(id);
     const s = series.find((x) => x.manga_id === id);
     setVolume(s ? String(s.nextVolume) : "");
-    setPrice(s?.lastPrice != null ? formatPriceInput(s.lastPrice) : "");
+    setPrice("");
   }
 
   function submit(e: React.FormEvent) {
@@ -254,7 +307,7 @@ function AddWishForm({
             type="text"
             inputMode="decimal"
             value={price}
-            placeholder="7,20"
+            placeholder={current?.lastPrice != null ? formatPriceInput(current.lastPrice) : "7,20"}
             onChange={(e) => setPrice(e.target.value.replace(/[^\d.,]/g, ""))}
             className={`${field} w-28 tabular-nums`}
             style={fieldStyle}

@@ -15,7 +15,12 @@ type IconName =
   | "close"
   | "play"
   | "chevron-right"
-  | "lock";
+  | "lock"
+  | "compass"
+  | "chart"
+  | "search"
+  | "archive"
+  | "arrow-left";
 
 type Props = {
   name: IconName;
@@ -147,6 +152,39 @@ export function AppIcon({ name, size = 20, className, strokeWidth = 2, filled = 
       return (
         <svg {...common}>
           <path d="m9 6 6 6-6 6" />
+        </svg>
+      );
+    case "compass":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="m15.5 8.5-2 5-5 2 2-5 5-2Z" fill={filled ? "currentColor" : "none"} />
+        </svg>
+      );
+    case "chart":
+      return (
+        <svg {...common}>
+          <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+        </svg>
+      );
+    case "search":
+      return (
+        <svg {...common}>
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-3.5-3.5" />
+        </svg>
+      );
+    case "archive":
+      return (
+        <svg {...common}>
+          <rect x="3" y="4" width="18" height="4" rx="1" />
+          <path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4" />
+        </svg>
+      );
+    case "arrow-left":
+      return (
+        <svg {...common}>
+          <path d="M19 12H5M11 6l-6 6 6 6" />
         </svg>
       );
     case "lock":

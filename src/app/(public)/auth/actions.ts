@@ -43,24 +43,7 @@ export async function signIn(
     return { error: "Erreur de connexion. Réessaie." };
   }
 
-  // Check onboarding status
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("onboarding_completed")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.onboarding_completed) {
-      redirect("/onboarding/1");
-    }
-  }
-
-  redirect("/collection");
+  redirect("/bibliotheque");
 }
 
 export async function signUp(
@@ -134,7 +117,7 @@ export async function resetPassword(
 
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/profil`,
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/univers`,
   });
 
   if (error) return { error: "Erreur. Vérifie ton email et réessaie." };
