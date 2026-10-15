@@ -210,17 +210,21 @@ async function resolveSeries(supabase: Supabase, userId: string, src: SeriesSour
     if (!(await consumeImportQuota(userId, "import"))) {
       return { ok: false, error: "Tu as ajouté beaucoup de séries d'un coup. Réessaie dans une heure." };
     }
-    const id = crypto.randomUUID();
-    const { error } = await supabase.from("mangas").insert({
-      id,
-      title,
-      author: src.author?.trim() || null,
-      total_volumes: src.total_volumes ?? null,
-      status: "ongoing",
-      created_by: userId,
-    });
-    if (error) return { ok: false, error: "Impossible de créer cette série. Réessaie." };
-    return { ok: true, manga_id: id };
+    // Readers may only write these columns (see the catalogue migration) ;
+    // the id comes from the database.
+    const { data: created, error } = await supabase
+      .from("mangas")
+      .insert({
+        title,
+        author: src.author?.trim() || null,
+        total_volumes: src.total_volumes ?? null,
+        status: "ongoing",
+        created_by: userId,
+      })
+      .select("id")
+      .single();
+    if (error || !created) return { ok: false, error: "Impossible de créer cette série. Réessaie." };
+    return { ok: true, manga_id: created.id };
   }
 
   // Already in the catalogue ? Reuse it, no quota spent.

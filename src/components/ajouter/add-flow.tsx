@@ -403,7 +403,7 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
           <span className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: "rgba(127,209,168,0.15)", color: "#7fd1a8" }}>
             <AppIcon name="check" size={26} strokeWidth={3} />
           </span>
-          <h1 id="h-done" ref={headingRef} tabIndex={-1} className="text-2xl font-bold outline-none" role="status">
+          <h1 id="h-done" ref={headingRef} tabIndex={-1} className="text-2xl font-bold outline-none">
             {series.title} est dans ta bibliothèque !
           </h1>
           <p className="text-sm" style={{ color: "var(--muted)" }}>
