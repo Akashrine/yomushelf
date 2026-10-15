@@ -25,7 +25,7 @@ export default async function UniversPage() {
     getSeriesMeta(supabase, user.id, { includeArchived: true }),
     getOwnedVolumes(supabase, user.id),
     getReadings(supabase, user.id),
-    supabase.from("profiles").select("username, avatar_initials").eq("id", user.id).single(),
+    supabase.from("profiles").select("username, avatar_initials, is_public, public_slug").eq("id", user.id).single(),
     supabase.from("wishlist_items").select("target_price, mangas ( avg_price_eur )").eq("user_id", user.id),
   ]);
   if (wishesResult.error) throw new Error("Impossible de charger tes envies.");
@@ -195,7 +195,7 @@ export default async function UniversPage() {
 
         <section id="reglages" aria-labelledby="h-reglages" className="flex scroll-mt-20 flex-col gap-4">
           <h2 id="h-reglages" className="text-xl font-bold">Réglages</h2>
-          <Settings username={profile?.username ?? null} email={user.email ?? ""} />
+          <Settings username={profile?.username ?? null} email={user.email ?? ""} publicSlug={profile?.is_public ? profile.public_slug : null} />
         </section>
       </div>
     </AppShell>

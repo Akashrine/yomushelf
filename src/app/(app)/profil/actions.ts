@@ -67,10 +67,12 @@ export async function updateProfileVisibility(data: {
 
   const { error } = await supabase
     .from("profiles")
-    .update({
-      is_public: parsed.data.is_public,
-      bio: parsed.data.bio ?? null,
-    })
+    // Bio untouched unless given : hiding a profile must not erase it.
+    .update(
+      parsed.data.bio === undefined
+        ? { is_public: parsed.data.is_public }
+        : { is_public: parsed.data.is_public, bio: parsed.data.bio }
+    )
     .eq("id", user.id);
 
   if (error) return { success: false, error: "Erreur lors de la mise à jour." };
