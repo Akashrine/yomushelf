@@ -60,7 +60,7 @@ export async function signIn(
     }
   }
 
-  redirect("/bibliotheque");
+  redirect("/collection");
 }
 
 export async function signUp(

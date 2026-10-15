@@ -40,7 +40,9 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const protectedPaths = [
+    "/collection",
     "/bibliotheque",
+    "/envies",
     "/onboarding",
     "/profil",
     "/ajouter",
@@ -56,7 +58,7 @@ export async function updateSession(request: NextRequest) {
 
   if (user && (pathname === "/login" || pathname === "/signup")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/bibliotheque";
+    url.pathname = "/collection";
     return NextResponse.redirect(url);
   }
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AppIcon } from "@/components/app/app-icon";
 
 type Stats = {
   total_series: number;
@@ -7,59 +8,76 @@ type Stats = {
   volumes_read: number;
 } | null;
 
+export type AppSection = "collection" | "bibliotheque" | "envies" | "ajouter";
+
 type Props = {
   username: string | null;
   avatarInitials: string;
-  stats: Stats;
+  stats?: Stats;
+  active?: AppSection;
   children: React.ReactNode;
 };
 
-export function LibraryShell({ username, avatarInitials, stats, children }: Props) {
+const NAV = [
+  { key: "collection", href: "/collection", label: "Ma collection", short: "Collection", icon: "home" },
+  { key: "bibliotheque", href: "/bibliotheque", label: "Bibliothèque", short: "Biblio", icon: "books" },
+  { key: "envies", href: "/envies", label: "Envies", short: "Envies", icon: "star" },
+  { key: "ajouter", href: "/ajouter", label: "Ajouter", short: "Ajouter", icon: "plus" },
+] as const;
+
+export function LibraryShell({
+  username,
+  avatarInitials,
+  stats,
+  active = "bibliotheque",
+  children,
+}: Props) {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--background)" }}>
       {/* Header */}
       <header
         className="sticky top-0 z-20 px-4 sm:px-6 py-3 flex items-center justify-between"
         style={{
-          background: "var(--background)",
+          background: "color-mix(in srgb, var(--background) 88%, transparent)",
+          backdropFilter: "blur(12px)",
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <div className="flex items-center gap-2">
+        <Link href="/collection" className="flex items-center gap-2">
           <span className="text-lg font-bold" style={{ color: "var(--accent)" }}>漫</span>
           <span className="text-sm font-semibold">Yomushelf</span>
-        </div>
+        </Link>
 
-        <nav className="hidden sm:flex items-center gap-1 text-sm">
-          <Link
-            href="/bibliotheque"
-            className="px-3 py-1.5 rounded-lg font-medium"
-            style={{ background: "var(--surface)", color: "var(--foreground)" }}
-          >
-            Bibliothèque
-          </Link>
-          <Link
-            href="/ajouter"
-            className="px-3 py-1.5 rounded-lg transition-colors hover:opacity-80"
-            style={{ color: "var(--muted)" }}
-          >
-            + Ajouter
-          </Link>
+        <nav aria-label="Navigation principale" className="hidden sm:flex items-center gap-1 text-sm">
+          {NAV.map((item) => {
+            const isActive = item.key === active;
+            return (
+              <Link
+                key={item.key}
+                href={item.href}
+                aria-current={isActive ? "page" : undefined}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-colors hover:opacity-90"
+                style={
+                  isActive
+                    ? { background: "var(--surface-raised)", color: "var(--foreground)" }
+                    : { color: "var(--muted)" }
+                }
+              >
+                <AppIcon name={item.icon} size={16} />
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
-        <div className="flex items-center gap-3">
-          <Link href="/ajouter" className="sm:hidden text-sm font-medium" style={{ color: "var(--accent)" }}>
-            + Ajouter
-          </Link>
-          <Link href="/profil" title={username ?? "Profil"}>
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-              style={{ background: "var(--accent)", color: "white" }}
-            >
-              {avatarInitials}
-            </div>
-          </Link>
-        </div>
+        <Link href="/profil" title={username ?? "Profil"} aria-label="Mon profil">
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+            style={{ background: "var(--accent)", color: "white" }}
+          >
+            {avatarInitials}
+          </div>
+        </Link>
       </header>
 
       {/* Stats bar */}
@@ -71,7 +89,7 @@ export function LibraryShell({ username, avatarInitials, stats, children }: Prop
           <StatPill label="Séries" value={stats.total_series} />
           <StatPill label="Tomes" value={stats.total_volumes_owned ?? 0} />
           <StatPill
-            label="Budget estimé"
+            label="Payé"
             value={`${Number(stats.total_budget_eur ?? 0).toFixed(0)} €`}
           />
           {(stats.volumes_read ?? 0) > 0 && (
@@ -80,10 +98,46 @@ export function LibraryShell({ username, avatarInitials, stats, children }: Prop
         </div>
       )}
 
-      {/* Page content */}
-      <main className="flex-1 mx-auto w-full max-w-5xl px-4 sm:px-6 py-6">
+      {/* Page content — bottom padding leaves room for the mobile tab bar */}
+      <main className="flex-1 mx-auto w-full max-w-5xl px-4 sm:px-6 py-6 pb-28 sm:pb-10">
         {children}
       </main>
+
+      {/* Mobile tab bar */}
+      <nav
+        aria-label="Navigation principale"
+        className="sm:hidden fixed bottom-0 inset-x-0 z-30 grid grid-cols-4 px-2 pt-2"
+        style={{
+          background: "color-mix(in srgb, var(--surface) 92%, transparent)",
+          backdropFilter: "blur(14px)",
+          borderTop: "1px solid var(--border)",
+          paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))",
+        }}
+      >
+        {NAV.map((item) => {
+          const isActive = item.key === active;
+          return (
+            <Link
+              key={item.key}
+              href={item.href}
+              aria-current={isActive ? "page" : undefined}
+              className="flex flex-col items-center gap-1 py-1.5 text-[11px] font-semibold"
+              style={{ color: isActive ? "var(--foreground)" : "var(--muted)" }}
+            >
+              <span
+                className="flex h-8 w-12 items-center justify-center rounded-full transition-colors"
+                style={{
+                  background: isActive ? "color-mix(in srgb, var(--read) 18%, transparent)" : "transparent",
+                  color: isActive ? "var(--read)" : undefined,
+                }}
+              >
+                <AppIcon name={item.icon} size={20} filled={isActive && item.icon === "star"} />
+              </span>
+              {item.short}
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }

@@ -123,7 +123,7 @@ export function ProfilClient({
             {[
               { label: "Séries", value: stats.total_series },
               { label: "Tomes possédés", value: stats.total_volumes_owned ?? 0 },
-              { label: "Budget total", value: `${Number(stats.total_budget_eur ?? 0).toFixed(0)} €` },
+              { label: "Payé", value: `${Number(stats.total_budget_eur ?? 0).toFixed(0)} €` },
               { label: "Tomes lus", value: stats.volumes_read ?? 0 },
             ].map(({ label, value }) => (
               <div key={label} className="px-4 py-3" style={{ background: "var(--surface)" }}>
