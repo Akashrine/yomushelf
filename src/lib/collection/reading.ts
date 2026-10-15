@@ -3,7 +3,7 @@
 // a volume given back keeps its reading.
 
 import type { ReadingStatus } from "@/lib/types/database";
-import { volumeKey, type OwnedVolume, type ReadIndex } from "./value";
+import type { OwnedVolume } from "./value";
 
 export type Reading = {
   manga_id: string;
@@ -158,16 +158,4 @@ export function readSpines(shelves: SeriesShelf[]) {
   return [...shelves]
     .sort(byTitle)
     .flatMap((s) => s.read.map((volume) => ({ manga_id: s.manga_id, volume })));
-}
-
-export function readIndex(readings: Reading[]): ReadIndex {
-  const finished = new Map<string, string | null>();
-  for (const r of readings) {
-    if (r.status !== "read") continue;
-    finished.set(volumeKey(r.manga_id, r.volume_number), r.finished_on?.slice(0, 7) ?? null);
-  }
-  return {
-    has: (key) => finished.has(key),
-    finishedMonth: (key) => finished.get(key) ?? null,
-  };
 }
