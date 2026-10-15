@@ -16,6 +16,19 @@
 -- Rollback : supabase/rollbacks/20261017000100_catalogue_enrichment_down.sql
 -- ============================================================
 
+-- Where each recommended age comes from, and which rows were written by
+-- this editorial work rather than imported by a reader. Readers cannot
+-- write these columns (column grants of the catalogue migration).
+--   cnlj     : age given by the CNLJ (BnF) "Manga mania !" selection,
+--              as found during the research of 2026-10-15
+--   estimate : estimated during that research, NOT a classification.
+--              Never shown as an age ; only used to make suggestions
+--              more cautious (see docs/politique-contenu.md).
+alter table public.mangas
+  add column if not exists audience_age_source text
+    check (audience_age_source in ('cnlj', 'estimate')),
+  add column if not exists curated boolean not null default false;
+
 -- Finds the shared, non top-50 series already known under one of these
 -- titles (accents, case and punctuation ignored). Only distinctive
 -- original or English titles are listed : a generic word like "kirby" or
@@ -1633,3 +1646,11 @@ from public.editorial_selections s, lateral (
 ) m
 where s.slug = 'enquetes'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
+
+
+-- Age sources and editorial flag for the series above.
+update public.mangas set audience_age_source = 'cnlj', curated = true
+where created_by is null and audience_min_age is not null and title in ('One Piece', 'Naruto', 'Dragon Ball', 'L''Attaque des Titans', 'Demon Slayer', 'Jujutsu Kaisen', 'My Hero Academia', 'Spy x Family', 'Blue Lock', 'Frieren', 'Fairy Tail', 'Vinland Saga', 'Kingdom', 'Dr. Stone', 'The Promised Neverland', 'Haikyū!! Les As du volley', 'Kaguya-sama : Love is War', 'Toilet-bound Hanako-kun', 'L''Atelier des sorciers', 'Boruto - Naruto Next Generations', 'Fire Force', 'Assassination Classroom', 'Chi - Une vie de chat', 'Gunnm', 'Les Carnets de l''apothicaire', 'Yotsuba&!', 'Blue Period', 'Beastars');
+
+update public.mangas set audience_age_source = 'estimate', curated = true
+where created_by is null and audience_min_age is not null and title in ('Bleach', 'Fullmetal Alchemist', 'Death Note', 'Chainsaw Man', 'Kaiju n°8', 'Solo Leveling', 'Tokyo Ghoul', 'Hunter x Hunter', 'Sword Art Online', 'Black Clover', 'Berserk', 'Vagabond', 'Slam Dunk', 'Food Wars!', 'Dandadan', 'Oshi no Ko', 'Omniscient Reader''s Viewpoint', 'Gloutons & Dragons', 'Nausicaä de la vallée du vent', 'Monster', '20th Century Boys', 'Pluto', 'Mashle', 'Hell''s Paradise', 'Sakamoto Days', 'Undead Unluck', 'Wind Breaker', 'Ao Ashi', 'Détective Conan', 'Doraemon', 'Pokémon - La Grande Aventure', 'Dragon Ball Super', 'Yo-kai Watch', 'Super Mario Manga Adventures', 'Animal Crossing : New Horizons - Le Journal de l''île', 'Les Aventures de Kirby dans les étoiles', 'Splatoon', 'The Legend of Zelda - Twilight Princess', 'Beyblade X', 'Dragon Quest - The Adventure of Daï', 'Shaman King', 'Astro Boy', 'Captain Tsubasa', 'Dr Slump', 'Le Voyage de Chihiro', 'Fruits Basket', 'Card Captor Sakura', 'Sailor Moon', 'Divine Nanami', 'Kiki la petite sorcière', 'Tokyo Revengers', 'Dorohedoro', 'Hirayasumi', 'L''Ère des cristaux', 'Look Back', 'Ranma ½', 'Saint Seiya');

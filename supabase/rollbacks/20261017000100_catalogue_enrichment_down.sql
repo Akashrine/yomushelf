@@ -18,3 +18,6 @@ update public.mangas set title = 'Dungeon Meshi' where title = 'Gloutons & Drago
 update public.mangas set title = 'Witch Hat Atelier' where title = 'L''Atelier des sorciers' and is_top_50_fr and created_by is null;
 update public.mangas set title = 'Nausicaä' where title = 'Nausicaä de la vallée du vent' and is_top_50_fr and created_by is null;
 update public.mangas set title = 'Boruto' where title = 'Boruto - Naruto Next Generations' and is_top_50_fr and created_by is null;
+
+-- Columns added by the forward migration.
+alter table public.mangas drop column if exists audience_age_source, drop column if exists curated;
