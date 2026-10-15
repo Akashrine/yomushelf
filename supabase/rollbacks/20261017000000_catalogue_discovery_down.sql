@@ -1,6 +1,8 @@
 -- Rollback of 20261017000000_catalogue_discovery.sql
 -- Lossy on purpose : private series (and the volumes/readings attached to
 -- them) are deleted, since the shared catalogue cannot hold them.
+-- Also lossy : archived series come back on the shelf (archived_at is
+-- dropped), and the catalogue loses genres, ages, synopses and aliases.
 alter table public.user_collections drop column if exists archived_at;
 
 drop table if exists public.editorial_selection_items;
