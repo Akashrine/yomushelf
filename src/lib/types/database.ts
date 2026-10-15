@@ -6,8 +6,9 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
+// null in the database = not specified. "other" only exists in older rows.
 export type AcquisitionType = "bought" | "gift" | "borrowed" | "other";
-export type VolumeReadStatus = "unread" | "reading" | "read";
+export type ReadingStatus = "reading" | "read";
 export type WishlistPriority = "high" | "low";
 
 export type Database = {
@@ -24,6 +25,7 @@ export type Database = {
           is_public: boolean;
           bio: string | null;
           public_slug: string | null;
+          sharing_locked: boolean;
         };
         Insert: {
           id: string;
@@ -214,10 +216,8 @@ export type Database = {
           manga_id: string;
           volume_number: number;
           price_eur: number | null;
-          acquisition_type: AcquisitionType;
-          acquired_at: string;
-          read_status: VolumeReadStatus;
-          read_at: string | null;
+          acquisition_type: AcquisitionType | null;
+          acquired_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -227,10 +227,8 @@ export type Database = {
           manga_id: string;
           volume_number: number;
           price_eur?: number | null;
-          acquisition_type?: AcquisitionType;
-          acquired_at?: string;
-          read_status?: VolumeReadStatus;
-          read_at?: string | null;
+          acquisition_type?: AcquisitionType | null;
+          acquired_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -240,10 +238,8 @@ export type Database = {
           manga_id?: string;
           volume_number?: number;
           price_eur?: number | null;
-          acquisition_type?: AcquisitionType;
-          acquired_at?: string;
-          read_status?: VolumeReadStatus;
-          read_at?: string | null;
+          acquisition_type?: AcquisitionType | null;
+          acquired_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -257,6 +253,54 @@ export type Database = {
           },
           {
             foreignKeyName: "user_volumes_collection_fkey";
+            columns: ["user_id", "manga_id"];
+            isOneToOne: false;
+            referencedRelation: "user_collections";
+            referencedColumns: ["user_id", "manga_id"];
+          }
+        ];
+      };
+      user_readings: {
+        Row: {
+          id: string;
+          user_id: string;
+          manga_id: string;
+          volume_number: number;
+          status: ReadingStatus;
+          finished_on: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          manga_id: string;
+          volume_number: number;
+          status: ReadingStatus;
+          finished_on?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          manga_id?: string;
+          volume_number?: number;
+          status?: ReadingStatus;
+          finished_on?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_readings_manga_id_fkey";
+            columns: ["manga_id"];
+            isOneToOne: false;
+            referencedRelation: "mangas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_readings_collection_fkey";
             columns: ["user_id", "manga_id"];
             isOneToOne: false;
             referencedRelation: "user_collections";
