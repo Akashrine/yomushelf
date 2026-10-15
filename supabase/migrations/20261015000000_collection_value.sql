@@ -216,8 +216,8 @@ create trigger user_volumes_sync_collection
 
 -- ─────────────────────────────────────────
 -- 6. get_user_stats : fix RLS bypass, read from user_volumes
--- Was security definer with a caller-supplied user id : any signed-in
--- user could read anyone's stats. Now security invoker, so RLS scopes it.
+-- Stays security invoker with the auth.uid() guard from the
+-- 20261014000000 security hotfix.
 -- total_budget_eur = what was actually paid (known prices of bought volumes).
 -- ─────────────────────────────────────────
 create or replace function public.get_user_stats(p_user_id uuid)
@@ -233,10 +233,11 @@ security invoker
 set search_path = public
 as $$
   select
-    (select count(*) from public.user_collections uc where uc.user_id = p_user_id),
+    (select count(*) from public.user_collections uc where uc.user_id = p_user_id and p_user_id = (select auth.uid())),
     count(*) filter (where uv.acquisition_type <> 'borrowed'),
     coalesce(sum(uv.price_eur) filter (where uv.acquisition_type = 'bought'), 0),
     count(*) filter (where uv.read_status = 'read')
   from public.user_volumes uv
-  where uv.user_id = p_user_id;
+  where uv.user_id = p_user_id
+    and p_user_id = (select auth.uid());
 $$;

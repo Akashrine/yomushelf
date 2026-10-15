@@ -17,7 +17,7 @@ drop type if exists public.wishlist_priority;
 drop type if exists public.volume_read_status;
 drop type if exists public.acquisition_type;
 
--- Restore the original get_user_stats (from 20240001000002_rpcs.sql)
+-- Restore get_user_stats as left by 20261014000000_security_hotfix.sql
 create or replace function public.get_user_stats(p_user_id uuid)
 returns table (
   total_series        bigint,
@@ -27,7 +27,7 @@ returns table (
 )
 language sql
 stable
-security definer
+security invoker
 set search_path = public
 as $$
   select
@@ -48,5 +48,6 @@ as $$
     sum(coalesce(uc.last_read_volume, 0))
   from public.user_collections uc
   join public.mangas m on m.id = uc.manga_id
-  where uc.user_id = p_user_id;
+  where uc.user_id = p_user_id
+    and p_user_id = (select auth.uid());
 $$;
