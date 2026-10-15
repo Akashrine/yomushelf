@@ -6,7 +6,7 @@ import { countVolumesRead, getReadingState } from "@/lib/collection/readings-db"
 
 function client(result: { data: unknown; error: unknown; count?: number | null }) {
   const query = {
-    select: () => query, eq: () => query, order: () => query,
+    select: () => query, eq: () => query, is: () => query, order: () => query,
     maybeSingle: async () => result,
     then: (resolve: (value: typeof result) => unknown) => Promise.resolve(resolve(result)),
   };

@@ -30,9 +30,14 @@ function query(table: string) {
       return { error: state.saveError };
     },
     insert: async () => ({ error: null }),
+    // ensureOnShelf : update(...).eq(...).eq(...).not(...) brings an archived series back
+    update: () => q,
+    not: async () => ({ error: null }),
   });
   return q;
 }
+
+vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({

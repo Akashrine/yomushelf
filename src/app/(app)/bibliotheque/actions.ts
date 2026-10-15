@@ -23,11 +23,11 @@ async function getAuthed() {
 }
 
 function revalidateSeries(mangaId: string) {
-  revalidatePath("/collection");
   revalidatePath("/bibliotheque");
   revalidatePath(`/bibliotheque/${mangaId}`);
-  revalidatePath("/parent");
   revalidatePath("/envies");
+  revalidatePath("/decouvrir");
+  revalidatePath("/univers");
 }
 
 // Applies a reading choice from a volume form. Never invents a date:
@@ -240,28 +240,89 @@ export async function markReadUpTo(formData: FormData): Promise<ActionResult> {
 }
 
 // ─────────────────────────────────────────
-// updateStatus — series-level reading status
+// archiveSeries / restoreSeries — "Retirer de ma bibliothèque".
+// The series leaves the shelf ; its volumes and readings stay, and it can
+// come back as it was.
 // ─────────────────────────────────────────
 
-const UpdateStatusSchema = z.object({
-  manga_id: z.string().uuid(),
-  status: z.enum(["not_started", "reading", "caught_up", "completed", "dropped"]),
-});
+const SeriesRefSchema = z.object({ manga_id: z.string().uuid() });
 
-export async function updateStatus(formData: FormData): Promise<ActionResult> {
-  const parsed = UpdateStatusSchema.safeParse(formValues(formData, ["manga_id", "status"]));
+async function setArchived(formData: FormData, archived: boolean): Promise<ActionResult> {
+  const parsed = SeriesRefSchema.safeParse(formValues(formData, ["manga_id"]));
   if (!parsed.success) return { success: false, error: "Données invalides." };
 
   const { supabase, user } = await getAuthed();
   if (!user) return { success: false, error: "Non authentifié." };
 
+  const { data, error } = await supabase
+    .from("user_collections")
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq("user_id", user.id)
+    .eq("manga_id", parsed.data.manga_id)
+    .select("manga_id");
+  if (error) return { success: false, error: "Pas enregistré. Vérifie ta connexion et réessaie." };
+  if (!data?.length) return { success: false, error: "Cette série n'est pas dans ta bibliothèque." };
+
+  revalidateSeries(parsed.data.manga_id);
+  return { success: true };
+}
+
+export async function archiveSeries(formData: FormData): Promise<ActionResult> {
+  return setArchived(formData, true);
+}
+
+export async function restoreSeries(formData: FormData): Promise<ActionResult> {
+  return setArchived(formData, false);
+}
+
+// ─────────────────────────────────────────
+// deleteSeriesPermanently — separate, explicit, irreversible.
+// The reader types the series title to confirm. Volumes, readings and
+// wishes of that series go ; a private series created by the reader
+// and used by nobody else goes too.
+// ─────────────────────────────────────────
+
+const DeleteSeriesSchema = SeriesRefSchema.extend({ confirm_title: z.string().trim().min(1) });
+
+export async function deleteSeriesPermanently(formData: FormData): Promise<ActionResult> {
+  const parsed = DeleteSeriesSchema.safeParse(formValues(formData, ["manga_id", "confirm_title"]));
+  if (!parsed.success) return { success: false, error: "Écris le titre de la série pour confirmer." };
+
+  const { supabase, user } = await getAuthed();
+  if (!user) return { success: false, error: "Non authentifié." };
+  const { manga_id, confirm_title } = parsed.data;
+
+  const { data: manga, error: mangaError } = await supabase
+    .from("mangas")
+    .select("id, title, created_by")
+    .eq("id", manga_id)
+    .maybeSingle();
+  if (mangaError) return { success: false, error: "Pas enregistré. Vérifie ta connexion et réessaie." };
+  if (!manga) return { success: false, error: "Série introuvable." };
+  if (manga.title.trim().toLowerCase() !== confirm_title.toLowerCase()) {
+    return { success: false, error: "Le titre ne correspond pas. Rien n'a été supprimé." };
+  }
+
+  const { error: wishError } = await supabase
+    .from("wishlist_items")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("manga_id", manga_id);
+  if (wishError) return { success: false, error: "Pas enregistré. Vérifie ta connexion et réessaie." };
+
+  // Cascades to the series' volumes and readings.
   const { error } = await supabase
     .from("user_collections")
-    .update({ status: parsed.data.status })
+    .delete()
     .eq("user_id", user.id)
-    .eq("manga_id", parsed.data.manga_id);
+    .eq("manga_id", manga_id);
+  if (error) return { success: false, error: "Pas enregistré. Vérifie ta connexion et réessaie." };
 
-  if (error) return { success: false, error: "Erreur lors de la mise à jour." };
-  revalidateSeries(parsed.data.manga_id);
+  if (manga.created_by === user.id) {
+    // Private series : nobody else can see it, so nothing else uses it.
+    await supabase.from("mangas").delete().eq("id", manga_id).eq("created_by", user.id);
+  }
+
+  revalidateSeries(manga_id);
   return { success: true };
 }

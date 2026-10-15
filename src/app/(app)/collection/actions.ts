@@ -37,10 +37,10 @@ const SaveSchema = RefSchema.extend({
 const SAVE_ERROR = "Pas enregistré. Vérifie ta connexion et réessaie.";
 
 function revalidateReader(mangaId: string) {
-  revalidatePath("/collection");
   revalidatePath("/bibliotheque");
   revalidatePath(`/bibliotheque/${mangaId}`);
-  revalidatePath("/parent");
+  revalidatePath("/decouvrir");
+  revalidatePath("/univers");
 }
 
 export async function saveReading(input: z.input<typeof SaveSchema>): Promise<ReadingResult> {
