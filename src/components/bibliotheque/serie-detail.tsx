@@ -315,7 +315,7 @@ function NextCard({
         <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--read)" }}>Tu peux lire…</p>
         <p className="mt-1 text-2xl font-black">Tome {candidate.available}</p>
         <p className="mt-2 rounded-xl px-3 py-2 text-sm" style={{ background: "rgba(248,192,74,0.1)", border: "1px dashed rgba(248,192,74,0.45)" }}>
-          Le <strong>tome {candidate.missing}</strong> n&apos;est pas sur ton étagère.
+          Le <strong>tome {candidate.missing}</strong>{" "}n&apos;est pas sur ton étagère.
         </p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           <BigButton onClick={() => onAct("start", candidate.available)} disabled={pending}>

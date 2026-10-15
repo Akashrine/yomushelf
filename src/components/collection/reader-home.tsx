@@ -140,7 +140,7 @@ function MainCard({
 
       {candidate.kind === "gap" && (
         <p className="rounded-xl px-3 py-2.5 text-sm" style={{ background: "rgba(248,192,74,0.1)", border: "1px dashed rgba(248,192,74,0.45)" }}>
-          Le <strong>tome {candidate.missing}</strong> n&apos;est pas sur ton étagère.
+          Le <strong>tome {candidate.missing}</strong>{" "}n&apos;est pas sur ton étagère.
         </p>
       )}
 
