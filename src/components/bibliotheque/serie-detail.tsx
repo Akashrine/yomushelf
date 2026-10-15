@@ -231,7 +231,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes 
           <NewVolumeCard
             mangaId={manga.id}
             suggested={firstMissingVolume(shelf.owned)}
-            maxVolume={Math.max(totalVolumes, highest + 50, 100)}
+            maxVolume={500}
             ownedNumbers={shelf.owned}
             pending={isPending}
             run={run}
@@ -360,7 +360,7 @@ function NewVolumeCard({
         addSeriesToLibrary({
           series: { source: "db", manga_id: mangaId },
           owned: { mode: "list", volumes: [n] },
-          reading: alreadyRead ? { mode: "all_owned" } : { mode: "none" },
+          reading: alreadyRead ? { mode: "added" } : { mode: "none" },
           arrived_now: true,
         }),
       () => {

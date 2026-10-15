@@ -1,10 +1,11 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useState } from "react";
 
 // Small, single-series charts for "Mon univers". One hue per chart, thin
 // marks with rounded data ends on a recessive baseline, a tooltip on
-// hover and keyboard focus, and the numbers as a table for screen readers.
+// hover and keyboard focus. The drawing is decorative ; one HTML button per
+// month carries the value for keyboard and screen readers.
 
 export type BarDatum = { key: string; label: string; value: number; display: string };
 
@@ -20,7 +21,6 @@ export function MonthBars({
   unitLabel: string; // header of the value column
 }) {
   const [active, setActive] = useState<number | null>(null);
-  const tableId = useId();
   const max = Math.max(...data.map((d) => d.value), 0);
   const W = 600;
   const H = 150;
@@ -40,7 +40,7 @@ export function MonthBars({
 
   return (
     <div className="relative">
-      <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full" role="img" aria-describedby={tableId} aria-label={title}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full" aria-hidden="true" focusable="false">
         <line x1={0} x2={W} y1={H - bottom} y2={H - bottom} stroke="var(--border)" strokeWidth={1} />
         {data.map((d, i) => {
           const h = d.value === 0 ? 0 : Math.max(4, (d.value / max) * plotH);
@@ -49,21 +49,6 @@ export function MonthBars({
           const on = active === i;
           return (
             <g key={d.key}>
-              {/* Hit area larger than the mark */}
-              <rect
-                x={i * slot}
-                y={top - 20}
-                width={slot}
-                height={plotH + 20}
-                fill="transparent"
-                tabIndex={0}
-                aria-label={`${d.label} : ${d.display}`}
-                onMouseEnter={() => setActive(i)}
-                onMouseLeave={() => setActive(null)}
-                onFocus={() => setActive(i)}
-                onBlur={() => setActive(null)}
-                style={{ outline: "none" }}
-              />
               {h > 0 && (
                 <path
                   d={`M${x},${H - bottom} V${y + 4} Q${x},${y} ${x + 4},${y} H${x + barW - 4} Q${x + barW},${y} ${x + barW},${y + 4} V${H - bottom} Z`}
@@ -92,23 +77,21 @@ export function MonthBars({
           );
         })}
       </svg>
-      <table id={tableId} className="sr-only">
-        <caption>{title}</caption>
-        <thead>
-          <tr>
-            <th scope="col">Mois</th>
-            <th scope="col">{unitLabel}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((d) => (
-            <tr key={d.key}>
-              <th scope="row">{d.label}</th>
-              <td>{d.display}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* Hit areas larger than the marks, one per month */}
+      <div role="group" aria-label={`${title} (${unitLabel})`} className="absolute inset-0 flex">
+        {data.map((d, i) => (
+          <button
+            key={d.key}
+            type="button"
+            aria-label={`${d.label} : ${d.display}`}
+            onMouseEnter={() => setActive(i)}
+            onMouseLeave={() => setActive(null)}
+            onFocus={() => setActive(i)}
+            onBlur={() => setActive(null)}
+            className="h-full flex-1 cursor-default rounded-lg outline-none focus-visible:ring-2"
+          />
+        ))}
+      </div>
     </div>
   );
 }

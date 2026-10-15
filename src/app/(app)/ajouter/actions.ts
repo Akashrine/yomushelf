@@ -322,7 +322,11 @@ export async function addMangaFromExternalSource(
 // ─────────────────────────────────────────
 
 const MAX_VOLUME = 500;
-const VolumeNumber = z.number().int().positive().max(MAX_VOLUME);
+const VolumeNumber = z
+  .number({ error: "Numéro de tome invalide." })
+  .int("Numéro de tome invalide.")
+  .positive("Numéro de tome invalide.")
+  .max(MAX_VOLUME, `${MAX_VOLUME} tomes maximum.`);
 
 const AddSeriesSchema = z.object({
   series: z.discriminatedUnion("source", [
@@ -331,19 +335,21 @@ const AddSeriesSchema = z.object({
     z.object({ source: z.literal("google_books"), isbn: z.string().regex(/^\d{13}$/) }),
     z.object({
       source: z.literal("private"),
-      title: z.string().trim().min(1, "Écris le titre.").max(200),
-      author: z.string().trim().max(200).nullish(),
+      title: z.string().trim().min(1, "Écris le titre.").max(200, "Titre trop long (200 caractères maximum)."),
+      author: z.string().trim().max(200, "Nom d'auteur trop long.").nullish(),
       total_volumes: VolumeNumber.nullish(),
     }),
   ]),
   owned: z.discriminatedUnion("mode", [
     z.object({ mode: z.literal("none") }),
     z.object({ mode: z.literal("range"), to: VolumeNumber, from: VolumeNumber.default(1) }),
-    z.object({ mode: z.literal("list"), volumes: z.array(VolumeNumber).min(1).max(MAX_VOLUME) }),
+    z.object({ mode: z.literal("list"), volumes: z.array(VolumeNumber).min(1, "Choisis au moins un tome.").max(MAX_VOLUME) }),
   ]),
   reading: z.discriminatedUnion("mode", [
     z.object({ mode: z.literal("none") }),
     z.object({ mode: z.literal("all_owned") }),
+    // Only the volumes added by this request ("Je l'ai déjà lu").
+    z.object({ mode: z.literal("added") }),
     z.object({ mode: z.literal("up_to"), to: VolumeNumber }),
   ]),
   // The volumes arrived now (a new purchase) or were already on the shelf.
@@ -409,13 +415,28 @@ export async function addSeriesToLibrary(input: AddSeriesInput): Promise<AddSeri
     addedVolumes = inserted?.length ?? 0;
   }
 
+  // "J'ai lu tous ceux que j'ai" covers the volumes already at home too,
+  // not only the ones typed now.
+  let atHome = owned;
+  if (d.reading.mode === "all_owned") {
+    const { data: rows, error } = await supabase
+      .from("user_volumes")
+      .select("volume_number")
+      .eq("user_id", user.id)
+      .eq("manga_id", manga_id);
+    if (error) return { success: false, error: "Les lectures n'ont pas été enregistrées. Réessaie." };
+    atHome = [...new Set([...owned, ...(rows ?? []).map((r) => r.volume_number)])].sort((a, b) => a - b);
+  }
+
   let addedReadings = 0;
   const readVolumes =
     d.reading.mode === "none"
       ? []
       : d.reading.mode === "all_owned"
-        ? owned
-        : Array.from({ length: d.reading.to }, (_, i) => i + 1);
+        ? atHome
+        : d.reading.mode === "added"
+          ? owned
+          : Array.from({ length: d.reading.to }, (_, i) => i + 1);
   if (readVolumes.length) {
     // A volume in progress becomes read ; finished readings keep their date.
     const { error: upgradeError } = await supabase

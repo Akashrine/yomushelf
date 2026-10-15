@@ -71,12 +71,21 @@ export function readingsOverview(
     if (r.finished_on.startsWith(year)) thisYear++;
   }
 
-  const readPerSeries = new Map<string, number>();
-  for (const r of read) readPerSeries.set(r.manga_id, (readPerSeries.get(r.manga_id) ?? 0) + 1);
+  // A series is finished when every volume from 1 to its total is read :
+  // volumes numbered past the total do not count.
+  const readPerSeries = new Map<string, Set<number>>();
+  for (const r of read) {
+    const set = readPerSeries.get(r.manga_id) ?? new Set<number>();
+    set.add(r.volume_number);
+    readPerSeries.set(r.manga_id, set);
+  }
   let seriesFinished = 0;
-  for (const [id, n] of readPerSeries) {
+  for (const [id, numbers] of readPerSeries) {
     const total = totals.get(id);
-    if (total != null && total > 0 && n >= total) seriesFinished++;
+    if (total == null || total <= 0) continue;
+    let within = 0;
+    for (const n of numbers) if (n >= 1 && n <= total) within++;
+    if (within >= total) seriesFinished++;
   }
   const inProgress = new Set(readings.filter((r) => r.status === "reading").map((r) => r.manga_id)).size;
 

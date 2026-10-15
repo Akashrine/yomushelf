@@ -50,6 +50,15 @@ describe("spendingOverview", () => {
 });
 
 describe("readingsOverview", () => {
+  it("does not count volumes past the total toward a finished series", () => {
+    const o = readingsOverview(
+      [read({ volume_number: 1 }), read({ volume_number: 2 }), read({ volume_number: 4 })],
+      new Map([["a", 3]]),
+      "2026-10-15"
+    );
+    expect(o.seriesFinished).toBe(0);
+  });
+
   it("charts dated readings only and counts finished series", () => {
     const o = readingsOverview(
       [

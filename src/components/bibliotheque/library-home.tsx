@@ -56,8 +56,10 @@ export function LibraryHome({ name, cards, archived, wishes, wishCount }: Props)
     return out;
   }, [cards]);
 
+  // A filter whose chip disappeared (count dropped to 0) no longer applies.
+  const activeFilter: Filter = filter !== "toutes" && counts[filter] === 0 ? "toutes" : filter;
   const visible = cards
-    .filter((c) => filter === "toutes" || stateOf(c) === filter)
+    .filter((c) => activeFilter === "toutes" || stateOf(c) === activeFilter)
     .filter((c) => !query.trim() || titleKey(c.shelf.title).includes(titleKey(query)));
 
   if (cards.length === 0) {
@@ -102,7 +104,7 @@ export function LibraryHome({ name, cards, archived, wishes, wishCount }: Props)
 
         <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrer mes séries">
           {FILTERS.filter((f) => f.key === "toutes" || counts[f.key] > 0).map((f) => {
-            const on = filter === f.key;
+            const on = activeFilter === f.key;
             return (
               <button
                 key={f.key}
@@ -344,6 +346,7 @@ function ArchivedList({ archived }: { archived: ArchivedSeries[] }) {
               type="button"
               onClick={() => restore(a.manga_id)}
               disabled={isPending}
+              aria-label={`Remettre ${a.title} dans ma bibliothèque`}
               className="min-h-10 rounded-xl px-3 text-sm font-semibold disabled:opacity-60"
               style={{ border: "1px solid var(--border)" }}
             >

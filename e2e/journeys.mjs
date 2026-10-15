@@ -160,6 +160,13 @@ await step("Réajouter des tomes ne change ni leur prix ni leur origine", async 
   await page.keyboard.press("Escape");
 });
 
+await step("« J'ai lu tous ceux que j'ai » marque aussi les tomes déjà chez toi", async () => {
+  // Dr. Stone has volumes 1 to 5 at home : no new volume, all read.
+  await addSeries(page, "dr stone", /Dr\. Stone/, { owned: { mode: "none" }, reading: { mode: "all" } });
+  const t = await text(page);
+  check("« J'ai lu tous ceux que j'ai » marque aussi les tomes déjà chez toi", /\d+ lectures? notées?/.test(t), t.slice(0, 160));
+});
+
 await step("Série introuvable : Ajouter quand même, privée", async () => {
   await go(page, "/ajouter");
   await page.getByRole("searchbox", { name: "Titre du manga" }).fill("Le Manga De Mon Cousin");
@@ -203,7 +210,7 @@ await step("Retirer une série garde ses lectures, puis la remettre", async () =
   const t = await text(page);
   const gone = !/Spy x Family\s+\d+ lus/.test(t) && /Séries retirées · 1/.test(t);
   await page.getByText("Séries retirées").click();
-  await page.getByRole("button", { name: "Remettre dans ma bibliothèque" }).click();
+  await page.getByRole("button", { name: "Remettre Spy x Family dans ma bibliothèque" }).click();
   await page.waitForTimeout(2000);
   await page.reload({ waitUntil: "load" });
   await page.locator("section[aria-label$='lus'] span.text-5xl").waitFor({ timeout: 60000 });

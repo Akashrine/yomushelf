@@ -37,9 +37,10 @@ export function AppShell({ active, avatarInitials, children, hideMobileAdd = fal
           paddingTop: "max(0.625rem, env(safe-area-inset-top))",
         }}
       >
-        <Link href="/bibliotheque" className="flex min-h-11 items-center gap-2" aria-label="Yomushelf, ma bibliothèque">
+        <Link href="/bibliotheque" className="flex min-h-11 items-center gap-2">
           <span className="text-lg font-bold" style={{ color: "var(--accent)" }} aria-hidden="true">漫</span>
           <span className="text-sm font-semibold">Yomushelf</span>
+          <span className="sr-only">, ma bibliothèque</span>
         </Link>
 
         <nav aria-label="Espaces" className="hidden items-center gap-1 text-sm md:flex">
@@ -70,7 +71,7 @@ export function AppShell({ active, avatarInitials, children, hideMobileAdd = fal
             <span>Ajouter<span className="hidden sm:inline"> un manga</span></span>
           </Link>
           {avatarInitials && (
-            <Link href="/univers#reglages" aria-label="Mes réglages" className="flex h-11 w-11 items-center justify-center">
+            <Link href="/univers#reglages" aria-label={`${avatarInitials}, mes réglages`} className="flex h-11 w-11 items-center justify-center">
               <span
                 className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
                 style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}

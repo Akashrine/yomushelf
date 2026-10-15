@@ -9,6 +9,8 @@ import { VolumeFields, type VolumeFieldsValue } from "@/components/collection/vo
 import { addSeriesToLibrary, type AddSeriesInput } from "@/app/(app)/ajouter/actions";
 import type { SearchHit } from "@/lib/manga-api/merge";
 
+const MAX_VOLUME = 500; // same limit as the server
+
 // The series being added, whatever its origin.
 export type FlowSeries = {
   key: string; // stable React key
@@ -28,7 +30,15 @@ type ReadingMode = "none" | "all_owned" | "up_to";
 const NETWORK_ERROR = "Impossible de confirmer l'enregistrement. Vérifie ta connexion puis réessaie.";
 
 function hitToSeries(h: SearchHit): FlowSeries | null {
-  const base = { key: h.id ?? `mal-${h.mal_id}`, title: h.title, author: h.author, total_volumes: h.total_volumes, cover_url: h.cover_url, owned: [], read: [] };
+  const base = {
+    key: h.id ?? `mal-${h.mal_id}`,
+    title: h.title,
+    author: h.author,
+    total_volumes: h.total_volumes,
+    cover_url: h.cover_url,
+    owned: h.owned ?? [],
+    read: h.read ?? [],
+  };
   if (h.id) return { ...base, source: { source: "db", manga_id: h.id } };
   if (h.mal_id) return { ...base, source: { source: "mal", mal_id: h.mal_id } };
   return null;
@@ -53,6 +63,7 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
   const [rangeTo, setRangeTo] = useState(1);
   const [startsLater, setStartsLater] = useState(false);
   const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [extraTiles, setExtraTiles] = useState(0);
 
   const [readingMode, setReadingMode] = useState<ReadingMode | null>(null);
   const [readTo, setReadTo] = useState(1);
@@ -105,7 +116,12 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
   const shownResults = queryReady ? results : [];
   const shownError = queryReady ? searchError : null;
 
-  const maxVolume = Math.max(series?.total_volumes ?? 0, 60, ...(series?.owned ?? []), ...(series?.read ?? []));
+  // Catalogue totals lag behind ongoing series : only the server limit applies.
+  const maxVolume = MAX_VOLUME;
+  const gridSize = Math.min(
+    MAX_VOLUME,
+    Math.max(series?.total_volumes ?? 0, 30, ...(series?.owned ?? []), ...picked) + extraTiles
+  );
   const ownedPreview: number[] =
     ownedMode === "none"
       ? []
@@ -122,6 +138,7 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
     setRangeFrom(1);
     setStartsLater(false);
     setPicked(new Set(s.owned));
+    setExtraTiles(0);
     setReadingMode(null);
     setReadTo(Math.max(1, ...s.read));
     setStep("volumes");
@@ -227,7 +244,7 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
                       <span className="min-w-0 flex-1">
                         <span className="block font-bold leading-snug">{s.title}</span>
                         <span className="block text-sm" style={{ color: "var(--muted)" }}>
-                          {[h.author, h.total_volumes ? `${h.total_volumes} tomes` : null, h.source === "private" ? "ajoutée par toi" : null]
+                          {[h.author, h.total_volumes ? `${h.total_volumes} tomes` : null, h.source === "private" ? "ajoutée par toi" : null, h.owned?.length ? `${h.owned.length} chez toi` : null]
                             .filter(Boolean)
                             .join(" · ")}
                         </span>
@@ -287,7 +304,7 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
             </p>
           )}
 
-          <Choice selected={ownedMode === "range"} onSelect={() => setOwnedMode("range")} title="J'ai les tomes du 1 au…" hint="Tous à la suite" />
+          <Choice name="owned" selected={ownedMode === "range"} onSelect={() => setOwnedMode("range")} title="J'ai les tomes du 1 au…" hint="Tous à la suite" />
           {ownedMode === "range" && (
             <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: "var(--surface)" }}>
               {startsLater && <Stepper label="Du tome" value={rangeFrom} min={1} max={rangeTo} onChange={setRangeFrom} />}
@@ -299,12 +316,12 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
             </div>
           )}
 
-          <Choice selected={ownedMode === "list"} onSelect={() => setOwnedMode("list")} title="J'ai seulement certains tomes" hint="Il en manque au milieu" />
+          <Choice name="owned" selected={ownedMode === "list"} onSelect={() => setOwnedMode("list")} title="J'ai seulement certains tomes" hint="Il en manque au milieu" />
           {ownedMode === "list" && (
             <div className="rounded-2xl p-3" style={{ background: "var(--surface)" }}>
               <p className="mb-2 text-sm" style={{ color: "var(--muted)" }}>Touche les tomes que tu as.</p>
               <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-8" role="group" aria-label="Tomes que tu as">
-                {Array.from({ length: Math.max(series.total_volumes ?? 0, 30, ...series.owned, ...picked) }, (_, i) => i + 1).map((n) => {
+                {Array.from({ length: gridSize }, (_, i) => i + 1).map((n) => {
                   const here = series.owned.includes(n);
                   const on = here || picked.has(n);
                   return (
@@ -334,10 +351,20 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
                   );
                 })}
               </div>
+              {gridSize < MAX_VOLUME && (
+                <button
+                  type="button"
+                  onClick={() => setExtraTiles((n) => n + 30)}
+                  className="mt-2 min-h-11 rounded-xl px-3 text-sm font-semibold"
+                  style={{ border: "1px solid var(--border)" }}
+                >
+                  Afficher plus de tomes
+                </button>
+              )}
             </div>
           )}
 
-          <Choice selected={ownedMode === "none"} onSelect={() => setOwnedMode("none")} title="Aucun pour l'instant" hint="Je la suis, ou je l'ai lue ailleurs" />
+          <Choice name="owned" selected={ownedMode === "none"} onSelect={() => setOwnedMode("none")} title="Aucun pour l'instant" hint="Je la suis, ou je l'ai lue ailleurs" />
 
           <PrimaryButton
             onClick={() => {
@@ -357,11 +384,11 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
           <BackButton onClick={() => setStep("volumes")} />
           <SeriesHeader series={series} />
           <h1 id="h-reading" ref={headingRef} tabIndex={-1} className="text-xl font-bold outline-none">Tu en es où ?</h1>
-          <Choice selected={readingMode === "none"} onSelect={() => setReadingMode("none")} title="Pas encore commencé" />
+          <Choice name="reading" selected={readingMode === "none"} onSelect={() => setReadingMode("none")} title="Pas encore commencé" />
           {allOwned.length > 0 && (
-            <Choice selected={readingMode === "all_owned"} onSelect={() => setReadingMode("all_owned")} title="J'ai lu tous ceux que j'ai" />
+            <Choice name="reading" selected={readingMode === "all_owned"} onSelect={() => setReadingMode("all_owned")} title="J'ai lu tous ceux que j'ai" />
           )}
-          <Choice selected={readingMode === "up_to"} onSelect={() => setReadingMode("up_to")} title="J'ai lu jusqu'au…" hint="Même des tomes que tu n'as pas" />
+          <Choice name="reading" selected={readingMode === "up_to"} onSelect={() => setReadingMode("up_to")} title="J'ai lu jusqu'au…" hint="Même des tomes que tu n'as pas" />
           {readingMode === "up_to" && (
             <div className="rounded-2xl p-4" style={{ background: "var(--surface)" }}>
               <Stepper label="Tome" value={readTo} min={1} max={maxVolume} onChange={setReadTo} big />
@@ -450,14 +477,23 @@ function SeriesHeader({ series }: { series: FlowSeries }) {
   );
 }
 
-function Choice({ selected, onSelect, title, hint }: { selected: boolean; onSelect: () => void; title: string; hint?: string }) {
+// Native radio under a styled label : arrow keys and grouping (by name) for free.
+function Choice({
+  name,
+  selected,
+  onSelect,
+  title,
+  hint,
+}: {
+  name: string;
+  selected: boolean;
+  onSelect: () => void;
+  title: string;
+  hint?: string;
+}) {
   return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={onSelect}
-      className="flex min-h-14 w-full items-center gap-3 rounded-2xl px-4 py-3 text-left"
+    <label
+      className="relative flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-2xl px-4 py-3 text-left has-[:focus-visible]:ring-2"
       style={{
         background: selected ? "color-mix(in srgb, var(--read) 14%, var(--surface))" : "var(--surface)",
         border: `1.5px solid ${selected ? "var(--read)" : "var(--border)"}`,
@@ -474,7 +510,14 @@ function Choice({ selected, onSelect, title, hint }: { selected: boolean; onSele
         <span className="block text-base font-bold">{title}</span>
         {hint && <span className="block text-sm" style={{ color: "var(--muted)" }}>{hint}</span>}
       </span>
-    </button>
+      <input
+        type="radio"
+        name={name}
+        checked={selected}
+        onChange={onSelect}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+      />
+    </label>
   );
 }
 
@@ -494,6 +537,9 @@ function Stepper({
   big?: boolean;
 }) {
   const clamp = (v: number) => Math.min(Math.max(min, v), max);
+  // What is typed stays as typed until the field is left : clamping each
+  // keystroke would turn "12" into "52" when the minimum is 5.
+  const [draft, setDraft] = useState<string | null>(null);
   return (
     <div className="flex flex-wrap items-center gap-2" role="group" aria-label={label}>
       <span className="w-full text-sm font-semibold sm:w-auto">{label}</span>
@@ -510,8 +556,16 @@ function Stepper({
         inputMode="numeric"
         min={min}
         max={max}
-        value={value}
-        onChange={(e) => onChange(clamp(Number(e.target.value) || min))}
+        value={draft ?? value}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          const n = Number(e.target.value);
+          if (Number.isInteger(n) && n >= min && n <= max) onChange(n);
+        }}
+        onBlur={() => {
+          if (draft !== null) onChange(clamp(Number(draft) || min));
+          setDraft(null);
+        }}
         aria-label={label}
         className={`h-12 rounded-xl text-center font-black tabular-nums outline-none focus:ring-2 ${big ? "w-24 text-3xl" : "w-20 text-xl"}`}
         style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}
