@@ -14,22 +14,32 @@ export const priceField = z
     return Math.round(n * 100) / 100;
   });
 
+// "" = not specified (null in the database). "other" is never offered in the
+// UI but older rows keep it, so an untouched form sends it back unchanged.
 export const acquisitionTypeField = z
-  .enum(["bought", "gift", "borrowed", "other"])
-  .default("bought");
-
-export const readStatusField = z.enum(["unread", "reading", "read"]).default("unread");
+  .enum(["bought", "gift", "borrowed", "other", ""])
+  .optional()
+  .transform((v) => (v === "" || v === undefined ? null : v));
 
 export const isoDateField = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
   .optional();
 
+// What the reader says about a volume while adding or editing it.
+//   unchanged     : leave the reading as it is
+//   none          : not read (removes a reading)
+//   reading       : in progress
+//   read_earlier  : already read, date unknown
+export const readingChoiceField = z
+  .enum(["unchanged", "none", "reading", "read_earlier"])
+  .default("unchanged");
+
 export const VolumeDetailsSchema = z.object({
   price_eur: priceField,
   acquisition_type: acquisitionTypeField,
-  read_status: readStatusField,
   acquired_at: isoDateField,
+  reading: readingChoiceField,
 });
 
 // FormData → plain object, turning missing fields into undefined (not null)

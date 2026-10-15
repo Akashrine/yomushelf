@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getOwnedVolumes } from "@/lib/supabase/queries";
-import { summarizeSeries } from "@/lib/collection/value";
+import { lastKnownPrice, nextVolumeToBuy } from "@/lib/collection/value";
 import { LibraryShell } from "@/components/bibliotheque/library-shell";
 import { WishlistView, type WishItem, type WishSeries } from "@/components/envies/wishlist-view";
 
@@ -19,7 +19,7 @@ export default async function EnviesPage() {
     supabase.from("profiles").select("username, avatar_initials").eq("id", user.id).single(),
     supabase
       .from("wishlist_items")
-      .select("id, manga_id, volume_number, target_price, priority")
+      .select("id, manga_id, volume_number, target_price")
       .eq("user_id", user.id),
     supabase
       .from("user_collections")
@@ -31,13 +31,13 @@ export default async function EnviesPage() {
   const series: WishSeries[] = (collections ?? [])
     .map((c) => {
       const m = c.mangas as unknown as { title: string; cover_url: string | null } | null;
-      const s = summarizeSeries(volumes.filter((v) => v.manga_id === c.manga_id));
+      const own = volumes.filter((v) => v.manga_id === c.manga_id);
       return {
         manga_id: c.manga_id,
         title: m?.title ?? "Série",
         cover_url: m?.cover_url ?? null,
-        nextVolume: s.nextVolumeNumber,
-        lastPrice: s.lastPriceEur,
+        nextVolume: nextVolumeToBuy(own),
+        lastPrice: lastKnownPrice(own),
       };
     })
     .sort((a, b) => a.title.localeCompare(b.title, "fr"));

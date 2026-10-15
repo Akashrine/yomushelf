@@ -12,7 +12,7 @@ export type SleepingSeries = {
 
 type Props = { series: SleepingSeries[] };
 
-// Series with bought volumes not read yet : the money that sleeps, made visible.
+// Parent space : series with bought volumes not read yet.
 export function SleepingShelf({ series }: Props) {
   if (series.length === 0) return null;
 
@@ -22,7 +22,7 @@ export function SleepingShelf({ series }: Props) {
         <span style={{ color: "var(--sleep)" }}>
           <AppIcon name="moon" size={20} filled />
         </span>
-        Ils attendent que tu les lises
+        Achetés, pas encore lus
       </h2>
       <ul className="-mx-4 mt-3 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
         {series.map((s) => (
@@ -52,7 +52,7 @@ export function SleepingShelf({ series }: Props) {
               </div>
               <p className="mt-2 truncate text-sm font-semibold">{s.title}</p>
               <p className="text-xs font-semibold tabular-nums" style={{ color: "var(--sleep)" }}>
-                {formatEur(s.valueEur)} qui dorment
+                {s.valueEur > 0 ? `${formatEur(s.valueEur)} de prix saisis` : "Sans prix saisi"}
               </p>
             </Link>
           </li>

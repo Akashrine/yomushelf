@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { todayIso } from "@/lib/collection/value";
@@ -27,12 +28,11 @@ const AddWishSchema = z.object({
     .transform((v) => (v ? Number(v) : null))
     .pipe(z.number().int().positive().nullable()),
   target_price: priceField,
-  priority: z.enum(["high", "low"]).default("low"),
 });
 
 export async function addWishlistItem(formData: FormData): Promise<ActionResult> {
   const parsed = AddWishSchema.safeParse(
-    formValues(formData, ["manga_id", "volume_number", "target_price", "priority"])
+    formValues(formData, ["manga_id", "volume_number", "target_price"])
   );
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Données invalides." };
@@ -51,7 +51,7 @@ export async function addWishlistItem(formData: FormData): Promise<ActionResult>
 }
 
 // ─────────────────────────────────────────
-// removeWishlistItem / setWishlistPriority
+// removeWishlistItem
 // ─────────────────────────────────────────
 
 const WishIdSchema = z.object({ id: z.string().uuid() });
@@ -73,27 +73,8 @@ export async function removeWishlistItem(formData: FormData): Promise<ActionResu
   return { success: true };
 }
 
-const PrioritySchema = WishIdSchema.extend({ priority: z.enum(["high", "low"]) });
-
-export async function setWishlistPriority(formData: FormData): Promise<ActionResult> {
-  const parsed = PrioritySchema.safeParse(formValues(formData, ["id", "priority"]));
-  if (!parsed.success) return { success: false, error: "Données invalides." };
-
-  const { supabase, user } = await getAuthed();
-  if (!user) return { success: false, error: "Non authentifié." };
-
-  const { error } = await supabase
-    .from("wishlist_items")
-    .update({ priority: parsed.data.priority })
-    .eq("id", parsed.data.id)
-    .eq("user_id", user.id);
-
-  if (error) return { success: false, error: "Erreur lors de la mise à jour." };
-  return { success: true };
-}
-
 // ─────────────────────────────────────────
-// acquireWishlistItem — "je l'ai eu !" : the wish becomes a bought volume.
+// acquireWishlistItem — "je l'ai eu !" : the wish becomes a volume at home.
 // The DB trigger removes the wish once the volume exists.
 // ─────────────────────────────────────────
 
@@ -133,5 +114,8 @@ export async function acquireWishlistItem(formData: FormData): Promise<ActionRes
   );
 
   if (error) return { success: false, error: "Erreur lors de l'ajout. Réessaie." };
+  revalidatePath("/envies");
+  revalidatePath("/collection");
+  revalidatePath(`/bibliotheque/${wish.manga_id}`);
   return { success: true };
 }

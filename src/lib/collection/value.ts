@@ -1,27 +1,37 @@
 // Collection value helpers — pure functions, shared by server pages and tests.
+// Used by the parent space only : the reader space shows no totals.
 // Rules (price ≠ value):
-//   value        = known prices of volumes kept at home (bought, gift, other)
+//   value        = known prices of volumes kept at home (anything but borrowed)
 //   paid         = known prices of bought volumes
 //   costPerRead  = paid / volumes read
-//   sleeping     = known prices of bought volumes not read yet
+//   sleeping     = bought volumes not read yet
 //   missing price: the volume counts in volume totals, never in amounts.
-// Borrowed volumes count as read books but not as value: they go back.
+// Borrowed volumes are not value: they go back.
+// Reading lives in user_readings, so "read" is passed in as a set of keys.
 
-import type { AcquisitionType, VolumeReadStatus } from "@/lib/types/database";
+import type { AcquisitionType } from "@/lib/types/database";
 
 export type OwnedVolume = {
   manga_id: string;
   volume_number: number;
   price_eur: number | null;
-  acquisition_type: AcquisitionType;
-  acquired_at: string; // YYYY-MM-DD
-  read_status: VolumeReadStatus;
-  read_at: string | null; // YYYY-MM-DD
+  acquisition_type: AcquisitionType | null; // null = not specified
+  acquired_at: string | null; // YYYY-MM-DD, null = unknown
+};
+
+// "<manga_id>:<volume_number>"
+export type VolumeKey = string;
+export const volumeKey = (mangaId: string, volumeNumber: number): VolumeKey =>
+  `${mangaId}:${volumeNumber}`;
+
+export type ReadIndex = {
+  has(key: VolumeKey): boolean;
+  // Month (YYYY-MM) the reading was finished, null when unknown.
+  finishedMonth(key: VolumeKey): string | null;
 };
 
 export type CollectionSummary = {
   volumesTotal: number;
-  volumesRead: number;
   valueEur: number;
   paidEur: number;
   giftEur: number;
@@ -35,9 +45,13 @@ export type CollectionSummary = {
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 const isKept = (v: OwnedVolume) => v.acquisition_type !== "borrowed";
-const isRead = (v: OwnedVolume) => v.read_status === "read";
+const keyOf = (v: OwnedVolume) => volumeKey(v.manga_id, v.volume_number);
 
-export function summarizeCollection(volumes: OwnedVolume[]): CollectionSummary {
+export function summarizeCollection(
+  volumes: OwnedVolume[],
+  reads: ReadIndex,
+  volumesRead: number
+): CollectionSummary {
   let valueEur = 0;
   let paidEur = 0;
   let giftEur = 0;
@@ -45,15 +59,14 @@ export function summarizeCollection(volumes: OwnedVolume[]): CollectionSummary {
   let sleepingCount = 0;
   let missingPriceCount = 0;
   let borrowedCount = 0;
-  let volumesRead = 0;
 
   for (const v of volumes) {
-    if (isRead(v)) volumesRead++;
     if (!isKept(v)) {
       borrowedCount++;
       continue;
     }
-    if (v.acquisition_type === "bought" && !isRead(v)) sleepingCount++;
+    const read = reads.has(keyOf(v));
+    if (v.acquisition_type === "bought" && !read) sleepingCount++;
     if (v.price_eur == null) {
       missingPriceCount++;
       continue;
@@ -62,14 +75,13 @@ export function summarizeCollection(volumes: OwnedVolume[]): CollectionSummary {
     valueEur += price;
     if (v.acquisition_type === "bought") {
       paidEur += price;
-      if (!isRead(v)) sleepingEur += price;
+      if (!read) sleepingEur += price;
     }
     if (v.acquisition_type === "gift") giftEur += price;
   }
 
   return {
     volumesTotal: volumes.length,
-    volumesRead,
     valueEur: round2(valueEur),
     paidEur: round2(paidEur),
     giftEur: round2(giftEur),
@@ -84,6 +96,9 @@ export function summarizeCollection(volumes: OwnedVolume[]): CollectionSummary {
 // ─────────────────────────────────────────
 // Monthly timeline : cumulative value at the end of each month,
 // split into the part already read and the part still waiting.
+// Volumes with an unknown acquisition date are left out (undatedCount).
+// A reading with an unknown date counts as read from the month the
+// volume arrived : the chart never invents a later reading date.
 // ─────────────────────────────────────────
 
 export type TimelineSpine = {
@@ -103,6 +118,8 @@ export type TimelineMonth = {
   spines: TimelineSpine[]; // read first, then unread
 };
 
+export type Timeline = { months: TimelineMonth[]; undatedCount: number };
+
 const monthKey = (date: string) => date.slice(0, 7);
 
 function addMonths(key: string, delta: number): string {
@@ -113,15 +130,18 @@ function addMonths(key: string, delta: number): string {
 
 export function buildMonthlyTimeline(
   volumes: OwnedVolume[],
+  reads: ReadIndex,
   today: string, // YYYY-MM-DD
   maxMonths = 12
-): TimelineMonth[] {
+): Timeline {
   const priced = volumes.filter((v) => isKept(v) && v.price_eur != null);
-  if (priced.length === 0) return [];
+  const dated = priced.filter((v) => v.acquired_at != null);
+  const undatedCount = priced.length - dated.length;
+  if (dated.length === 0) return { months: [], undatedCount };
 
   const lastKey = monthKey(today);
-  const firstAcquired = priced.reduce(
-    (min, v) => (monthKey(v.acquired_at) < min ? monthKey(v.acquired_at) : min),
+  const firstAcquired = dated.reduce(
+    (min, v) => (monthKey(v.acquired_at!) < min ? monthKey(v.acquired_at!) : min),
     lastKey
   );
   let startKey = addMonths(lastKey, -(maxMonths - 1));
@@ -134,16 +154,16 @@ export function buildMonthlyTimeline(
     let addedCount = 0;
     let addedEur = 0;
 
-    for (const v of priced) {
-      const acquiredKey = monthKey(v.acquired_at);
+    for (const v of dated) {
+      const acquiredKey = monthKey(v.acquired_at!);
       if (acquiredKey > key) continue;
       const price = Number(v.price_eur);
       if (acquiredKey === key) {
         addedCount++;
         addedEur += price;
       }
-      const readBy =
-        isRead(v) && monthKey(v.read_at ?? v.acquired_at) <= key;
+      const k = keyOf(v);
+      const readBy = reads.has(k) && (reads.finishedMonth(k) ?? acquiredKey) <= key;
       const spine = {
         manga_id: v.manga_id,
         volume_number: v.volume_number,
@@ -168,28 +188,18 @@ export function buildMonthlyTimeline(
       spines: [...read.sort(bySeries), ...unread.sort(bySeries)],
     });
   }
-  return months;
+  return { months, undatedCount };
 }
 
 // ─────────────────────────────────────────
 // Series
 // ─────────────────────────────────────────
 
-export type SeriesSummary = CollectionSummary & {
-  ownedCount: number;
-  nextVolumeNumber: number;
-  lastPriceEur: number | null;
-};
-
-export function summarizeSeries(volumes: OwnedVolume[]): SeriesSummary {
-  const base = summarizeCollection(volumes);
+// Next volume to buy : after the highest one at home. Parent space only;
+// the reader's "next to read" lives in reading.ts.
+export function nextVolumeToBuy(volumes: OwnedVolume[]): number {
   const numbers = volumes.map((v) => v.volume_number);
-  return {
-    ...base,
-    ownedCount: volumes.filter(isKept).length,
-    nextVolumeNumber: numbers.length ? Math.max(...numbers) + 1 : 1,
-    lastPriceEur: lastKnownPrice(volumes),
-  };
+  return numbers.length ? Math.max(...numbers) + 1 : 1;
 }
 
 // Most recent price typed for these volumes : the sensible default for the next one.
@@ -198,7 +208,7 @@ export function lastKnownPrice(volumes: OwnedVolume[]): number | null {
     .filter((v) => v.price_eur != null)
     .sort(
       (a, b) =>
-        b.acquired_at.localeCompare(a.acquired_at) ||
+        (b.acquired_at ?? "").localeCompare(a.acquired_at ?? "") ||
         b.volume_number - a.volume_number
     );
   return priced.length ? Number(priced[0].price_eur) : null;

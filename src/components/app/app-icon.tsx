@@ -12,7 +12,10 @@ type IconName =
   | "check"
   | "trash"
   | "sparkles"
-  | "close";
+  | "close"
+  | "play"
+  | "chevron-right"
+  | "lock";
 
 type Props = {
   name: IconName;
@@ -132,6 +135,25 @@ export function AppIcon({ name, size = 20, className, strokeWidth = 2, filled = 
       return (
         <svg {...common}>
           <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
+      );
+    case "play":
+      return (
+        <svg {...common} fill={filled ? "currentColor" : "none"}>
+          <path d="M8 5.5v13l10.5-6.5L8 5.5Z" />
+        </svg>
+      );
+    case "chevron-right":
+      return (
+        <svg {...common}>
+          <path d="m9 6 6 6-6 6" />
+        </svg>
+      );
+    case "lock":
+      return (
+        <svg {...common}>
+          <rect x="5" y="11" width="14" height="9" rx="2" />
+          <path d="M8 11V8a4 4 0 0 1 8 0v3" />
         </svg>
       );
   }

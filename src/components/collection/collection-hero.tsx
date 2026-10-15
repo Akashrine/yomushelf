@@ -4,7 +4,8 @@ import { formatEur, type CollectionSummary } from "@/lib/collection/value";
 
 type Props = { summary: CollectionSummary };
 
-// "Ma collection vaut X €" + the price ≠ value lesson as one split bar.
+// Sum of the prices typed in, split into paid / given / origin not specified.
+// Not a resale value : only what was entered.
 export function CollectionHero({ summary }: Props) {
   const { valueEur, paidEur, giftEur } = summary;
   // rounded : float leftovers must not show up as "Autre 0,00 €"
@@ -31,11 +32,14 @@ export function CollectionHero({ summary }: Props) {
       <div className="relative">
         <p id="hero-title" className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.14em]" style={{ color: "var(--gold)" }}>
           <AppIcon name="coin" size={18} />
-          Ma collection vaut
+          Valeur renseignée des livres
         </p>
 
         <p className="mt-2 text-[3.4rem] font-black leading-none tracking-tight tabular-nums sm:text-7xl">
           <CountUp value={valueEur} className="text-gold-gradient" />
+        </p>
+        <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
+          Somme des prix saisis, hors emprunts. Ce n&apos;est pas une valeur de revente.
         </p>
 
         {valueEur > 0 && (
@@ -45,7 +49,7 @@ export function CollectionHero({ summary }: Props) {
               className="mt-6 flex h-4 w-full overflow-hidden rounded-full"
               style={{ background: "rgba(255,255,255,0.06)" }}
               role="img"
-              aria-label={`Dont ${formatEur(paidEur)} payés et ${formatEur(giftEur)} offerts`}
+              aria-label={`Dont ${formatEur(paidEur)} payés, ${formatEur(giftEur)} offerts et ${formatEur(otherEur)} d'origine non précisée`}
             >
               <div className="grow-x h-full" style={{ width: `${share(paidEur)}%`, background: "linear-gradient(90deg, var(--read-deep), var(--read))" }} />
               <div className="grow-x h-full" style={{ width: `${share(giftEur)}%`, background: "linear-gradient(90deg, var(--gold-deep), var(--gold))", animationDelay: "250ms" }} />
@@ -66,7 +70,7 @@ export function CollectionHero({ summary }: Props) {
               {otherEur > 0 && (
                 <span className="flex items-center gap-2" style={{ color: "var(--muted)" }}>
                   <span className="h-2.5 w-2.5 rounded-full" style={{ background: "var(--muted)" }} />
-                  Autre {formatEur(otherEur)}
+                  Origine non précisée {formatEur(otherEur)}
                 </span>
               )}
             </div>
@@ -75,7 +79,7 @@ export function CollectionHero({ summary }: Props) {
               <p className="mt-4 flex items-start gap-2 text-sm" style={{ color: "#e9d9c6" }}>
                 <AppIcon name="gift" size={18} className="mt-0.5 shrink-0" />
                 <span>
-                  Tes cadeaux valent <strong style={{ color: "var(--gold)" }}>{formatEur(giftEur)}</strong>, mais ils ne t&apos;ont rien coûté.
+                  Les cadeaux valent <strong style={{ color: "var(--gold)" }}>{formatEur(giftEur)}</strong>, mais ils n&apos;ont rien coûté.
                 </span>
               </p>
             )}

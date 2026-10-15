@@ -19,9 +19,9 @@ export function BookTowerChart({ months }: Props) {
         className="rounded-3xl p-6 text-center"
         style={{ background: "var(--surface)", border: "1px dashed var(--border)" }}
       >
-        <p className="text-base font-semibold">Ta pile de mangas apparaîtra ici.</p>
+        <p className="text-base font-semibold">Le graphique apparaîtra ici.</p>
         <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-          Note le prix de tes tomes pour la voir grandir mois après mois.
+          Il faut des tomes avec un prix et une date d&apos;arrivée.
         </p>
       </div>
     );
@@ -47,10 +47,10 @@ export function BookTowerChart({ months }: Props) {
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h2 id="tower-title" className="text-xl font-bold sm:text-2xl">
-            Ta pile de mangas
+            Valeur mois par mois
           </h2>
           <p className="text-sm" style={{ color: "var(--muted)" }}>
-            Chaque livre est un tome. Plus il coûte cher, plus il est épais.
+            Chaque trait est un tome. Plus son prix est élevé, plus il est épais.
           </p>
         </div>
         {growth > 0 && months.length > 1 && (
@@ -71,7 +71,7 @@ export function BookTowerChart({ months }: Props) {
         aria-live="polite"
       >
         <p className="text-sm sm:text-base">
-          Fin {formatMonth(current.key, true)}, ta collection valait{" "}
+          Fin {formatMonth(current.key, true)}, les prix saisis totalisaient{" "}
           <strong className="text-gold-gradient text-lg font-extrabold tabular-nums">
             {formatEur(current.totalEur)}
           </strong>

@@ -24,7 +24,7 @@ export default async function WrappedPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, avatar_initials, public_slug")
+    .select("username, avatar_initials, public_slug, sharing_locked")
     .eq("id", user.id)
     .single();
 
@@ -38,6 +38,7 @@ export default async function WrappedPage({
         username={profile?.username ?? null}
         avatarInitials={profile?.avatar_initials ?? "?"}
         publicSlug={profile?.public_slug ?? null}
+        canShare={!profile?.sharing_locked}
         result={result}
       />
     </>

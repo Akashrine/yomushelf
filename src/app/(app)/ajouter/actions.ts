@@ -6,8 +6,7 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { getIsbnLimiter } from "@/lib/rate-limit";
 import { lookupByIsbn } from "@/lib/manga-api/google-books";
 import { cacheCoverToStorage } from "@/lib/manga-api/storage";
-import { todayIso } from "@/lib/collection/value";
-import { VolumeDetailsSchema, formValues } from "@/lib/collection/schema";
+import { upsertUserVolume } from "@/app/(app)/bibliotheque/actions";
 import type { MangaSearchResult } from "@/lib/manga-api/types";
 import type { Json } from "@/lib/types/database";
 
@@ -19,59 +18,14 @@ function getServiceClient() {
 }
 
 // ─────────────────────────────────────────
-// addVolumeToCollection — one volume with its price, origin and reading state
+// addVolumeToCollection — one volume, its optional price and origin,
+// and whether it was already read (date unknown).
 // ─────────────────────────────────────────
-
-const VOLUME_FIELDS = [
-  "manga_id",
-  "volume_number",
-  "price_eur",
-  "acquisition_type",
-  "read_status",
-  "acquired_at",
-];
-
-const AddVolumeSchema = VolumeDetailsSchema.extend({
-  manga_id: z.string().uuid(),
-  volume_number: z.coerce.number().int().positive(),
-});
 
 type AddVolumeResult = { success: true } | { success: false; error: string };
 
-export async function addVolumeToCollection(
-  formData: FormData
-): Promise<AddVolumeResult> {
-  const parsed = AddVolumeSchema.safeParse(formValues(formData, VOLUME_FIELDS));
-
-  if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0]?.message ?? "Données invalides." };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Non authentifié." };
-
-  const d = parsed.data;
-  const today = todayIso();
-
-  const { error } = await supabase.from("user_volumes").upsert(
-    {
-      user_id: user.id,
-      manga_id: d.manga_id,
-      volume_number: d.volume_number,
-      price_eur: d.price_eur,
-      acquisition_type: d.acquisition_type,
-      read_status: d.read_status,
-      read_at: d.read_status === "read" ? today : null,
-      acquired_at: d.acquired_at ?? today,
-    },
-    { onConflict: "user_id,manga_id,volume_number" }
-  );
-
-  if (error) return { success: false, error: "Erreur lors de l'ajout." };
-  return { success: true };
+export async function addVolumeToCollection(formData: FormData): Promise<AddVolumeResult> {
+  return upsertUserVolume(formData);
 }
 
 // ─────────────────────────────────────────
@@ -244,7 +198,7 @@ export async function addMangaFromExternalSource(
     const volumeFormData = new FormData();
     volumeFormData.set("manga_id", manga_id);
     volumeFormData.set("volume_number", String(d.volume_number));
-    for (const key of ["price_eur", "acquisition_type", "read_status"]) {
+    for (const key of ["price_eur", "acquisition_type", "reading"]) {
       const value = formData.get(key);
       if (value != null) volumeFormData.set(key, value);
     }

@@ -21,13 +21,14 @@ type Props = {
   isPublic: boolean;
   bio: string | null;
   publicSlug: string | null;
+  sharingLocked: boolean;
 };
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://yomushelf.app";
 
 export function ProfilClient({
   email, username, avatarInitials, memberSince, stats,
-  isPublic: initialIsPublic, bio: initialBio, publicSlug,
+  isPublic: initialIsPublic, bio: initialBio, publicSlug, sharingLocked,
 }: Props) {
   const [name, setName] = useState(username ?? "");
   const [nameSaved, setNameSaved] = useState(false);
@@ -99,8 +100,8 @@ export function ProfilClient({
         className="sticky top-0 z-10 px-4 sm:px-6 py-3 flex items-center gap-3"
         style={{ background: "var(--background)", borderBottom: "1px solid var(--border)" }}
       >
-        <Link href="/bibliotheque" className="text-sm transition-opacity hover:opacity-70" style={{ color: "var(--muted)" }}>
-          ← Bibliothèque
+        <Link href="/collection" className="text-sm transition-opacity hover:opacity-70" style={{ color: "var(--muted)" }}>
+          ← Accueil
         </Link>
         <h1 className="text-sm font-semibold ml-auto">Mon profil</h1>
       </header>
@@ -119,11 +120,10 @@ export function ProfilClient({
 
         {/* Stats */}
         {stats && (
-          <div className="grid grid-cols-2 gap-px rounded-xl overflow-hidden" style={{ background: "var(--border)" }}>
+          <div className="grid grid-cols-3 gap-px rounded-xl overflow-hidden" style={{ background: "var(--border)" }}>
             {[
               { label: "Séries", value: stats.total_series },
               { label: "Tomes possédés", value: stats.total_volumes_owned ?? 0 },
-              { label: "Payé", value: `${Number(stats.total_budget_eur ?? 0).toFixed(0)} €` },
               { label: "Tomes lus", value: stats.volumes_read ?? 0 },
             ].map(({ label, value }) => (
               <div key={label} className="px-4 py-3" style={{ background: "var(--surface)" }}>
@@ -159,6 +159,15 @@ export function ProfilClient({
         </div>
 
         {/* ─── Visibilité ─── */}
+        {sharingLocked ? (
+        <div className="rounded-xl p-4 space-y-2" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+          <h2 className="text-xs uppercase tracking-wider font-semibold" style={{ color: "var(--muted)" }}>Visibilité</h2>
+          <p className="text-sm font-medium">Profil privé</p>
+          <p className="text-xs" style={{ color: "var(--muted)" }}>
+            Le partage public est désactivé pour ce compte. Ta collection reste visible par toi seul.
+          </p>
+        </div>
+        ) : (
         <div className="rounded-xl p-4 space-y-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
           <h2 className="text-xs uppercase tracking-wider font-semibold" style={{ color: "var(--muted)" }}>Visibilité</h2>
 
@@ -241,6 +250,7 @@ export function ProfilClient({
             </div>
           )}
         </div>
+        )}
 
         {/* Email */}
         <div className="rounded-xl p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>

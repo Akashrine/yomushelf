@@ -39,86 +39,93 @@ begin
   delete from public.wishlist_items where user_id = v_user;
   delete from public.user_collections where user_id = v_user;
 
-  -- ── Volumes ──────────────────────────────────────────────
+  -- ── Volumes and readings ─────────────────────────────────
   -- months_ago / read_months_ago are counted from the current month.
+  -- acq null = origin not specified. at_home = false : read, then given back.
   create temp table demo_volumes (
     title text, vol_from int, vol_to int, months_ago int, day int,
-    price numeric, acq public.acquisition_type, read_months_ago int
+    price numeric, acq public.acquisition_type, read_months_ago int, at_home boolean
   ) on commit drop;
 
   insert into demo_volumes values
     -- One Piece : the long run, Christmas gift in December
-    ('One Piece',                    1,  4, 11,  8, 7.20, 'bought',   10),
-    ('One Piece',                    5,  6, 10, 24, 7.20, 'gift',      9),
-    ('One Piece',                    7, 10,  7, 14, 7.20, 'bought',    5),
-    ('One Piece',                   11, 12,  4,  3, 7.20, 'bought',    2),
-    ('One Piece',                   13, 14,  1, 18, 7.20, 'bought',   null),
+    ('One Piece',                    1,  4, 11,  8, 7.20, 'bought',   10, true),
+    ('One Piece',                    5,  6, 10, 24, 7.20, 'gift',      9, true),
+    ('One Piece',                    7, 10,  7, 14, 7.20, 'bought',    5, true),
+    ('One Piece',                   11, 12,  4,  3, 7.20, 'bought',    2, true),
+    ('One Piece',                   13, 14,  1, 18, 7.20, 'bought',   null, true),
     -- Spy × Family : birthday gift
-    ('Spy × Family',                 1,  3, 10,  5, 6.95, 'bought',    9),
-    ('Spy × Family',                 4,  6,  6, 12, 6.95, 'gift',      4),
-    ('Spy × Family',                 7,  7,  2,  9, 6.95, 'bought',    1),
-    ('Spy × Family',                 8,  9,  2,  9, 6.95, 'bought',   null),
+    ('Spy × Family',                 1,  3, 10,  5, 6.95, 'bought',    9, true),
+    ('Spy × Family',                 4,  6,  6, 12, 6.95, 'gift',      4, true),
+    ('Spy × Family',                 7,  7,  2,  9, 6.95, 'bought',    1, true),
+    ('Spy × Family',                 8,  9,  2,  9, 6.95, 'bought',   null, true),
     -- Chainsaw Man : bought steadily, reading lags behind
-    ('Chainsaw Man',                 1,  2,  9, 20, 7.29, 'bought',    8),
-    ('Chainsaw Man',                 3,  4,  6, 20, 7.29, 'bought',    3),
-    ('Chainsaw Man',                 5,  6,  3, 15, 7.29, 'bought',   null),
-    ('Chainsaw Man',                 7,  8,  0,  2, 7.29, 'bought',   null),
-    -- Frieren : started as a gift
-    ('Frieren : Au-delà du voyage',  1,  3, 10, 24, 7.65, 'gift',      7),
-    ('Frieren : Au-delà du voyage',  4,  4,  1, 25, 7.65, 'bought',    0),
-    ('Frieren : Au-delà du voyage',  5,  5,  1, 25, 7.65, 'bought',   null),
+    ('Chainsaw Man',                 1,  2,  9, 20, 7.29, 'bought',    8, true),
+    ('Chainsaw Man',                 3,  4,  6, 20, 7.29, 'bought',    3, true),
+    ('Chainsaw Man',                 5,  6,  3, 15, 7.29, 'bought',   null, true),
+    ('Chainsaw Man',                 7,  8,  0,  2, 7.29, 'bought',   null, true),
+    -- Frieren : started as a gift, tome 5 in progress
+    ('Frieren : Au-delà du voyage',  1,  3, 10, 24, 7.65, 'gift',      7, true),
+    ('Frieren : Au-delà du voyage',  4,  4,  1, 25, 7.65, 'bought',    0, true),
+    ('Frieren : Au-delà du voyage',  5,  5,  1, 25, 7.65, 'bought',   null, true),
     -- Kaiju No. 8
-    ('Kaiju No. 8',                  1,  3,  8, 11, 7.20, 'bought',    7),
-    -- Blue Lock : borrowed from a friend, then bought the next ones
-    ('Blue Lock',                    1,  4,  5,  6, null, 'borrowed',  4),
-    ('Blue Lock',                    5,  5,  1,  8, 7.20, 'bought',   null),
-    ('Blue Lock',                    6,  6,  1,  8, null, 'bought',   null),
-    -- Dragon Ball : just started, one price not typed yet
-    ('Dragon Ball',                  1,  1,  0,  1, 6.90, 'bought',   null),
-    ('Dragon Ball',                  2,  2,  0,  1, null, 'bought',   null);
+    ('Kaiju No. 8',                  1,  3,  8, 11, 7.20, 'bought',    7, true),
+    -- Blue Lock : 1-4 borrowed from a friend and given back, then bought the next ones
+    ('Blue Lock',                    1,  4,  5,  6, null, 'borrowed',  4, false),
+    ('Blue Lock',                    5,  5,  1,  8, 7.20, 'bought',   null, true),
+    ('Blue Lock',                    6,  6,  1,  8, null, 'bought',   null, true),
+    -- Dragon Ball : found on the shelf, origin and date not specified
+    ('Dragon Ball',                  1,  2, null, null, null, null,   null, true);
+
+  -- Series rows first : readings of volumes no longer at home need them.
+  insert into public.user_collections (user_id, manga_id, first_added_at)
+  select v_user, m.id, min(
+    case when d.months_ago is null then now()
+    else ((v_month - make_interval(months => d.months_ago))::date + (d.day - 1))::timestamptz end
+  )
+  from demo_volumes d join public.mangas m on m.title = d.title
+  group by m.id;
 
   insert into public.user_volumes (
-    user_id, manga_id, volume_number, price_eur, acquisition_type,
-    acquired_at, read_status, read_at
+    user_id, manga_id, volume_number, price_eur, acquisition_type, acquired_at
   )
   select
-    v_user,
-    m.id,
-    n,
-    d.price,
-    d.acq,
-    least(
+    v_user, m.id, n, d.price, d.acq,
+    case when d.months_ago is null then null else least(
       (v_month - make_interval(months => d.months_ago))::date + (d.day - 1),
       current_date
-    ),
-    case when d.read_months_ago is null then 'unread' else 'read' end::public.volume_read_status,
-    case when d.read_months_ago is null then null else
-      least(
-        (v_month - make_interval(months => d.read_months_ago))::date + (d.day + 6 - 1),
-        current_date
-      )
-    end
+    ) end
   from demo_volumes d
   join public.mangas m on m.title = d.title
-  cross join lateral generate_series(d.vol_from, d.vol_to) as n;
+  cross join lateral generate_series(d.vol_from, d.vol_to) as n
+  where d.at_home;
 
-  update public.user_collections
-  set first_added_at = sub.first_at
-  from (
-    select manga_id, min(acquired_at)::timestamptz as first_at
-    from public.user_volumes where user_id = v_user group by manga_id
-  ) sub
-  where user_collections.user_id = v_user and user_collections.manga_id = sub.manga_id;
+  insert into public.user_readings (user_id, manga_id, volume_number, status, finished_on)
+  select
+    v_user, m.id, n, 'read',
+    least(
+      (v_month - make_interval(months => d.read_months_ago))::date + (d.day + 6 - 1),
+      current_date
+    )
+  from demo_volumes d
+  join public.mangas m on m.title = d.title
+  cross join lateral generate_series(d.vol_from, d.vol_to) as n
+  where d.read_months_ago is not null;
+
+  -- In progress right now
+  insert into public.user_readings (user_id, manga_id, volume_number, status)
+  select v_user, m.id, 5, 'reading'
+  from public.mangas m where m.title = 'Frieren : Au-delà du voyage';
 
   -- ── Wishlist ─────────────────────────────────────────────
-  insert into public.wishlist_items (user_id, manga_id, volume_number, target_price, priority)
-  select v_user, m.id, w.vol, w.price, w.priority::public.wishlist_priority
+  insert into public.wishlist_items (user_id, manga_id, volume_number, target_price)
+  select v_user, m.id, w.vol, w.price
   from (values
-    ('One Piece',                   15, 7.20, 'high'),
-    ('Chainsaw Man',                 9, 7.29, 'high'),
-    ('Frieren : Au-delà du voyage',  6, 7.65, 'low'),
-    ('Kaiju No. 8',                  4, 7.20, 'low')
-  ) as w(title, vol, price, priority)
+    ('One Piece',                   15, 7.20),
+    ('Chainsaw Man',                 9, 7.29),
+    ('Frieren : Au-delà du voyage',  6, 7.65),
+    ('Kaiju No. 8',                  4, 7.20)
+  ) as w(title, vol, price)
   join public.mangas m on m.title = w.title;
 end;
 $$;

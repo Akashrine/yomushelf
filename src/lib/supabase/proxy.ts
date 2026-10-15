@@ -42,6 +42,7 @@ export async function updateSession(request: NextRequest) {
   const protectedPaths = [
     "/collection",
     "/bibliotheque",
+    "/parent",
     "/envies",
     "/onboarding",
     "/profil",

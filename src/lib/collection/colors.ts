@@ -22,3 +22,11 @@ export function spineColor(mangaId: string, read: boolean): string {
 export function spineJitter(mangaId: string, volume: number): number {
   return (hashString(`${mangaId}:${volume}`) % 1000) / 1000;
 }
+
+// One bright tint per series, for covers drawn without a picture and for
+// the reader's pile : different series must look different.
+const SERIES_TINTS = ["#ff6a3d", "#5ec8f2", "#ff5577", "#7fd1a8", "#f8c04a", "#7f9cff", "#ff9f43", "#c38bff"];
+
+export function seriesColor(mangaId: string): string {
+  return SERIES_TINTS[hashString(mangaId) % SERIES_TINTS.length];
+}

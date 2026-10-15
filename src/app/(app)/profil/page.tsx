@@ -14,7 +14,7 @@ export default async function ProfilPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, avatar_initials, created_at, is_public, bio, public_slug")
+    .select("username, avatar_initials, created_at, is_public, bio, public_slug, sharing_locked")
     .eq("id", user.id)
     .single();
 
@@ -33,6 +33,7 @@ export default async function ProfilPage() {
       isPublic={profile?.is_public ?? false}
       bio={profile?.bio ?? null}
       publicSlug={profile?.public_slug ?? null}
+      sharingLocked={profile?.sharing_locked ?? false}
     />
   );
 }

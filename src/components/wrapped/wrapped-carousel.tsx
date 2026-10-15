@@ -16,12 +16,13 @@ type Props = {
   username: string | null;
   avatarInitials: string;
   publicSlug: string | null;
+  canShare: boolean; // false on a sharing-locked account : no share slide
   result: { success: true; data: WrappedData } | { success: false; error: string };
 };
 
 const BG = "#0e0b0b";
 
-export function WrappedCarousel({ year, username, avatarInitials, publicSlug, result }: Props) {
+export function WrappedCarousel({ year, username, avatarInitials, publicSlug, canShare, result }: Props) {
   // Empty state
   if (!result.success || result.data.total_volumes_added < 10) {
     return <EmptyState year={year} />;
@@ -33,6 +34,7 @@ export function WrappedCarousel({ year, username, avatarInitials, publicSlug, re
       username={username}
       avatarInitials={avatarInitials}
       publicSlug={publicSlug}
+      canShare={canShare}
       data={result.data}
     />
   );
@@ -43,6 +45,7 @@ function WrappedSlides({
   username,
   avatarInitials,
   publicSlug,
+  canShare,
   data,
 }: Omit<Props, "result"> & { data: WrappedData }) {
   const [index, setIndex] = useState(0);
@@ -74,7 +77,7 @@ function WrappedSlides({
       ? [<WrappedCardTopSeries key="top" series={data.top_3_series} />]
       : []),
     <WrappedCardGenre key="genre" genre={data.top_genre} delta={data.delta_vs_previous_year_pct} year={year} />,
-    <WrappedCardShare key="share" year={year} slug={publicSlug} username={username} />,
+    ...(canShare ? [<WrappedCardShare key="share" year={year} slug={publicSlug} username={username} />] : []),
   ];
 
   const total = cards.length;

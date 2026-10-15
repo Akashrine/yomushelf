@@ -4,9 +4,14 @@ import { useState, useTransition, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { addMangaFromExternalSource, lookupIsbn } from "@/app/(app)/ajouter/actions";
-import { VolumeFields, type VolumeFieldsValue } from "@/components/collection/volume-fields";
+import {
+  AlreadyReadField,
+  VolumeFields,
+  type AlreadyReadChoice,
+  type VolumeFieldsValue,
+} from "@/components/collection/volume-fields";
 
-const DEFAULT_VOLUME_FIELDS: VolumeFieldsValue = { price: "", acquisition: "bought", read: "unread" };
+const DEFAULT_VOLUME_FIELDS: VolumeFieldsValue = { price: "", acquisition: null };
 
 type SearchResult = {
   id?: string;
@@ -45,6 +50,7 @@ export function AjouterClient() {
   const [addError, setAddError] = useState<string | null>(null);
   const [isbnQuery, setIsbnQuery] = useState("");
   const [volumeFields, setVolumeFields] = useState<VolumeFieldsValue>(DEFAULT_VOLUME_FIELDS);
+  const [alreadyRead, setAlreadyRead] = useState<AlreadyReadChoice>("none");
   const [tab, setTab] = useState<"search" | "isbn">("search");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -82,6 +88,7 @@ export function AjouterClient() {
         return;
       }
       setVolumeFields(DEFAULT_VOLUME_FIELDS);
+      setAlreadyRead("none");
       setConfirm({
         manga: result.manga as SearchResult,
         volumeNumber: result.volume_number ? String(result.volume_number) : "",
@@ -113,8 +120,8 @@ export function AjouterClient() {
       if (confirm.volumeNumber) {
         fd.set("volume_number", confirm.volumeNumber);
         fd.set("price_eur", volumeFields.acquisition === "borrowed" ? "" : volumeFields.price);
-        fd.set("acquisition_type", volumeFields.acquisition);
-        fd.set("read_status", volumeFields.read);
+        fd.set("acquisition_type", volumeFields.acquisition ?? "");
+        fd.set("reading", alreadyRead === "read_earlier" ? "read_earlier" : "unchanged");
       }
 
       const result = await addMangaFromExternalSource(fd);
@@ -190,6 +197,7 @@ export function AjouterClient() {
                     type="button"
                     onClick={() => {
                       setVolumeFields(DEFAULT_VOLUME_FIELDS);
+                      setAlreadyRead("none");
                       setConfirm({ manga, volumeNumber: "" });
                     }}
                     className="w-full flex gap-3 p-3 rounded-xl text-left transition-all active:scale-[0.99]"
@@ -315,7 +323,8 @@ export function AjouterClient() {
             />
 
             {confirm.volumeNumber && (
-              <div className="mb-5">
+              <div className="mb-5 flex flex-col gap-5">
+                <AlreadyReadField value={alreadyRead} onChange={setAlreadyRead} disabled={isPending} />
                 <VolumeFields value={volumeFields} onChange={setVolumeFields} disabled={isPending} />
               </div>
             )}

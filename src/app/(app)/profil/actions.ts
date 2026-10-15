@@ -54,6 +54,17 @@ export async function updateProfileVisibility(data: {
   } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Non authentifié." };
 
+  // The database forces is_public = false on a locked profile anyway;
+  // refuse here so the user gets a clear answer instead of a silent no-op.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("sharing_locked")
+    .eq("id", user.id)
+    .single();
+  if (profile?.sharing_locked && parsed.data.is_public) {
+    return { success: false, error: "Le partage public est désactivé pour ce compte." };
+  }
+
   const { error } = await supabase
     .from("profiles")
     .update({

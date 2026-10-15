@@ -8,7 +8,7 @@ type Stats = {
   volumes_read: number;
 } | null;
 
-export type AppSection = "collection" | "bibliotheque" | "envies" | "ajouter";
+export type AppSection = "collection" | "bibliotheque" | "envies" | "ajouter" | "parent";
 
 type Props = {
   username: string | null;
@@ -19,8 +19,8 @@ type Props = {
 };
 
 const NAV = [
-  { key: "collection", href: "/collection", label: "Ma collection", short: "Collection", icon: "home" },
-  { key: "bibliotheque", href: "/bibliotheque", label: "Bibliothèque", short: "Biblio", icon: "books" },
+  { key: "collection", href: "/collection", label: "Accueil", short: "Accueil", icon: "home" },
+  { key: "bibliotheque", href: "/bibliotheque", label: "Mes séries", short: "Séries", icon: "books" },
   { key: "envies", href: "/envies", label: "Envies", short: "Envies", icon: "star" },
   { key: "ajouter", href: "/ajouter", label: "Ajouter", short: "Ajouter", icon: "plus" },
 ] as const;
@@ -32,15 +32,16 @@ export function LibraryShell({
   active = "bibliotheque",
   children,
 }: Props) {
+  const isParent = active === "parent";
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--background)" }}>
-      {/* Header */}
+      {/* Header — the parent space gets its own tint so nobody mixes them up */}
       <header
-        className="sticky top-0 z-20 px-4 sm:px-6 py-3 flex items-center justify-between"
+        className="sticky top-0 z-20 px-4 sm:px-6 py-3 flex items-center justify-between gap-3"
         style={{
-          background: "color-mix(in srgb, var(--background) 88%, transparent)",
+          background: isParent ? "#1d1a24" : "color-mix(in srgb, var(--background) 88%, transparent)",
           backdropFilter: "blur(12px)",
-          borderBottom: "1px solid var(--border)",
+          borderBottom: `1px solid ${isParent ? "#2e2a3a" : "var(--border)"}`,
         }}
       >
         <Link href="/collection" className="flex items-center gap-2">
@@ -70,14 +71,33 @@ export function LibraryShell({
           })}
         </nav>
 
-        <Link href="/profil" title={username ?? "Profil"} aria-label="Mon profil">
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-            style={{ background: "var(--accent)", color: "white" }}
-          >
-            {avatarInitials}
-          </div>
-        </Link>
+        <div className="flex items-center gap-2">
+          {isParent ? (
+            <Link
+              href="/collection"
+              className="flex min-h-11 items-center rounded-full px-3 text-xs font-semibold"
+              style={{ border: "1px solid #3a3550", color: "#cfc6ff" }}
+            >
+              Espace lecteur
+            </Link>
+          ) : (
+            <Link
+              href="/parent"
+              className="flex min-h-11 items-center rounded-full px-3 text-xs"
+              style={{ border: "1px solid var(--border)", color: "var(--muted)" }}
+            >
+              Espace parent
+            </Link>
+          )}
+          <Link href="/profil" title={username ?? "Profil"} aria-label="Mon profil" className="flex h-11 w-11 items-center justify-center">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+              style={{ background: "var(--accent)", color: "white" }}
+            >
+              {avatarInitials}
+            </div>
+          </Link>
+        </div>
       </header>
 
       {/* Stats bar */}
@@ -87,14 +107,8 @@ export function LibraryShell({
           style={{ borderBottom: "1px solid var(--border)" }}
         >
           <StatPill label="Séries" value={stats.total_series} />
-          <StatPill label="Tomes" value={stats.total_volumes_owned ?? 0} />
-          <StatPill
-            label="Payé"
-            value={`${Number(stats.total_budget_eur ?? 0).toFixed(0)} €`}
-          />
-          {(stats.volumes_read ?? 0) > 0 && (
-            <StatPill label="Lus" value={stats.volumes_read} />
-          )}
+          <StatPill label="Tomes chez toi" value={stats.total_volumes_owned ?? 0} />
+          <StatPill label="Lus" value={stats.volumes_read ?? 0} />
         </div>
       )}
 
