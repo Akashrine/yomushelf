@@ -37,8 +37,8 @@ export default async function WrappedPage({
         year={year}
         username={profile?.username ?? null}
         avatarInitials={profile?.avatar_initials ?? "?"}
-        publicSlug={profile?.public_slug ?? null}
-        canShare={!profile?.sharing_locked}
+        publicSlug={null}
+        canShare={false} // libraries are private : no public link to share
         result={result}
       />
     </>
