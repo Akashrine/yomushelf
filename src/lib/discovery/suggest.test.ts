@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { matchesFilters, suggest, tasteProfile, type CatalogueEntry } from "./suggest";
+import { matchesFilters, otherUniverses, suggest, tasteProfile, territoryTastes, type CatalogueEntry } from "./suggest";
 
 function entry(partial: Partial<CatalogueEntry> & { id: string; title: string }): CatalogueEntry {
   return {
@@ -20,8 +20,8 @@ const drStone = entry({ id: "ds", title: "Dr. Stone", genres: ["aventure", "scie
 const haikyu = entry({ id: "hk", title: "Haikyu!!", genres: ["sport", "comedie"], demographic: "shonen", audience_min_age: 8, status: "completed", total_volumes: 45 });
 const monster = entry({ id: "mo", title: "Monster", genres: ["mystere", "psychologique", "drame"], demographic: "seinen", audience_min_age: 16 });
 const daï = entry({ id: "dai", title: "Dragon Quest - Daï", genres: ["aventure", "fantasy", "action"], demographic: "shonen", audience_min_age: 9 });
-const wanted = entry({ id: "ws", title: "Wanted (Oda)", genres: ["action"], demographic: "shonen", author: "Eiichiro Oda" });
-const chi = entry({ id: "chi", title: "Chi", genres: ["tranche-de-vie", "comedie"], demographic: "kodomo", audience_min_age: 6, total_volumes: 12, status: "completed" });
+const wanted = entry({ id: "ws", title: "Wanted (Oda)", genres: ["action"], demographic: "shonen", author: "Eiichiro Oda", audience_min_age: 9 });
+const chi = entry({ id: "chi", title: "Chi", genres: ["tranche-de-vie", "comedie"], demographic: "kodomo", audience_min_age: 6, audience_age_source: "cnlj", total_volumes: 12, status: "completed" });
 const catalogue = [onePiece, drStone, haikyu, monster, daï, wanted, chi];
 
 describe("suggest", () => {
@@ -82,11 +82,65 @@ describe("matchesFilters", () => {
     expect(matchesFilters(chi, { genre: "comedie" })).toBe(true);
     expect(matchesFilters(chi, { genre: "sport" })).toBe(false);
     expect(matchesFilters(monster, { maxAge: 12 })).toBe(false);
+    expect(matchesFilters(chi, { maxAge: 8 })).toBe(true); // CNLJ indication
+    expect(matchesFilters(entry({ id: "e", title: "e", audience_min_age: 6, audience_age_source: "estimate" }), { maxAge: 12 })).toBe(false); // an estimate is not an indication
     expect(matchesFilters(entry({ id: "x", title: "x" }), { maxAge: 12 })).toBe(false); // unknown age is not assumed safe
     expect(matchesFilters(drStone, { status: "completed" })).toBe(true);
     expect(matchesFilters(onePiece, { status: "completed" })).toBe(false);
     expect(matchesFilters(chi, { length: "court" })).toBe(true);
     expect(matchesFilters(haikyu, { length: "long" })).toBe(true);
     expect(matchesFilters(onePiece, { length: "long" })).toBe(false); // unknown length
+  });
+});
+
+describe("preferences", () => {
+  const byId = new Map(catalogue.map((c) => [c.id, c]));
+
+  it("a 100-volume series weighs the same as a 3-volume one", () => {
+    const t = territoryTastes([{ manga_id: "hk", read: 45, owned: 45 }, { manga_id: "mo", read: 3, owned: 3 }], byId);
+    const sport = t.find((x) => x.key === "sport")!.share;
+    const frissons = t.find((x) => x.key === "frissons")!.share;
+    // Haikyu touches 2 territories, Monster 2 : each gives half its weight to each
+    expect(sport).toBeCloseTo(frissons, 5);
+  });
+
+  it("a liked series counts double ; Pas pour moi counts nothing", () => {
+    const liked = tasteProfile([{ manga_id: "hk", read: 1, owned: 1, liked: true }, { manga_id: "mo", read: 1, owned: 1 }], byId);
+    expect(liked.genres.get("sport")!).toBeGreaterThan(liked.genres.get("mystere")!);
+    const disliked = tasteProfile([{ manga_id: "mo", read: 5, owned: 5, liked: false }], byId);
+    expect(disliked.total).toBe(0);
+  });
+
+  it("starts from declared tastes without any history", () => {
+    const out = suggest([], catalogue, new Set(), { declared: { liked: ["sport"], avoided: [] } });
+    expect(out[0].entry.id).toBe("hk");
+    expect(out[0].reason).toBe("Parce que tu aimes sport");
+  });
+
+  it("explains with what the reader said they liked", () => {
+    const out = suggest([{ manga_id: "op", read: 1, owned: 1, liked: true }], catalogue, new Set(["op"]));
+    expect(out.find((s) => s.entry.id === "dai")?.reason).toMatch(/^Parce que tu as aimé One Piece/);
+  });
+
+  it("an owned-only series is named as owned, not as read", () => {
+    const out = suggest([{ manga_id: "op", read: 0, owned: 3 }], catalogue, new Set(["op"]));
+    expect(out.find((s) => s.entry.id === "dai")?.reason).toMatch(/^Parce que tu as One Piece chez toi/);
+  });
+
+  it("leaves out avoided genres and series with no age indication", () => {
+    const noAge = entry({ id: "na", title: "Sans âge", genres: ["aventure", "action"] });
+    const out = suggest([{ manga_id: "op", read: 3, owned: 3 }], [...catalogue, noAge], new Set(["op"]), {
+      declared: { liked: [], avoided: ["fantasy"] },
+    });
+    const ids = out.map((s) => s.entry.id);
+    expect(ids).not.toContain("dai"); // fantasy avoided
+    expect(ids).not.toContain("na"); // unknown age
+  });
+
+  it("proposes another universe the reader has not explored", () => {
+    const out = otherUniverses([{ manga_id: "op", read: 3, owned: 3 }], catalogue, new Set(["op"]));
+    expect(out.length).toBeGreaterThan(0);
+    expect(out[0].reason).toMatch(/^Pour changer/);
+    expect(out.map((o) => o.entry.id)).not.toContain("op");
   });
 });

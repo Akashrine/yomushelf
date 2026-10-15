@@ -196,9 +196,10 @@ export async function addVolumeRange(formData: FormData): Promise<ActionResult> 
 }
 
 // ─────────────────────────────────────────
-// markReadUpTo — parent space bulk entry : "lu jusqu'au tome N".
+// markReadUpTo — "J'ai lu jusqu'au tome N".
 // Every volume 1..N is read, owned or not, with an unknown date.
-// Readings already finished keep their date.
+// Readings already finished keep their date. Returns exactly what changed,
+// so the reader can undo it (undoReadUpTo).
 // ─────────────────────────────────────────
 
 const MarkReadSchema = z.object({
@@ -206,7 +207,11 @@ const MarkReadSchema = z.object({
   up_to: z.coerce.number().int().positive().max(500),
 });
 
-export async function markReadUpTo(formData: FormData): Promise<ActionResult> {
+export type ReadUpToResult =
+  | { success: true; added: number[]; upgraded: number[] }
+  | { success: false; error: string };
+
+export async function markReadUpTo(formData: FormData): Promise<ReadUpToResult> {
   const parsed = MarkReadSchema.safeParse(formValues(formData, ["manga_id", "up_to"]));
   if (!parsed.success) return { success: false, error: "Données invalides." };
 
@@ -214,13 +219,14 @@ export async function markReadUpTo(formData: FormData): Promise<ActionResult> {
   if (!user) return { success: false, error: "Non authentifié." };
   const { manga_id, up_to } = parsed.data;
 
-  const { error: updateError } = await supabase
+  const { data: upgradedRows, error: updateError } = await supabase
     .from("user_readings")
     .update({ status: "read", finished_on: null })
     .eq("user_id", user.id)
     .eq("manga_id", manga_id)
     .eq("status", "reading")
-    .lte("volume_number", up_to);
+    .lte("volume_number", up_to)
+    .select("volume_number");
   if (updateError) return { success: false, error: "Pas enregistré. Vérifie ta connexion et réessaie." };
 
   const rows = Array.from({ length: up_to }, (_, i) => ({
@@ -230,11 +236,59 @@ export async function markReadUpTo(formData: FormData): Promise<ActionResult> {
     status: "read" as const,
     finished_on: null,
   }));
-  const { error } = await supabase
+  const { data: addedRows, error } = await supabase
     .from("user_readings")
-    .upsert(rows, { onConflict: "user_id,manga_id,volume_number", ignoreDuplicates: true });
+    .upsert(rows, { onConflict: "user_id,manga_id,volume_number", ignoreDuplicates: true })
+    .select("volume_number");
 
   if (error) return { success: false, error: "Pas enregistré. Vérifie ta connexion et réessaie." };
+  revalidateSeries(manga_id);
+  return {
+    success: true,
+    added: (addedRows ?? []).map((r) => r.volume_number),
+    upgraded: (upgradedRows ?? []).map((r) => r.volume_number),
+  };
+}
+
+// Undo of markReadUpTo : removes the readings it created, puts back "en
+// cours" on the ones it finished. Only touches undated readings, so a
+// date typed since then is never lost.
+const UndoReadSchema = z.object({
+  manga_id: z.string().uuid(),
+  added: z.array(z.number().int().positive().max(500)).max(500),
+  upgraded: z.array(z.number().int().positive().max(500)).max(500),
+});
+
+export async function undoReadUpTo(input: { manga_id: string; added: number[]; upgraded: number[] }): Promise<ActionResult> {
+  const parsed = UndoReadSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: "Données invalides." };
+
+  const { supabase, user } = await getAuthed();
+  if (!user) return { success: false, error: "Non authentifié." };
+  const { manga_id, added, upgraded } = parsed.data;
+
+  if (added.length) {
+    const { error } = await supabase
+      .from("user_readings")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("manga_id", manga_id)
+      .eq("status", "read")
+      .is("finished_on", null)
+      .in("volume_number", added);
+    if (error) return { success: false, error: "Pas annulé. Vérifie ta connexion et réessaie." };
+  }
+  if (upgraded.length) {
+    const { error } = await supabase
+      .from("user_readings")
+      .update({ status: "reading" })
+      .eq("user_id", user.id)
+      .eq("manga_id", manga_id)
+      .eq("status", "read")
+      .is("finished_on", null)
+      .in("volume_number", upgraded);
+    if (error) return { success: false, error: "Pas annulé. Vérifie ta connexion et réessaie." };
+  }
   revalidateSeries(manga_id);
   return { success: true };
 }
@@ -322,6 +376,67 @@ export async function deleteSeriesPermanently(formData: FormData): Promise<Actio
     // Private series : nobody else can see it, so nothing else uses it.
     await supabase.from("mangas").delete().eq("id", manga_id).eq("created_by", user.id);
   }
+
+  revalidateSeries(manga_id);
+  return { success: true };
+}
+
+// ─────────────────────────────────────────
+// setSeriesLiked — "J'ai aimé" / "Pas pour moi" / back to nothing said.
+// What the reader says is kept apart from what they own or read.
+// ─────────────────────────────────────────
+
+const LikedSchema = SeriesRefSchema.extend({ liked: z.enum(["true", "false", "none"]) });
+
+export async function setSeriesLiked(formData: FormData): Promise<ActionResult> {
+  const parsed = LikedSchema.safeParse(formValues(formData, ["manga_id", "liked"]));
+  if (!parsed.success) return { success: false, error: "Données invalides." };
+
+  const { supabase, user } = await getAuthed();
+  if (!user) return { success: false, error: "Non authentifié." };
+
+  const liked = parsed.data.liked === "none" ? null : parsed.data.liked === "true";
+  // Saying it on a series not on the shelf yet puts it there (followed).
+  const { error } = await supabase
+    .from("user_collections")
+    .upsert({ user_id: user.id, manga_id: parsed.data.manga_id, liked }, { onConflict: "user_id,manga_id" });
+  if (error) return { success: false, error: "Pas enregistré. Vérifie ta connexion et réessaie." };
+
+  revalidateSeries(parsed.data.manga_id);
+  return { success: true };
+}
+
+// ─────────────────────────────────────────
+// updatePrivateSeries — the reader edits their own private entry. RLS
+// limits it to series they created ; nothing reaches the shared catalogue.
+// ─────────────────────────────────────────
+
+const PrivateSeriesSchema = SeriesRefSchema.extend({
+  title: z.string().trim().min(1, "Écris le titre.").max(200, "Titre trop long (200 caractères maximum)."),
+  author: z.string().trim().max(200, "Nom d'auteur trop long.").optional(),
+  total_volumes: z
+    .string()
+    .optional()
+    .transform((v) => (v ? Number(v) : null))
+    .pipe(z.number({ error: "Nombre de tomes invalide." }).int("Nombre de tomes invalide.").min(1, "Nombre de tomes invalide.").max(500, "500 tomes maximum.").nullable()),
+});
+
+export async function updatePrivateSeries(formData: FormData): Promise<ActionResult> {
+  const parsed = PrivateSeriesSchema.safeParse(formValues(formData, ["manga_id", "title", "author", "total_volumes"]));
+  if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Données invalides." };
+
+  const { supabase, user } = await getAuthed();
+  if (!user) return { success: false, error: "Non authentifié." };
+
+  const { manga_id, title, author, total_volumes } = parsed.data;
+  const { data, error } = await supabase
+    .from("mangas")
+    .update({ title: title.replace(/\s+/g, " "), author: author || null, total_volumes })
+    .eq("id", manga_id)
+    .eq("created_by", user.id)
+    .select("id");
+  if (error) return { success: false, error: "Pas enregistré. Vérifie ta connexion et réessaie." };
+  if (!data?.length) return { success: false, error: "Seules tes fiches personnelles peuvent être modifiées." };
 
   revalidateSeries(manga_id);
   return { success: true };

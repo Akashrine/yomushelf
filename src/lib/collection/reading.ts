@@ -17,6 +17,7 @@ export type SeriesMeta = {
   title: string;
   slug: string;
   cover_url: string | null;
+  total_volumes?: number | null; // published volumes, null = unknown
 };
 
 export type SeriesShelf = SeriesMeta & {
@@ -44,6 +45,7 @@ export function buildShelves(
       .sort();
     return {
       ...s,
+      total_volumes: s.total_volumes ?? null,
       owned: vs.map((v) => v.volume_number).sort(asc),
       borrowed: vs.filter((v) => v.acquisition_type === "borrowed").map((v) => v.volume_number).sort(asc),
       read: rs.filter((r) => r.status === "read").map((r) => r.volume_number).sort(asc),
@@ -61,18 +63,22 @@ export function buildShelves(
 //      - N missing, a later one at home → say N is missing (gap)
 //   3. otherwise, an unread volume at home before the last one read
 //      (left aside) → propose it, so it is never forgotten
-//   4. nothing unread at home            → nothing to propose
+//   4. nothing unread at home, N not at home but published (or total
+//      unknown) and something already read → N is the next one to find
+//      (reading does not need owning : borrowed, library, a friend…)
+//   5. otherwise nothing to propose
 // ─────────────────────────────────────────
 
 export type Candidate =
   | { kind: "reading"; volume: number }
   | { kind: "next"; volume: number }
   | { kind: "gap"; missing: number; available: number }
-  | { kind: "skipped"; volume: number };
+  | { kind: "skipped"; volume: number }
+  | { kind: "to_find"; volume: number };
 
 export function nextToRead(shelf: SeriesShelf): Candidate | null {
   if (shelf.reading.length) return { kind: "reading", volume: shelf.reading[0] };
-  if (!shelf.owned.length) return null;
+  if (!shelf.owned.length && !shelf.read.length) return null;
 
   const read = new Set(shelf.read);
   const owned = new Set(shelf.owned);
@@ -84,6 +90,9 @@ export function nextToRead(shelf: SeriesShelf): Candidate | null {
 
   const skipped = shelf.owned.find((v) => !read.has(v));
   if (skipped != null) return { kind: "skipped", volume: skipped };
+
+  const total = shelf.total_volumes ?? null;
+  if (shelf.read.length && !owned.has(n) && (total == null || n <= total)) return { kind: "to_find", volume: n };
   return null;
 }
 
@@ -115,8 +124,10 @@ export function pickHome(shelves: SeriesShelf[]): HomePick {
     .map((shelf) => ({ shelf, candidate: nextToRead(shelf) }))
     .filter((x): x is { shelf: SeriesShelf; candidate: Candidate } => x.candidate != null)
     .sort((a, b) => {
-      const ka = a.candidate.kind === "skipped" ? 1 : 0;
-      const kb = b.candidate.kind === "skipped" ? 1 : 0;
+      // something at home first, a volume left aside next, one to find last
+      const rank = (c: Candidate) => (c.kind === "to_find" ? 2 : c.kind === "skipped" ? 1 : 0);
+      const ka = rank(a.candidate);
+      const kb = rank(b.candidate);
       const da = a.shelf.lastFinished ?? "";
       const db = b.shelf.lastFinished ?? "";
       return ka - kb || db.localeCompare(da) || byTitle(a.shelf, b.shelf);
@@ -140,17 +151,19 @@ export function readerCounts(shelves: SeriesShelf[]) {
 }
 
 // What the home screen should say when there is no volume to propose.
-//   empty      : no series at all
-//   no_volumes : series followed, but no volume at home and none read
-//   all_read   : every volume at home is read
-//   ready      : something to read
-export type ShelfState = "empty" | "no_volumes" | "all_read" | "ready";
+//   empty       : no series at all
+//   no_volumes  : series followed, but no volume at home and none read
+//   all_read    : volumes at home, every one of them read, nothing to find
+//   nothing_new : nothing at home, the series read are finished
+//   ready       : something to read or to find
+export type ShelfState = "empty" | "no_volumes" | "all_read" | "nothing_new" | "ready";
 
 export function shelfState(shelves: SeriesShelf[]): ShelfState {
   if (shelves.length === 0) return "empty";
   if (shelves.some((s) => nextToRead(s) != null)) return "ready";
-  const anyVolume = shelves.some((s) => s.owned.length > 0 || s.read.length > 0);
-  return anyVolume ? "all_read" : "no_volumes";
+  if (shelves.some((s) => s.owned.length > 0)) return "all_read";
+  if (shelves.some((s) => s.read.length > 0)) return "nothing_new";
+  return "no_volumes";
 }
 
 // Read volumes in a stable order, for the pile drawing.

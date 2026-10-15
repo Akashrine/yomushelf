@@ -8,7 +8,8 @@ import { Cover } from "@/components/collection/reader-home";
 import { VolumeSheet, type VolumeSavedEvent } from "@/components/collection/volume-sheet";
 import { ReadingToast } from "@/components/collection/reading-toast";
 import { useReadingAction, type ReadingIntent } from "@/components/collection/use-reading-action";
-import { archiveSeries, deleteSeriesPermanently, restoreSeries } from "@/app/(app)/bibliotheque/actions";
+import { archiveSeries, deleteSeriesPermanently, restoreSeries, setSeriesLiked, updatePrivateSeries } from "@/app/(app)/bibliotheque/actions";
+import { ReadUpTo } from "@/components/collection/read-up-to";
 import { addSeriesToLibrary } from "@/app/(app)/ajouter/actions";
 import { addWishlistItem } from "@/app/(app)/envies/actions";
 import { lastKnownPrice, nextVolumeToBuy, type OwnedVolume } from "@/lib/collection/value";
@@ -27,6 +28,7 @@ type Manga = {
   genres: string[];
   demographic: Demographic | null;
   audience_min_age: number | null;
+  audience_age_source: "cnlj" | "estimate" | null;
   synopsis: string | null;
   is_private: boolean;
 };
@@ -39,6 +41,7 @@ type Props = {
   volumes: OwnedVolume[];
   readings: Reading[];
   wishedVolumes: number[];
+  liked: boolean | null;
 };
 
 const MANGA_STATUS_LABELS = {
@@ -59,7 +62,7 @@ export function firstMissingVolume(owned: number[]): number {
   return n;
 }
 
-export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes }: Props) {
+export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes, liked }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [openVolume, setOpenVolume] = useState<number | null>(null);
@@ -68,7 +71,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes 
   const reading = useReadingAction();
 
   const shelf = buildShelves(
-    [{ manga_id: manga.id, title: manga.title, slug: manga.id, cover_url: manga.cover_url }],
+    [{ manga_id: manga.id, title: manga.title, slug: manga.id, cover_url: manga.cover_url, total_volumes: manga.total_volumes }],
     volumes,
     readings
   )[0];
@@ -165,7 +168,8 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes 
             {[
               MANGA_STATUS_LABELS[manga.status],
               totalVolumes > 0 ? `${totalVolumes} tomes parus` : null,
-              manga.audience_min_age != null ? `dès ${manga.audience_min_age} ans` : null,
+              // Only an age given by the CNLJ is shown ; estimates never are.
+              manga.audience_age_source === "cnlj" && manga.audience_min_age != null ? `conseillé dès ${manga.audience_min_age} ans (CNLJ)` : null,
               manga.publisher_fr,
             ]
               .filter(Boolean)
@@ -183,6 +187,36 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes 
         </div>
       </div>
       {manga.synopsis && <p className="max-w-[65ch] text-sm leading-relaxed" style={{ color: "var(--muted)" }}>{manga.synopsis}</p>}
+
+      {presence !== "absent" && (
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Ton avis sur cette série">
+          <span className="text-sm font-semibold">Ton avis :</span>
+          {([
+            { value: true, label: "J'ai aimé", done: `Noté : tu as aimé ${manga.title}.` },
+            { value: false, label: "Pas pour moi", done: `Noté : ${manga.title} n'est pas pour toi.` },
+          ] as const).map((o) => {
+            const on = liked === o.value;
+            return (
+              <button
+                key={String(o.value)}
+                type="button"
+                aria-pressed={on}
+                disabled={isPending}
+                onClick={() =>
+                  run(() => setSeriesLiked(form({ manga_id: manga.id, liked: on ? "none" : String(o.value) })), () =>
+                    setNotice(on ? "Avis retiré." : o.done)
+                  )
+                }
+                className="flex min-h-11 items-center gap-1.5 rounded-full px-4 text-sm font-semibold disabled:opacity-60"
+                style={on ? { background: o.value ? "var(--read)" : "var(--surface-raised)", color: o.value ? "white" : "var(--foreground)", border: "1.5px solid transparent" } : { border: "1.5px solid var(--border)" }}
+              >
+                {on && <AppIcon name="check" size={14} strokeWidth={3} />}
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {presence === "absent" && (
         <section className="flex flex-col gap-3 rounded-3xl p-4 sm:p-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
@@ -227,7 +261,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes 
 
       {onShelf && (
         <>
-          <NextCard candidate={candidate} waiting={waiting} ownedCount={shelf.owned.length} pending={reading.isPending} onAct={act} />
+          <NextCard candidate={candidate} waiting={waiting} ownedCount={shelf.owned.length} readCount={shelf.read.length} pending={reading.isPending} onAct={act} />
           <NewVolumeCard
             mangaId={manga.id}
             suggested={firstMissingVolume(shelf.owned)}
@@ -237,6 +271,10 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes 
             run={run}
             onDone={(n) => setNotice(`Tome ${n} ajouté à ton étagère !`)}
           />
+          <section aria-labelledby="h-progress" className="flex flex-col gap-2 rounded-3xl p-4 sm:p-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+            <h2 id="h-progress" className="text-base font-bold">Où j&apos;en suis</h2>
+            <ReadUpTo series={[{ manga_id: manga.id, title: manga.title }]} suggested={Math.max(1, ...shelf.read)} compact />
+          </section>
         </>
       )}
 
@@ -263,8 +301,21 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes 
         <Legend />
       </section>
 
-      {error && <p className="text-sm" role="alert" style={{ color: "var(--accent-hover)" }}>{error}</p>}
-      {notice && !error && <p className="text-sm font-semibold" role="status" style={{ color: "var(--read)" }}>{notice}</p>}
+      {/* Feedback stays in view, wherever the button was. */}
+      <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-24 z-40 flex justify-center px-4 md:bottom-6">
+        {(error || notice) && (
+          <div
+            role={error ? "alert" : "status"}
+            className="pointer-events-auto flex max-w-md items-center gap-2 rounded-2xl py-1 pl-4 pr-1 text-sm font-semibold shadow-lg"
+            style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", color: error ? "var(--accent-hover)" : "var(--foreground)" }}
+          >
+            <span className="py-2">{error ?? notice}</span>
+            <button type="button" onClick={() => { setError(null); setNotice(null); }} aria-label="Fermer le message" className="flex h-11 w-11 shrink-0 items-center justify-center">
+              <AppIcon name="close" size={16} />
+            </button>
+          </div>
+        )}
+      </div>
 
       {onShelf && (
         <section className="flex flex-col gap-4 rounded-3xl p-4 sm:p-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
@@ -298,6 +349,9 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes 
               <AppIcon name="plus" size={16} /> Ajouter des tomes
             </Link>
           </div>
+          {manga.is_private && (
+            <PrivateEntryForm manga={manga} pending={isPending} run={run} form={form} onDone={() => setNotice("Fiche enregistrée.")} />
+          )}
           <SeriesOptions title={manga.title} mangaId={manga.id} pending={isPending} run={run} form={form} />
         </section>
       )}
@@ -330,6 +384,59 @@ function Chip({ children }: { children: React.ReactNode }) {
 }
 
 type Runner = (action: () => Promise<{ success: boolean; error?: string }>, after: () => void) => void;
+
+// The reader's own entry : title, author and number of volumes, nothing
+// guessed. Saved to this entry only, never to the shared catalogue.
+function PrivateEntryForm({
+  manga,
+  pending,
+  run,
+  form,
+  onDone,
+}: {
+  manga: Manga;
+  pending: boolean;
+  run: Runner;
+  form: (fields: Record<string, string>) => FormData;
+  onDone: () => void;
+}) {
+  const [title, setTitle] = useState(manga.title);
+  const [author, setAuthor] = useState(manga.author ?? "");
+  const [total, setTotal] = useState(manga.total_volumes ? String(manga.total_volumes) : "");
+  const input = "min-h-11 w-full rounded-xl px-3 text-base font-normal outline-none focus:ring-2";
+  const inputStyle = { background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" };
+  return (
+    <details className="border-t pt-4" style={{ borderColor: "var(--border)" }}>
+      <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold" style={{ color: "var(--muted)" }}>
+        Modifier ma fiche
+      </summary>
+      <form
+        className="mt-3 flex flex-col gap-3 sm:max-w-md"
+        onSubmit={(e) => {
+          e.preventDefault();
+          run(() => updatePrivateSeries(form({ manga_id: manga.id, title, author, total_volumes: total })), onDone);
+        }}
+      >
+        <label className="flex flex-col gap-1 text-sm font-semibold">
+          Titre
+          <input value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={200} className={input} style={inputStyle} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-semibold">
+          Auteur (facultatif)
+          <input value={author} onChange={(e) => setAuthor(e.target.value)} maxLength={200} className={input} style={inputStyle} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-semibold">
+          Nombre de tomes parus (facultatif)
+          <input value={total} onChange={(e) => setTotal(e.target.value.replace(/\D/g, ""))} inputMode="numeric" className={input} style={inputStyle} />
+        </label>
+        <p className="text-xs" style={{ color: "var(--muted)" }}>Visible par toi seul. Rien n&apos;est ajouté au catalogue commun.</p>
+        <button type="submit" disabled={pending || !title.trim()} className="min-h-11 self-start rounded-xl px-4 text-sm font-bold disabled:opacity-60" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+          Enregistrer la fiche
+        </button>
+      </form>
+    </details>
+  );
+}
 
 // "J'ai un nouveau tome !" : the first missing volume, adjustable.
 function NewVolumeCard({
@@ -513,11 +620,13 @@ function NextCard({
   candidate,
   waiting,
   ownedCount,
+  readCount,
   pending,
   onAct,
 }: {
   candidate: ReturnType<typeof nextToRead>;
   waiting: number;
+  readCount: number;
   ownedCount: number;
   pending: boolean;
   onAct: (intent: ReadingIntent, volume: number) => void;
@@ -532,10 +641,16 @@ function NextCard({
     return (
       <div className={box} style={boxStyle}>
         <p className="text-base font-bold">
-          {ownedCount === 0 ? "Aucun tome chez toi pour l'instant." : waiting === 0 ? "Tu as lu tous tes tomes de cette série !" : "Rien à lire ensuite ici."}
+          {ownedCount === 0 && readCount === 0
+            ? "Aucun tome noté pour l'instant."
+            : waiting === 0
+              ? "Tu as lu tous les tomes parus de cette série !"
+              : "Rien à lire ensuite ici."}
         </p>
         <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-          {ownedCount === 0 ? "Ajoute les tomes que tu as juste en dessous." : "Quand un nouveau tome arrive, ajoute-le juste en dessous."}
+          {ownedCount === 0 && readCount === 0
+            ? "Ajoute les tomes que tu as, ou note ceux que tu as lus, juste en dessous."
+            : "Quand un nouveau tome sort, ajoute-le juste en dessous."}
         </p>
       </div>
     );
@@ -565,9 +680,20 @@ function NextCard({
   return (
     <div className={box} style={boxStyle}>
       <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--read)" }}>
-        {isReading ? "Tu lis…" : candidate.kind === "skipped" ? "Tu as laissé de côté…" : "À lire ensuite"}
+        {isReading
+          ? "Tu lis…"
+          : candidate.kind === "skipped"
+            ? "Tu as laissé de côté…"
+            : candidate.kind === "to_find"
+              ? "Prochain tome à trouver"
+              : "À lire ensuite"}
       </p>
       <p className="mt-1 text-2xl font-black">Tome {candidate.volume}</p>
+      {candidate.kind === "to_find" && (
+        <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+          Il n&apos;est pas chez toi. Tu peux le lire ailleurs (emprunt, bibliothèque) et le noter ici.
+        </p>
+      )}
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
         <BigButton onClick={() => onAct(isReading ? "finish" : "start", candidate.volume)} disabled={pending}>
           {pending ? "J'enregistre…" : isReading ? "Je l'ai fini !" : "Je commence"}

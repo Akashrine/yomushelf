@@ -21,19 +21,21 @@ export default async function SeriePage({
   // RLS : another reader's private series is simply not found.
   const { data: manga, error: mangaError } = await supabase
     .from("mangas")
-    .select("id, title, author, publisher_fr, total_volumes, status, cover_url, genres, demographic, audience_min_age, synopsis, created_by")
+    .select("id, title, author, publisher_fr, total_volumes, status, cover_url, genres, demographic, audience_min_age, audience_age_source, synopsis, created_by, merged_into")
     .eq("id", slug)
     .maybeSingle();
 
   if (mangaError) throw new Error("Impossible de charger cette série.");
   if (!manga) notFound();
+  // An old link to a series merged into another one.
+  if (manga.merged_into) redirect(`/bibliotheque/${manga.merged_into}`);
 
   const [volumes, readings, { data: wishes, error: wishesError }, { data: collection, error: collectionError }, { data: profile }] =
     await Promise.all([
       getOwnedVolumes(supabase, user.id, manga.id),
       getReadings(supabase, user.id, manga.id),
       supabase.from("wishlist_items").select("volume_number").eq("user_id", user.id).eq("manga_id", manga.id),
-      supabase.from("user_collections").select("archived_at").eq("user_id", user.id).eq("manga_id", manga.id).maybeSingle(),
+      supabase.from("user_collections").select("archived_at, liked").eq("user_id", user.id).eq("manga_id", manga.id).maybeSingle(),
       supabase.from("profiles").select("avatar_initials").eq("id", user.id).single(),
     ]);
   if (wishesError) throw new Error("Impossible de charger les envies.");
@@ -55,6 +57,7 @@ export default async function SeriePage({
           genres: manga.genres ?? [],
           demographic: manga.demographic,
           audience_min_age: manga.audience_min_age,
+          audience_age_source: manga.audience_age_source,
           synopsis: manga.synopsis,
           is_private: manga.created_by != null,
         }}
@@ -62,6 +65,7 @@ export default async function SeriePage({
         volumes={volumes}
         readings={readings}
         wishedVolumes={(wishes ?? []).flatMap((w) => (w.volume_number == null ? [] : [w.volume_number]))}
+        liked={collection?.liked ?? null}
       />
     </AppShell>
   );

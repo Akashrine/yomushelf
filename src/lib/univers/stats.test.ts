@@ -1,8 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { lastMonths, readingsOverview, spendingOverview, tasteMap, wishlistEstimate } from "./stats";
+import { lastMonths, readingsOverview, spendingOverview, waitingAtHome, wishPrice, wishlistEstimate } from "./stats";
 import type { OwnedVolume } from "@/lib/collection/value";
 import type { Reading } from "@/lib/collection/reading";
-import type { CatalogueEntry } from "@/lib/discovery/suggest";
 
 const vol = (p: Partial<OwnedVolume>): OwnedVolume => ({
   manga_id: "a",
@@ -80,25 +79,38 @@ describe("readingsOverview", () => {
 });
 
 describe("wishlistEstimate", () => {
-  it("separates typed prices from estimates", () => {
-    const w = wishlistEstimate([
-      { target_price: 7.2, fallback_price: 7.5 },
-      { target_price: null, fallback_price: 7.5 },
-      { target_price: null, fallback_price: null },
-    ]);
+  it("separates indicative prices, estimates with their basis, and unknown prices", () => {
+    expect(wishPrice(7.2, 6.9, 7)).toEqual({ kind: "indicative", amount: 7.2 });
+    expect(wishPrice(null, 6.9, 7)).toEqual({ kind: "series", amount: 6.9 });
+    expect(wishPrice(null, null, 7)).toEqual({ kind: "average", amount: 7 });
+    expect(wishPrice(null, null, null)).toEqual({ kind: "unknown" });
+    const w = wishlistEstimate([wishPrice(7.2, null, null), wishPrice(null, 7.5, null), wishPrice(null, null, null)]);
     expect(w).toMatchObject({ count: 3, known: 7.2, estimated: 7.5, total: 14.7, unknownCount: 1 });
+  });
+
+  it("an unknown price never becomes zero in the total : it is counted apart", () => {
+    const w = wishlistEstimate([wishPrice(null, null, null), wishPrice(null, null, null)]);
+    expect(w).toMatchObject({ total: 0, unknownCount: 2, estimatedCount: 0, knownCount: 0 });
   });
 });
 
-describe("tasteMap", () => {
-  it("turns readings into genre shares", () => {
-    const cat: CatalogueEntry[] = [
-      { id: "a", title: "A", author: "X", genres: ["sport"], demographic: "shonen", audience_min_age: null, total_volumes: null, status: "ongoing", top_50_rank: null, cover_url: null },
-      { id: "b", title: "B", author: "Y", genres: ["romance"], demographic: "shojo", audience_min_age: null, total_volumes: null, status: "ongoing", top_50_rank: null, cover_url: null },
-    ];
-    const t = tasteMap([{ manga_id: "a", read: 10, owned: 10 }, { manga_id: "b", read: 1, owned: 1 }], cat);
-    expect(t.genres[0].key).toBe("sport");
-    expect(t.genres.reduce((s, g) => s + g.share, 0)).toBeCloseTo(1);
-    expect(t.demographics[0].label).toBe("shōnen");
+describe("spending coverage", () => {
+  it("counts priced bought volumes out of all bought ones ; gifts and borrowed apart", () => {
+    const s = spendingOverview(
+      [vol({ price_eur: 7 }), vol({ volume_number: 2, price_eur: null }), vol({ volume_number: 3, acquisition_type: "gift", price_eur: 7 }), vol({ volume_number: 4, acquisition_type: "borrowed", price_eur: null })],
+      "2026-10-15"
+    );
+    expect(s).toMatchObject({ paid: 7, paidCount: 1, boughtCount: 2, giftsCount: 1, borrowed: 1 });
+  });
+});
+
+describe("waitingAtHome", () => {
+  it("lists series with unread volumes at home, borrowed included", () => {
+    const shelf = (manga_id: string, owned: number[], read: number[]) => ({
+      manga_id, title: manga_id, slug: manga_id, cover_url: null, owned, borrowed: [], read, reading: [], lastFinished: null,
+    });
+    const w = waitingAtHome([shelf("a", [1, 2, 3], [1]), shelf("b", [1], [1]), shelf("c", [], [1, 2])]);
+    expect(w.total).toBe(2);
+    expect(w.series.map((s) => s.manga_id)).toEqual(["a"]);
   });
 });

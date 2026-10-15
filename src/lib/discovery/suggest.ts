@@ -1,14 +1,20 @@
 // Discovery helpers — pure functions, shared by the Découvrir page and tests.
 //
-// A suggestion is a catalogue series the reader does not have yet, scored
-// by what it shares with the series they actually read : genres, the
-// demographic (shōnen, seinen…) and the author. Every suggestion carries
-// a human reason ("Parce que tu lis One Piece et Dr. Stone : aventure").
-// Readings weigh more than owned-but-unread volumes : taste is what you
-// read, not what you bought.
+// A suggestion is a curated catalogue series the reader does not have yet,
+// scored by what it shares with what the reader likes : genres, the
+// demographic and the author. Every suggestion carries a reason built from
+// real data ("Parce que tu as aimé One Piece : aventure").
+//
+// Weighting (simple and explainable, see docs/decouverte.md) :
+//   each series counts the same whatever its length ;
+//   read at least one volume → 1 ; only owned → 0.25 ;
+//   "J'ai aimé" → +1 ; "Pas pour moi" → 0 ;
+//   each genre the reader declares liking → 1.
+// Declared tastes and "J'ai aimé" are what the reader SAYS ; volumes owned
+// are a weak signal only.
 
 import type { Demographic } from "@/lib/types/database";
-
+import { territoriesOf, territoryLabel, TERRITORIES, type TerritoryKey } from "./territories";
 export const GENRES = [
   "action",
   "aventure",
@@ -46,12 +52,13 @@ export const GENRE_LABELS: Record<string, string> = {
   psychologique: "psychologique",
 };
 
+// Plain words first ; the Japanese term in brackets for those who know it.
 export const DEMOGRAPHIC_LABELS: Record<Demographic, string> = {
-  kodomo: "kodomo",
-  shonen: "shōnen",
-  shojo: "shōjo",
-  seinen: "seinen",
-  josei: "josei",
+  kodomo: "jeunesse",
+  shonen: "ado (shōnen)",
+  shojo: "ado (shōjo)",
+  seinen: "jeune adulte (seinen)",
+  josei: "jeune adulte (josei)",
 };
 
 export type CatalogueEntry = {
@@ -61,6 +68,7 @@ export type CatalogueEntry = {
   genres: string[];
   demographic: Demographic | null;
   audience_min_age: number | null;
+  audience_age_source?: "cnlj" | "estimate" | null; // only "cnlj" is ever shown as an age
   total_volumes: number | null;
   status: "ongoing" | "completed" | "paused";
   top_50_rank: number | null;
@@ -72,7 +80,13 @@ export type ReaderSeries = {
   manga_id: string;
   read: number; // volumes read
   owned: number; // volumes at home
+  liked?: boolean | null; // "J'ai aimé" true, "Pas pour moi" false, null : nothing said
+  title?: string;
 };
+
+// Tastes the reader declared.
+export type DeclaredTastes = { liked: string[]; avoided: string[] };
+const NO_TASTES: DeclaredTastes = { liked: [], avoided: [] };
 
 export type Suggestion = {
   entry: CatalogueEntry;
@@ -81,12 +95,10 @@ export type Suggestion = {
   because: string[]; // titles of the reader's series that drove it
 };
 
-const READ_WEIGHT = 1;
-const OWNED_WEIGHT = 0.25;
-
-function seriesWeight(s: ReaderSeries) {
-  // Diminishing returns : a 100-volume series must not drown the others.
-  return Math.log2(1 + s.read * READ_WEIGHT + s.owned * OWNED_WEIGHT);
+export function seriesWeight(s: ReaderSeries): number {
+  if (s.liked === false) return 0;
+  const base = s.read > 0 ? 1 : s.owned > 0 ? 0.25 : 0;
+  return base + (s.liked === true ? 1 : 0);
 }
 
 export type TasteProfile = {
@@ -98,7 +110,8 @@ export type TasteProfile = {
 
 export function tasteProfile(
   library: ReaderSeries[],
-  catalogue: Map<string, CatalogueEntry>
+  catalogue: Map<string, CatalogueEntry>,
+  declared: DeclaredTastes = NO_TASTES
 ): TasteProfile {
   const genres = new Map<string, number>();
   const demographics = new Map<string, number>();
@@ -114,6 +127,10 @@ export function tasteProfile(
     if (entry.demographic) demographics.set(entry.demographic, (demographics.get(entry.demographic) ?? 0) + w);
     if (entry.author) authors.set(entry.author, (authors.get(entry.author) ?? 0) + w);
   }
+  for (const g of declared.liked) {
+    genres.set(g, (genres.get(g) ?? 0) + 1);
+    total += 1;
+  }
   return { genres, demographics, authors, total };
 }
 
@@ -122,13 +139,15 @@ const joinFr = (items: string[]) =>
 
 export type SuggestOptions = {
   limit?: number;
-  maxAge?: number | null; // only series whose minimum age is at most this
+  maxAge?: number | null; // explicit cap (overrides the comfort age)
+  declared?: DeclaredTastes;
 };
 
-// Suggestions stay close to what the reader already reads : at most two
-// years above the oldest recommended age among the series they read.
-// null when nothing read has a known age (no cap). This only shapes
-// suggestions ; browsing the catalogue stays open.
+// Prudence : suggestions stay close to what the reader already reads, at
+// most two years above the highest age indication among series they read.
+// Age indications include estimates here, because they can only make the
+// suggestions MORE cautious. A series with no age indication at all is
+// never suggested. null when nothing read has an indication.
 export function comfortAge(library: ReaderSeries[], catalogue: Map<string, CatalogueEntry>): number | null {
   let max: number | null = null;
   for (const s of library) {
@@ -139,14 +158,18 @@ export function comfortAge(library: ReaderSeries[], catalogue: Map<string, Catal
   return max == null ? null : max + 2;
 }
 
+function avoids(c: CatalogueEntry, declared: DeclaredTastes) {
+  return c.genres.some((g) => declared.avoided.includes(g));
+}
+
 export function suggest(
   library: ReaderSeries[],
   catalogue: CatalogueEntry[],
-  excluded: Set<string>, // already in the library or in the wishlist
-  { limit = 12, maxAge = null }: SuggestOptions = {}
+  excluded: Set<string>, // in the library, wished, or set aside
+  { limit = 12, maxAge = null, declared = NO_TASTES }: SuggestOptions = {}
 ): Suggestion[] {
   const byId = new Map(catalogue.map((c) => [c.id, c]));
-  const profile = tasteProfile(library, byId);
+  const profile = tasteProfile(library, byId, declared);
   if (profile.total === 0) return [];
   if (maxAge === undefined || maxAge === null) maxAge = comfortAge(library, byId);
 
@@ -157,7 +180,9 @@ export function suggest(
   const out: Suggestion[] = [];
   for (const c of catalogue) {
     if (excluded.has(c.id)) continue;
-    if (maxAge != null && c.audience_min_age != null && c.audience_min_age > maxAge) continue;
+    if (c.audience_min_age == null) continue; // unknown : never suggested
+    if (maxAge != null && c.audience_min_age > maxAge) continue;
+    if (avoids(c, declared)) continue;
     if (c.genres.length === 0 && !c.demographic) continue;
 
     let score = 0;
@@ -169,29 +194,138 @@ export function suggest(
     if (c.top_50_rank != null) score += (51 - c.top_50_rank) / 1000;
     if (score <= 0.05) continue;
 
-    // Reason : the reader's series sharing the most with this one.
+    // Reason : the reader's series sharing the most with this one, liked
+    // ones first ; otherwise the genres the reader declared.
     const shared = readerSeries
-      .map(({ entry, w }) => {
+      .map(({ s, entry, w }) => {
         const common = entry.genres.filter((g) => c.genres.includes(g));
         const author = c.author != null && entry.author === c.author;
-        return { entry, w, common, author, strength: (common.length + (author ? 2 : 0)) * w };
+        return { s, entry, w, common, author, strength: (common.length + (author ? 2 : 0)) * w };
       })
       .filter((x) => x.strength > 0)
       .sort((a, b) => b.strength - a.strength)
       .slice(0, 2);
-    if (shared.length === 0) continue;
+    const declaredCommon = c.genres.filter((g) => declared.liked.includes(g));
+    if (shared.length === 0 && declaredCommon.length === 0) continue;
 
+    let reason: string;
     const authorMatch = shared.find((x) => x.author);
-    const commonGenres = [...new Set(shared.flatMap((x) => x.common))].slice(0, 2).map((g) => GENRE_LABELS[g] ?? g);
-    const titles = shared.map((x) => x.entry.title);
-    const reason = authorMatch
-      ? `Du même auteur que ${authorMatch.entry.title}`
-      : `Parce que tu lis ${joinFr(titles)}${commonGenres.length ? ` : ${joinFr(commonGenres)}` : ""}`;
+    if (authorMatch) {
+      reason = `Du même auteur que ${authorMatch.entry.title}`;
+    } else if (shared.length) {
+      const commonGenres = [...new Set(shared.flatMap((x) => x.common))].slice(0, 2).map((g) => GENRE_LABELS[g] ?? g);
+      const liked = shared.filter((x) => x.s.liked === true).map((x) => x.entry.title);
+      const read = shared.filter((x) => x.s.liked !== true && x.s.read > 0).map((x) => x.entry.title);
+      const owned = shared.filter((x) => x.s.liked !== true && x.s.read === 0).map((x) => x.entry.title);
+      const verb = liked.length
+        ? `Parce que tu as aimé ${joinFr(liked)}`
+        : read.length
+          ? `Parce que tu lis ${joinFr(read)}`
+          : `Parce que tu as ${joinFr(owned)} chez toi`;
+      reason = `${verb}${commonGenres.length ? ` : ${joinFr(commonGenres)}` : ""}`;
+    } else {
+      reason = `Parce que tu aimes ${joinFr(declaredCommon.slice(0, 2).map((g) => GENRE_LABELS[g] ?? g))}`;
+    }
 
-    out.push({ entry: c, score, reason, because: titles });
+    out.push({ entry: c, score, reason, because: shared.map((x) => x.entry.title) });
   }
 
   return out.sort((a, b) => b.score - a.score || a.entry.title.localeCompare(b.entry.title, "fr")).slice(0, limit);
+}
+
+// ─────────────────────────────────────────
+// Taste by territory (the taste map)
+// ─────────────────────────────────────────
+
+export type TerritoryTaste = {
+  key: TerritoryKey;
+  label: string;
+  hint: string;
+  share: number; // 0..1 of the reader's taste
+  series: { manga_id: string; title: string; liked: boolean | null; read: number; owned: number }[];
+  declared: boolean; // a liked genre of the reader is in this territory
+  avoided: boolean; // every genre of this territory is avoided
+};
+
+// Each series spreads its weight evenly over the territories it touches,
+// so a series is never worth more than another because it has more genres
+// or more volumes.
+export function territoryTastes(
+  library: ReaderSeries[],
+  catalogue: Map<string, CatalogueEntry>,
+  declared: DeclaredTastes = NO_TASTES
+): TerritoryTaste[] {
+  const score = new Map<TerritoryKey, number>();
+  const members = new Map<TerritoryKey, TerritoryTaste["series"]>();
+  for (const s of library) {
+    const entry = catalogue.get(s.manga_id);
+    if (!entry) continue;
+    const ts = territoriesOf(entry.genres);
+    const w = seriesWeight(s);
+    for (const t of ts) {
+      if (w > 0) score.set(t, (score.get(t) ?? 0) + w / ts.length);
+      if (s.read + s.owned > 0 || s.liked != null) {
+        const list = members.get(t) ?? [];
+        list.push({ manga_id: s.manga_id, title: entry.title, liked: s.liked ?? null, read: s.read, owned: s.owned });
+        members.set(t, list);
+      }
+    }
+  }
+  for (const g of declared.liked) {
+    const [t] = territoriesOf([g]);
+    if (t) score.set(t, (score.get(t) ?? 0) + 1);
+  }
+  const total = [...score.values()].reduce((a, b) => a + b, 0);
+  return TERRITORIES.map((t) => ({
+    key: t.key,
+    label: t.label,
+    hint: t.hint,
+    share: total > 0 ? (score.get(t.key) ?? 0) / total : 0,
+    series: (members.get(t.key) ?? []).sort((a, b) => Number(b.liked === true) - Number(a.liked === true) || b.read - a.read || a.title.localeCompare(b.title, "fr")),
+    declared: t.genres.some((g) => declared.liked.includes(g)),
+    avoided: t.genres.every((g) => declared.avoided.includes(g)),
+  }));
+}
+
+// Curated series of one territory the reader does not have, most known first.
+export function territoryDiscoveries(
+  key: TerritoryKey,
+  catalogue: CatalogueEntry[],
+  excluded: Set<string>,
+  { limit = 3, maxAge = null, declared = NO_TASTES }: { limit?: number; maxAge?: number | null; declared?: DeclaredTastes } = {}
+): CatalogueEntry[] {
+  return catalogue
+    .filter((c) => !excluded.has(c.id) && c.audience_min_age != null && (maxAge == null || c.audience_min_age <= maxAge))
+    .filter((c) => !avoids(c, declared) && territoriesOf(c.genres).includes(key))
+    .sort((a, b) => (a.top_50_rank ?? 999) - (b.top_50_rank ?? 999) || a.title.localeCompare(b.title, "fr"))
+    .slice(0, limit);
+}
+
+// "Explorer un univers différent" : one series from each territory the
+// reader has explored least (and does not avoid).
+export function otherUniverses(
+  library: ReaderSeries[],
+  catalogue: CatalogueEntry[],
+  excluded: Set<string>,
+  { limit = 3, declared = NO_TASTES }: { limit?: number; declared?: DeclaredTastes } = {}
+): { entry: CatalogueEntry; reason: string }[] {
+  const byId = new Map(catalogue.map((c) => [c.id, c]));
+  const tastes = territoryTastes(library, byId, declared);
+  if (tastes.every((t) => t.share === 0)) return [];
+  const maxAge = comfortAge(library, byId);
+  const out: { entry: CatalogueEntry; reason: string }[] = [];
+  const taken = new Set(excluded);
+  for (const t of [...tastes].filter((t) => !t.avoided).sort((a, b) => a.share - b.share)) {
+    if (out.length >= limit || t.share >= 0.25) break;
+    const [pick] = territoryDiscoveries(t.key, catalogue, taken, { limit: 1, maxAge, declared });
+    if (!pick) continue;
+    taken.add(pick.id);
+    out.push({
+      entry: pick,
+      reason: t.share === 0 ? `Pour changer : ${territoryLabel(t.key).toLowerCase()}, un univers que tu n'as pas encore exploré` : `Pour changer : un peu plus de ${territoryLabel(t.key).toLowerCase()}`,
+    });
+  }
+  return out;
 }
 
 // ─────────────────────────────────────────
@@ -201,6 +335,7 @@ export function suggest(
 export type LengthFilter = "court" | "moyen" | "long";
 
 export type DiscoveryFilters = {
+  territory?: TerritoryKey | null;
   genre?: string | null;
   maxAge?: number | null;
   status?: "completed" | "ongoing" | null;
@@ -215,8 +350,11 @@ export function lengthOf(total: number | null): LengthFilter | null {
 }
 
 export function matchesFilters(c: CatalogueEntry, f: DiscoveryFilters): boolean {
+  if (f.territory && !territoriesOf(c.genres).includes(f.territory)) return false;
   if (f.genre && !c.genres.includes(f.genre)) return false;
-  if (f.maxAge != null && (c.audience_min_age == null || c.audience_min_age > f.maxAge)) return false;
+  // Age filter : only the CNLJ indication counts. Unknown or estimated
+  // ages are left out when the filter is on.
+  if (f.maxAge != null && (c.audience_age_source !== "cnlj" || c.audience_min_age == null || c.audience_min_age > f.maxAge)) return false;
   if (f.status === "completed" && c.status !== "completed") return false;
   if (f.status === "ongoing" && c.status === "completed") return false;
   if (f.length && lengthOf(c.total_volumes) !== f.length) return false;

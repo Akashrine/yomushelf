@@ -24,6 +24,8 @@ export type Database = {
           onboarding_completed: boolean;
           avatar_initials: string;
           is_public: boolean;
+          liked_genres: string[];
+          avoided_genres: string[];
           bio: string | null;
           public_slug: string | null;
           sharing_locked: boolean;
@@ -36,6 +38,8 @@ export type Database = {
           onboarding_completed?: boolean;
           avatar_initials?: string;
           is_public?: boolean;
+          liked_genres?: string[];
+          avoided_genres?: string[];
           bio?: string | null;
           public_slug?: string | null;
         };
@@ -47,6 +51,8 @@ export type Database = {
           onboarding_completed?: boolean;
           avatar_initials?: string;
           is_public?: boolean;
+          liked_genres?: string[];
+          avoided_genres?: string[];
           bio?: string | null;
           public_slug?: string | null;
         };
@@ -69,6 +75,9 @@ export type Database = {
           genres: string[];
           demographic: Demographic | null;
           audience_min_age: number | null;
+          audience_age_source: "cnlj" | "estimate" | null;
+          curated: boolean;
+          merged_into: string | null;
           synopsis: string | null;
           aliases: string[];
           created_by: string | null;
@@ -92,6 +101,9 @@ export type Database = {
           genres?: string[];
           demographic?: Demographic | null;
           audience_min_age?: number | null;
+          audience_age_source?: "cnlj" | "estimate" | null;
+          curated?: boolean;
+          merged_into?: string | null;
           synopsis?: string | null;
           aliases?: string[];
           created_by?: string | null;
@@ -114,6 +126,9 @@ export type Database = {
           genres?: string[];
           demographic?: Demographic | null;
           audience_min_age?: number | null;
+          audience_age_source?: "cnlj" | "estimate" | null;
+          curated?: boolean;
+          merged_into?: string | null;
           synopsis?: string | null;
           aliases?: string[];
           created_by?: string | null;
@@ -182,6 +197,7 @@ export type Database = {
           first_added_at: string;
           updated_at: string;
           archived_at: string | null;
+          liked: boolean | null;
         };
         Insert: {
           id?: string;
@@ -197,6 +213,7 @@ export type Database = {
             | "dropped";
           first_added_at?: string;
           archived_at?: string | null;
+          liked?: boolean | null;
           updated_at?: string;
         };
         Update: {
@@ -213,6 +230,7 @@ export type Database = {
             | "dropped";
           first_added_at?: string;
           archived_at?: string | null;
+          liked?: boolean | null;
           updated_at?: string;
         };
         Relationships: [
@@ -330,6 +348,12 @@ export type Database = {
             referencedColumns: ["user_id", "manga_id"];
           }
         ];
+      };
+      discovery_dismissals: {
+        Row: { user_id: string; manga_id: string; created_at: string };
+        Insert: { user_id: string; manga_id: string; created_at?: string };
+        Update: { user_id?: string; manga_id?: string; created_at?: string };
+        Relationships: [];
       };
       editorial_selections: {
         Row: {

@@ -4,8 +4,8 @@ import { useState } from "react";
 
 // Small, single-series charts for "Mon univers". One hue per chart, thin
 // marks with rounded data ends on a recessive baseline, a tooltip on
-// hover and keyboard focus. The drawing is decorative ; one HTML button per
-// month carries the value for keyboard and screen readers.
+// pointer hover. The drawing is decorative ; "Voir les chiffres" gives the
+// values as a table for keyboard and screen readers.
 
 export type BarDatum = { key: string; label: string; value: number; display: string };
 
@@ -39,7 +39,8 @@ export function MonthBars({
   }
 
   return (
-    <div className="relative">
+    <div>
+      <div className="relative">
       <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full" aria-hidden="true" focusable="false">
         <line x1={0} x2={W} y1={H - bottom} y2={H - bottom} stroke="var(--border)" strokeWidth={1} />
         {data.map((d, i) => {
@@ -77,21 +78,34 @@ export function MonthBars({
           );
         })}
       </svg>
-      {/* Hit areas larger than the marks, one per month */}
-      <div role="group" aria-label={`${title} (${unitLabel})`} className="absolute inset-0 flex">
+      {/* Pointer hover only, hit areas larger than the marks. Keyboard and
+          screen readers get the same numbers in the table below. */}
+      <div aria-hidden="true" className="absolute inset-0 flex">
         {data.map((d, i) => (
-          <button
-            key={d.key}
-            type="button"
-            aria-label={`${d.label} : ${d.display}`}
-            onMouseEnter={() => setActive(i)}
-            onMouseLeave={() => setActive(null)}
-            onFocus={() => setActive(i)}
-            onBlur={() => setActive(null)}
-            className="h-full flex-1 cursor-default rounded-lg outline-none focus-visible:ring-2"
-          />
+          <div key={d.key} className="h-full flex-1" onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(null)} />
         ))}
       </div>
+      </div>
+      <details className="mt-1 text-sm">
+        <summary className="flex min-h-11 cursor-pointer items-center" style={{ color: "var(--muted)" }}>Voir les chiffres</summary>
+        <table className="mt-1 w-full text-left text-sm">
+          <caption className="sr-only">{title}</caption>
+          <thead>
+            <tr>
+              <th scope="col" className="py-1 font-semibold">Mois</th>
+              <th scope="col" className="py-1 text-right font-semibold">{unitLabel}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((d) => (
+              <tr key={d.key} style={{ borderTop: "1px solid var(--border)" }}>
+                <th scope="row" className="py-1 font-normal">{d.label}</th>
+                <td className="py-1 text-right tabular-nums">{d.display}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
     </div>
   );
 }

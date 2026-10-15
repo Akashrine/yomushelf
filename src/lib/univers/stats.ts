@@ -1,14 +1,13 @@
 // "Mon univers" helpers — pure functions, shared by the page and tests.
 //
 // Three separate stories, never mixed :
-//   taste      : what the reader likes, from what they read (and own)
+//   taste      : see lib/discovery (territoryTastes)
 //   readings   : how much and when they read (dated readings only in charts)
 //   spending   : what was actually paid, as typed in ; gifts apart
 //   wishlist   : an estimate of what the wishes would cost, never "spent"
 
-import { GENRE_LABELS, DEMOGRAPHIC_LABELS, tasteProfile, type CatalogueEntry, type ReaderSeries } from "@/lib/discovery/suggest";
 import type { OwnedVolume } from "@/lib/collection/value";
-import type { Reading } from "@/lib/collection/reading";
+import type { Reading, SeriesShelf } from "@/lib/collection/reading";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -21,27 +20,22 @@ export function lastMonths(today: string, count = 12): string[] {
 }
 
 // ─────────────────────────────────────────
-// Taste map
+// Volumes waiting at home : what can be read right now
 // ─────────────────────────────────────────
 
-export type Share = { key: string; label: string; share: number };
+export type Waiting = { manga_id: string; title: string; slug: string; unread: number; owned: number };
 
-export function tasteMap(library: ReaderSeries[], catalogue: CatalogueEntry[]) {
-  const profile = tasteProfile(library, new Map(catalogue.map((c) => [c.id, c])));
-  const toShares = (m: Map<string, number>, labels: Record<string, string>): Share[] => {
-    const total = [...m.values()].reduce((s, v) => s + v, 0);
-    if (total === 0) return [];
-    return [...m.entries()]
-      .map(([key, v]) => ({ key, label: labels[key] ?? key, share: v / total }))
-      .sort((a, b) => b.share - a.share);
-  };
-  const authors = [...profile.authors.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([a]) => a);
-  return {
-    genres: toShares(profile.genres, GENRE_LABELS),
-    demographics: toShares(profile.demographics, DEMOGRAPHIC_LABELS as Record<string, string>),
-    authors,
-    seriesCounted: library.filter((s) => s.read + s.owned > 0).length,
-  };
+// Series with unread volumes at home, most waiting first. Borrowed
+// volumes count : they are at home now.
+export function waitingAtHome(shelves: SeriesShelf[], limit = 5): { total: number; series: Waiting[] } {
+  const all = shelves
+    .map((s) => {
+      const read = new Set(s.read);
+      return { manga_id: s.manga_id, title: s.title, slug: s.slug, unread: s.owned.filter((v) => !read.has(v)).length, owned: s.owned.length };
+    })
+    .filter((w) => w.unread > 0)
+    .sort((a, b) => b.unread - a.unread || a.title.localeCompare(b.title, "fr"));
+  return { total: all.reduce((n, w) => n + w.unread, 0), series: all.slice(0, limit) };
 }
 
 // ─────────────────────────────────────────
@@ -156,6 +150,8 @@ export function spendingOverview(volumes: OwnedVolume[], today: string) {
     months: months.map((key) => ({ key, amount: round2(byMonth.get(key) ?? 0) })),
     gifts: round2(gifts),
     giftsCount,
+    // Coverage : bought volumes with a typed price, out of all bought volumes.
+    boughtCount: paidCount + unpricedBought,
     unpricedBought,
     unknownOrigin,
     borrowed,
@@ -166,27 +162,42 @@ export function spendingOverview(volumes: OwnedVolume[], today: string) {
 // Wishlist estimate : never added to spending
 // ─────────────────────────────────────────
 
-export type WishLike = { target_price: number | null; fallback_price: number | null };
+// Price of a wish, in this order (never invented) :
+//   indicative : the price the reader typed for this wish
+//   series     : estimated from the last price paid for this series
+//   average    : estimated from the reader's average paid price
+//   unknown    : no basis at all
+export type WishPrice =
+  | { kind: "indicative"; amount: number }
+  | { kind: "series" | "average"; amount: number }
+  | { kind: "unknown" };
 
-export function wishlistEstimate(wishes: WishLike[]) {
+export function wishPrice(targetPrice: number | null, seriesLastPaid: number | null, readerAverage: number | null): WishPrice {
+  if (targetPrice != null) return { kind: "indicative", amount: Number(targetPrice) };
+  if (seriesLastPaid != null) return { kind: "series", amount: Number(seriesLastPaid) };
+  if (readerAverage != null) return { kind: "average", amount: Number(readerAverage) };
+  return { kind: "unknown" };
+}
+
+export function wishlistEstimate(prices: WishPrice[]) {
   let known = 0;
   let knownCount = 0;
   let estimated = 0;
   let estimatedCount = 0;
   let unknownCount = 0;
-  for (const w of wishes) {
-    if (w.target_price != null) {
-      known += Number(w.target_price);
+  for (const p of prices) {
+    if (p.kind === "indicative") {
+      known += p.amount;
       knownCount++;
-    } else if (w.fallback_price != null) {
-      estimated += Number(w.fallback_price);
-      estimatedCount++;
-    } else {
+    } else if (p.kind === "unknown") {
       unknownCount++;
+    } else {
+      estimated += p.amount;
+      estimatedCount++;
     }
   }
   return {
-    count: wishes.length,
+    count: prices.length,
     total: round2(known + estimated),
     known: round2(known),
     knownCount,

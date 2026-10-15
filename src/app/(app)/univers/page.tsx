@@ -3,12 +3,16 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getOwnedVolumes, getReadings, getSeriesMeta } from "@/lib/supabase/queries";
-import { formatEur, formatMonthShort, todayIso } from "@/lib/collection/value";
-import { readingsOverview, spendingOverview, tasteMap, wishlistEstimate } from "@/lib/univers/stats";
-import type { CatalogueEntry } from "@/lib/discovery/suggest";
+import { loadDiscoveryContext, readerLibrary, withReaderSeries } from "@/lib/supabase/discovery-data";
+import { formatEur, formatMonthShort, lastKnownPrice, todayIso } from "@/lib/collection/value";
+import { buildShelves } from "@/lib/collection/reading";
+import { readingsOverview, spendingOverview, waitingAtHome, wishPrice, wishlistEstimate } from "@/lib/univers/stats";
+import { comfortAge, territoryDiscoveries, territoryTastes } from "@/lib/discovery/suggest";
+import { TERRITORIES, type TerritoryKey } from "@/lib/discovery/territories";
 import { AppShell } from "@/components/app/app-shell";
 import { AppIcon } from "@/components/app/app-icon";
-import { MonthBars, ShareBars } from "@/components/univers/charts";
+import { MonthBars } from "@/components/univers/charts";
+import { TasteMap, type MapDiscovery } from "@/components/univers/taste-map";
 import { Settings } from "@/components/univers/settings";
 import { BulkReadForm } from "@/components/parent/bulk-read-form";
 
@@ -21,44 +25,47 @@ export default async function UniversPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [series, volumes, readings, { data: profile }, wishesResult] = await Promise.all([
+  const [series, volumes, readings, { data: profile }, wishesResult, discovery] = await Promise.all([
     getSeriesMeta(supabase, user.id, { includeArchived: true }),
     getOwnedVolumes(supabase, user.id),
     getReadings(supabase, user.id),
     supabase.from("profiles").select("username, avatar_initials").eq("id", user.id).single(),
-    supabase.from("wishlist_items").select("target_price, mangas ( avg_price_eur )").eq("user_id", user.id),
+    supabase.from("wishlist_items").select("manga_id, target_price").eq("user_id", user.id),
+    loadDiscoveryContext(supabase, user.id),
   ]);
   if (wishesResult.error) throw new Error("Impossible de charger tes envies.");
 
   const today = todayIso();
-  const catalogue: CatalogueEntry[] = series.map((s) => ({
-    id: s.manga_id,
-    title: s.title,
-    author: s.author,
-    genres: s.genres,
-    demographic: s.demographic,
-    audience_min_age: s.audience_min_age,
-    total_volumes: s.total_volumes,
-    status: s.status,
-    top_50_rank: null,
-    cover_url: s.cover_url,
-  }));
-  const library = series.map((s) => ({
-    manga_id: s.manga_id,
-    read: readings.filter((r) => r.manga_id === s.manga_id && r.status === "read").length,
-    owned: volumes.filter((v) => v.manga_id === s.manga_id).length,
-  }));
+  const library = readerLibrary(series, volumes, readings);
+  const known = withReaderSeries(discovery.catalogue, series);
 
-  const taste = tasteMap(library, catalogue);
+  // Taste map : territories from real readings, "J'ai aimé" and declared genres.
+  const territories = territoryTastes(library, known, discovery.declared);
+  const excluded = new Set([...series.map((s) => s.manga_id), ...discovery.wished, ...discovery.dismissed]);
+  const maxAge = comfortAge(library, known);
+  const discoveries: Partial<Record<TerritoryKey, MapDiscovery[]>> = Object.fromEntries(
+    TERRITORIES.map((t) => [
+      t.key,
+      territoryDiscoveries(t.key, discovery.catalogue, excluded, { limit: 3, maxAge, declared: discovery.declared }).map((c) => ({
+        id: c.id,
+        title: c.title,
+        cover_url: c.cover_url,
+      })),
+    ])
+  );
+  const uncounted = library.filter((l) => (l.read + l.owned > 0 || l.liked) && (known.get(l.manga_id)?.genres.length ?? 0) === 0).length;
+
   const reads = readingsOverview(readings, new Map(series.map((s) => [s.manga_id, s.total_volumes])), today);
+  const waiting = waitingAtHome(buildShelves(series.filter((s) => !s.archived_at), volumes, readings));
   const spend = spendingOverview(volumes, today);
   const wishes = wishlistEstimate(
-    (wishesResult.data ?? []).map((w) => ({
-      target_price: w.target_price == null ? null : Number(w.target_price),
-      fallback_price: (w.mangas as unknown as { avg_price_eur: number | string } | null)?.avg_price_eur != null
-        ? Number((w.mangas as unknown as { avg_price_eur: number | string }).avg_price_eur)
-        : null,
-    }))
+    (wishesResult.data ?? []).map((w) =>
+      wishPrice(
+        w.target_price == null ? null : Number(w.target_price),
+        lastKnownPrice(volumes.filter((v) => v.manga_id === w.manga_id && v.acquisition_type === "bought")),
+        spend.averagePaid
+      )
+    )
   );
   const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
 
@@ -72,38 +79,11 @@ export default async function UniversPage() {
 
         {/* Taste */}
         <section aria-labelledby="h-gouts" className="flex flex-col gap-4">
-          <h2 id="h-gouts" className="text-xl font-bold">Mes goûts</h2>
-          {taste.genres.length === 0 ? (
-            <Empty>
-              Ajoute des séries et note tes lectures : ta carte des goûts se dessinera ici.{" "}
-              <Link href="/ajouter" className="underline underline-offset-4">Ajouter un manga</Link>
-            </Empty>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-              <Card>
-                <p className="text-sm font-semibold">Genres</p>
-                <p className="mb-3 text-xs" style={{ color: "var(--muted)" }}>Calculé sur tes lectures, et un peu sur tes tomes pas encore lus.</p>
-                <ShareBars data={taste.genres} color="var(--sleep)" />
-              </Card>
-              <Card>
-                <p className="mb-3 text-sm font-semibold">Types de manga</p>
-                <ShareBars data={taste.demographics} color="var(--sleep)" max={5} />
-                {taste.authors.length > 0 && (
-                  <>
-                    <p className="mb-1 mt-5 text-sm font-semibold">Auteurs que tu lis le plus</p>
-                    <ul className="flex flex-col gap-1 text-sm">
-                      {taste.authors.map((a) => (
-                        <li key={a}>{a}</li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-                <Link href="/decouvrir" className="mt-5 flex min-h-11 items-center gap-1.5 text-sm font-semibold" style={{ color: "var(--read)" }}>
-                  <AppIcon name="compass" size={16} /> Des idées qui te ressemblent
-                </Link>
-              </Card>
-            </div>
-          )}
+          <div>
+            <h2 id="h-gouts" className="text-xl font-bold">Ma carte des goûts</h2>
+            <p className="text-sm" style={{ color: "var(--muted)" }}>Touche un territoire pour voir tes séries et des idées.</p>
+          </div>
+          <TasteMap territories={territories} discoveries={discoveries} uncounted={uncounted} />
         </section>
 
         {/* Readings */}
@@ -129,19 +109,60 @@ export default async function UniversPage() {
               unitLabel="Tomes finis"
             />
           </Card>
+          <Card>
+            <p className="text-sm font-semibold">Qu&apos;est-ce que je peux lire maintenant ?</p>
+            {waiting.total === 0 ? (
+              <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+                Aucun tome non lu chez toi. <Link href="/decouvrir" className="underline underline-offset-4">Trouver une idée</Link>
+              </p>
+            ) : (
+              <>
+                <p className="mb-3 text-xs" style={{ color: "var(--muted)" }}>
+                  {plural(waiting.total, "tome attend chez toi", "tomes attendent chez toi")}.
+                </p>
+                <ul className="flex flex-col gap-2">
+                  {waiting.series.map((w) => (
+                    <li key={w.manga_id}>
+                      <Link href={`/bibliotheque/${w.slug}`} className="grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-1 hover:underline">
+                        <span className="flex min-w-0 flex-col gap-1">
+                          <span className="truncate text-sm font-semibold">{w.title}</span>
+                          <span className="h-2 overflow-hidden rounded-full" style={{ background: "var(--background)" }} aria-hidden="true">
+                            <span className="block h-full rounded-full" style={{ width: `${Math.max(8, (w.unread / waiting.series[0].unread) * 100)}%`, background: "var(--read)" }} />
+                          </span>
+                        </span>
+                        <span className="text-sm tabular-nums" style={{ color: "var(--muted)" }}>
+                          {plural(w.unread, "à lire", "à lire")} <AppIcon name="chevron-right" size={14} />
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </Card>
         </section>
 
         {/* Spending */}
         <section aria-labelledby="h-depenses" className="flex flex-col gap-4">
           <div>
             <h2 id="h-depenses" className="text-xl font-bold">Mes dépenses renseignées</h2>
-            <p className="text-sm" style={{ color: "var(--muted)" }}>Seulement les prix que tu as notés pour des tomes achetés.</p>
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              Seulement les prix que tu as notés pour des tomes achetés.
+              {spend.boughtCount > 0 && ` Prix renseigné pour ${spend.paidCount} tome${spend.paidCount > 1 ? "s" : ""} sur ${spend.boughtCount} achetés.`}
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Stat value={formatEur(spend.paid)} label="payés" hint={plural(spend.paidCount, "tome avec un prix", "tomes avec un prix")} />
             <Stat value={spend.averagePaid != null ? formatEur(spend.averagePaid) : "–"} label="en moyenne par tome" />
             <Stat value={formatEur(spend.gifts)} label="de cadeaux" hint={`${plural(spend.giftsCount, "tome offert", "tomes offerts")}, pas une dépense`} />
-            <Stat value={String(spend.unpricedBought + spend.unknownOrigin)} label="tomes sans prix ou sans origine" hint="Facultatif : à compléter si tu veux" />
+            <Stat
+              value={`${spend.paidCount} / ${spend.boughtCount}`}
+              label="tomes achetés avec un prix"
+              hint={[
+                spend.unpricedBought ? plural(spend.unpricedBought, "achat sans prix", "achats sans prix") : null,
+                spend.unknownOrigin ? plural(spend.unknownOrigin, "tome d'origine inconnue", "tomes d'origine inconnue") : null,
+              ].filter(Boolean).join(" · ") || "Tous tes achats ont un prix"}
+            />
           </div>
           <Card>
             <p className="text-sm font-semibold">Dépenses par mois</p>
@@ -173,9 +194,9 @@ export default async function UniversPage() {
               <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
                 {[
                   plural(wishes.count, "envie", "envies"),
-                  wishes.knownCount ? `${formatEur(wishes.known)} avec les prix que tu as notés` : null,
-                  wishes.estimatedCount ? `${formatEur(wishes.estimated)} estimés au prix moyen d'un tome` : null,
-                  wishes.unknownCount ? `${plural(wishes.unknownCount, "prix inconnu", "prix inconnus")}` : null,
+                  wishes.knownCount ? `${formatEur(wishes.known)} de prix indicatifs que tu as notés` : null,
+                  wishes.estimatedCount ? `${formatEur(wishes.estimated)} estimés d'après les prix que tu as payés` : null,
+                  wishes.unknownCount ? `${plural(wishes.unknownCount, "prix inconnu, non compté", "prix inconnus, non comptés")}` : null,
                 ]
                   .filter(Boolean)
                   .join(" · ")}
@@ -188,10 +209,12 @@ export default async function UniversPage() {
         </section>
 
         {/* Tools & settings */}
-        <section aria-labelledby="h-outils" className="flex flex-col gap-4">
-          <h2 id="h-outils" className="text-xl font-bold">Noter d&apos;anciennes lectures</h2>
-          <BulkReadForm series={series.filter((s) => !s.archived_at).map((s) => ({ manga_id: s.manga_id, title: s.title })).sort((a, b) => a.title.localeCompare(b.title, "fr"))} />
-        </section>
+        {series.some((s) => !s.archived_at) && (
+          <section aria-labelledby="h-outils" className="flex flex-col gap-4">
+            <h2 id="h-outils" className="text-xl font-bold">Noter d&apos;anciennes lectures</h2>
+            <BulkReadForm series={series.filter((s) => !s.archived_at).map((s) => ({ manga_id: s.manga_id, title: s.title })).sort((a, b) => a.title.localeCompare(b.title, "fr"))} />
+          </section>
+        )}
 
         <section id="reglages" aria-labelledby="h-reglages" className="flex scroll-mt-20 flex-col gap-4">
           <h2 id="h-reglages" className="text-xl font-bold">Réglages</h2>

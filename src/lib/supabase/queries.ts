@@ -84,14 +84,15 @@ export type SeriesMetaRow = {
   genres: string[];
   demographic: Database["public"]["Tables"]["mangas"]["Row"]["demographic"];
   audience_min_age: number | null;
-  avg_price_eur: number;
+  audience_age_source: "cnlj" | "estimate" | null;
   is_private: boolean;
   archived_at: string | null;
   first_added_at: string;
+  liked: boolean | null; // "J'ai aimé" true, "Pas pour moi" false
 };
 
 const SERIES_META_SELECT =
-  "manga_id, archived_at, first_added_at, mangas ( title, cover_url, author, total_volumes, status, genres, demographic, audience_min_age, avg_price_eur, created_by )";
+  "manga_id, archived_at, first_added_at, liked, mangas ( title, cover_url, author, total_volumes, status, genres, demographic, audience_min_age, audience_age_source, created_by )";
 
 // The user's series with the bits every reader screen needs.
 // Archived series are left out unless asked for : they are off the shelf,
@@ -115,7 +116,7 @@ export async function getSeriesMeta(
       genres: string[] | null;
       demographic: SeriesMetaRow["demographic"];
       audience_min_age: number | null;
-      avg_price_eur: number | string | null;
+      audience_age_source: "cnlj" | "estimate" | null;
       created_by: string | null;
     } | null;
     return {
@@ -129,10 +130,11 @@ export async function getSeriesMeta(
       genres: m?.genres ?? [],
       demographic: m?.demographic ?? null,
       audience_min_age: m?.audience_min_age ?? null,
-      avg_price_eur: m?.avg_price_eur == null ? 7.5 : Number(m.avg_price_eur),
+      audience_age_source: m?.audience_age_source ?? null,
       is_private: m?.created_by != null,
       archived_at: row.archived_at,
       first_added_at: row.first_added_at,
+      liked: row.liked ?? null,
     };
   });
 }

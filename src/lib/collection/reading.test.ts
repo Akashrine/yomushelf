@@ -54,8 +54,26 @@ describe("nextToRead", () => {
     expect(nextToRead(s)).toEqual({ kind: "next", volume: 6 });
   });
 
-  it("proposes nothing when everything at home is read", () => {
-    expect(nextToRead(shelf({ title: "Kaiju", owned: range(1, 3), read: range(1, 3) }))).toBeNull();
+  it("proposes nothing when the whole published series is read", () => {
+    expect(nextToRead(shelf({ title: "Kaiju", owned: range(1, 3), read: range(1, 3), total_volumes: 3 }))).toBeNull();
+  });
+
+  it("names the next volume to find when everything at home is read", () => {
+    expect(nextToRead(shelf({ title: "Kaiju", owned: range(1, 3), read: range(1, 3), total_volumes: 16 }))).toEqual({ kind: "to_find", volume: 4 });
+    // unknown total : the next volume may exist
+    expect(nextToRead(shelf({ title: "Kaiju", owned: range(1, 3), read: range(1, 3) }))).toEqual({ kind: "to_find", volume: 4 });
+  });
+
+  it("reading without owning : proposes the volume after the last one read", () => {
+    expect(nextToRead(shelf({ title: "Naruto", read: range(1, 5), total_volumes: 72 }))).toEqual({ kind: "to_find", volume: 6 });
+  });
+
+  it("owning without reading : proposes the first volume at home", () => {
+    expect(nextToRead(shelf({ title: "Dr", owned: [3, 4] }))).toEqual({ kind: "next", volume: 3 });
+  });
+
+  it("a series followed with nothing owned or read has nothing to propose", () => {
+    expect(nextToRead(shelf({ title: "Suivie" }))).toBeNull();
   });
 
   it("proposes a volume left aside before the last one read", () => {
@@ -74,7 +92,10 @@ describe("shelfState", () => {
   it("tells an empty library from series without volumes and from all read", () => {
     expect(shelfState([])).toBe("empty");
     expect(shelfState([shelf({ title: "A" })])).toBe("no_volumes");
-    expect(shelfState([shelf({ title: "A", owned: [1], read: [1] })])).toBe("all_read");
+    expect(shelfState([shelf({ title: "A", owned: [1], read: [1], total_volumes: 1 })])).toBe("all_read");
+    expect(shelfState([shelf({ title: "A", read: [1, 2], total_volumes: 2 })])).toBe("nothing_new");
+    // read elsewhere, next one published : something to find, never "all read"
+    expect(shelfState([shelf({ title: "A", read: [1, 2], total_volumes: 10 })])).toBe("ready");
     expect(shelfState([shelf({ title: "A", owned: [1, 2], read: [2] })])).toBe("ready");
   });
 });
@@ -107,8 +128,16 @@ describe("pickHome", () => {
     expect(pick.main?.shelf.title).toBe("C");
   });
 
-  it("has nothing to show when everything is read", () => {
-    expect(pickHome([shelf({ title: "K", owned: [1], read: [1] })]).main).toBeNull();
+  it("has nothing to show when every published volume is read", () => {
+    expect(pickHome([shelf({ title: "K", owned: [1], read: [1], total_volumes: 1 })]).main).toBeNull();
+  });
+
+  it("puts a volume at home before a volume to find", () => {
+    const pick = pickHome([
+      shelf({ title: "A", read: [1], total_volumes: 9, lastFinished: "2026-10-10" }),
+      shelf({ title: "B", owned: [1, 2], read: [1], lastFinished: "2026-01-01" }),
+    ]);
+    expect(pick.main?.shelf.title).toBe("B");
   });
 });
 

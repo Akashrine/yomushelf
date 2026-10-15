@@ -63,9 +63,16 @@ export function CurrentReading({ shelves }: Props) {
           text="Indique les tomes que tu as : on te dira quoi lire ensuite."
           cta={{ href: `/bibliotheque/${shelves[0].slug}`, label: "Indiquer mes tomes" }}
         />
+      ) : state === "nothing_new" ? (
+        <EmptyState
+          title="Tu as fini les séries que tu lis."
+          text="Envie d'une nouvelle série ? Regarde ce qui pourrait te plaire."
+          cta={{ href: "/decouvrir", label: "Découvrir" }}
+          done
+        />
       ) : (
         <EmptyState
-          title="Tu as lu tous tes tomes !"
+          title="Tu as lu tous les tomes parus que tu as !"
           text="Envie d'une nouvelle série ? Regarde ce qui pourrait te plaire."
           cta={{ href: "/decouvrir", label: "Découvrir" }}
           done
@@ -124,7 +131,13 @@ function MainCard({
       }}
     >
       <p id="main-card-label" className="text-sm font-bold uppercase tracking-[0.1em]" style={{ color: "var(--read)" }}>
-        {isReading ? "Tu lis…" : candidate.kind === "skipped" ? "Tu as laissé de côté…" : "Tu peux lire…"}
+        {isReading
+          ? "Tu lis…"
+          : candidate.kind === "skipped"
+            ? "Tu as laissé de côté…"
+            : candidate.kind === "to_find"
+              ? "Prochain tome à trouver…"
+              : "Tu peux lire…"}
       </p>
 
       <Link href={`/bibliotheque/${shelf.slug}`} className="flex items-center gap-4">
