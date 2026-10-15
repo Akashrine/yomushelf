@@ -62,7 +62,13 @@ schema_paths = []
 enabled = true
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
-sql_paths = ["./seeds/top_50_fr.sql", "./seeds/demo_collection.sql"]
+sql_paths = [
+  "./seeds/top_50_fr.sql",
+  "./seeds/demo_collection.sql",
+  # Seeds run after migrations : re-apply the catalogue enrichment (idempotent)
+  # so a fresh database gets the French titles, ages and selections.
+  "./migrations/20261017000100_catalogue_enrichment.sql",
+]
 
 [db.network_restrictions]
 # Enable management of network restrictions.

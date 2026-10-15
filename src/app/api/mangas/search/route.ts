@@ -50,9 +50,32 @@ export async function GET(request: NextRequest) {
       : null,
   }));
 
+  // What the reader already has, so the add flow starts from it.
+  if (localHits.length) {
+    const ids = localHits.map((h) => h.id as string);
+    const [{ data: vols }, { data: reads }] = await Promise.all([
+      supabase.from("user_volumes").select("manga_id, volume_number").eq("user_id", user.id).in("manga_id", ids),
+      supabase.from("user_readings").select("manga_id, volume_number").eq("user_id", user.id).eq("status", "read").in("manga_id", ids),
+    ]);
+    for (const h of localHits) {
+      h.owned = (vols ?? []).filter((v) => v.manga_id === h.id).map((v) => v.volume_number);
+      h.read = (reads ?? []).filter((r) => r.manga_id === h.id).map((r) => r.volume_number);
+    }
+  }
+
   let remote: SearchHit[] = [];
   let remoteError = false;
   if (localHits.length < 5) {
+    // Aliases ("Shingeki no Kyojin" for "L'Attaque des Titans") keep a
+    // known series from coming back under its original title.
+    if (localHits.length) {
+      const { data: aliasRows } = await supabase
+        .from("mangas")
+        .select("id, aliases")
+        .in("id", localHits.map((h) => h.id as string));
+      const aliases = new Map((aliasRows ?? []).map((r) => [r.id, r.aliases ?? []]));
+      for (const h of localHits) h.alt_titles = aliases.get(h.id as string) ?? [];
+    }
     try {
       remote = (await searchMangaMAL(q, limit)).map((r) => ({
         source: "mal",
@@ -64,6 +87,7 @@ export async function GET(request: NextRequest) {
         cover_url: r.cover_url,
         genres: [],
         mal_id: r.external_ids.mal_id ?? null,
+        alt_titles: r.title_fr ? [r.title_fr] : [],
       }));
     } catch {
       remoteError = true;

@@ -40,4 +40,15 @@ describe("mergeSearchResults", () => {
     const local = Array.from({ length: 4 }, (_, i) => hit({ title: `S${i}`, id: `s${i}` }));
     expect(mergeSearchResults(local, [hit({ source: "mal", title: "Other", mal_id: 1 })], 2)).toHaveLength(4);
   });
+  it("drops a remote hit known locally under an alias", () => {
+    const local = [hit({ source: "db", id: "1", title: "L'Attaque des Titans", alt_titles: ["shingeki no kyojin", "attack on titan"] })];
+    const remote = [
+      hit({ source: "mal", title: "Shingeki no Kyojin", mal_id: 23390, alt_titles: ["Attack on Titan"] }),
+      hit({ source: "mal", title: "Shingeki no Kyojin: Before the Fall", mal_id: 2 }),
+    ];
+    expect(mergeSearchResults(local, remote, 10).map((h) => h.title)).toEqual([
+      "L'Attaque des Titans",
+      "Shingeki no Kyojin: Before the Fall",
+    ]);
+  });
 });
