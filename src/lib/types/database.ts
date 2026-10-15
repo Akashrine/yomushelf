@@ -9,6 +9,7 @@ export type Json =
 // null in the database = not specified. "other" only exists in older rows.
 export type AcquisitionType = "bought" | "gift" | "borrowed" | "other";
 export type ReadingStatus = "reading" | "read";
+export type Demographic = "kodomo" | "shonen" | "shojo" | "seinen" | "josei";
 export type WishlistPriority = "high" | "low";
 
 export type Database = {
@@ -65,6 +66,13 @@ export type Database = {
           external_ids: Json;
           is_top_50_fr: boolean;
           top_50_rank: number | null;
+          genres: string[];
+          demographic: Demographic | null;
+          audience_min_age: number | null;
+          synopsis: string | null;
+          aliases: string[];
+          created_by: string | null;
+          search_key: string;
           created_at: string;
           updated_at: string;
         };
@@ -81,6 +89,12 @@ export type Database = {
           external_ids?: Json;
           is_top_50_fr?: boolean;
           top_50_rank?: number | null;
+          genres?: string[];
+          demographic?: Demographic | null;
+          audience_min_age?: number | null;
+          synopsis?: string | null;
+          aliases?: string[];
+          created_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -97,6 +111,12 @@ export type Database = {
           external_ids?: Json;
           is_top_50_fr?: boolean;
           top_50_rank?: number | null;
+          genres?: string[];
+          demographic?: Demographic | null;
+          audience_min_age?: number | null;
+          synopsis?: string | null;
+          aliases?: string[];
+          created_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -161,6 +181,7 @@ export type Database = {
             | "dropped";
           first_added_at: string;
           updated_at: string;
+          archived_at: string | null;
         };
         Insert: {
           id?: string;
@@ -175,6 +196,7 @@ export type Database = {
             | "completed"
             | "dropped";
           first_added_at?: string;
+          archived_at?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -190,6 +212,7 @@ export type Database = {
             | "completed"
             | "dropped";
           first_added_at?: string;
+          archived_at?: string | null;
           updated_at?: string;
         };
         Relationships: [
@@ -305,6 +328,54 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "user_collections";
             referencedColumns: ["user_id", "manga_id"];
+          }
+        ];
+      };
+      editorial_selections: {
+        Row: {
+          id: string;
+          slug: string;
+          title: string;
+          description: string | null;
+          position: number;
+          published: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          title: string;
+          description?: string | null;
+          position?: number;
+          published?: boolean;
+        };
+        Update: {
+          slug?: string;
+          title?: string;
+          description?: string | null;
+          position?: number;
+          published?: boolean;
+        };
+        Relationships: [];
+      };
+      editorial_selection_items: {
+        Row: { selection_id: string; manga_id: string; position: number; note: string | null };
+        Insert: { selection_id: string; manga_id: string; position?: number; note?: string | null };
+        Update: { position?: number; note?: string | null };
+        Relationships: [
+          {
+            foreignKeyName: "editorial_selection_items_selection_id_fkey";
+            columns: ["selection_id"];
+            isOneToOne: false;
+            referencedRelation: "editorial_selections";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "editorial_selection_items_manga_id_fkey";
+            columns: ["manga_id"];
+            isOneToOne: false;
+            referencedRelation: "mangas";
+            referencedColumns: ["id"];
           }
         ];
       };
@@ -528,6 +599,28 @@ export type Database = {
       generate_wrapped: {
         Args: { p_user_id: string; p_year: number };
         Returns: string;
+      };
+      search_mangas: {
+        Args: { p_query: string; p_limit?: number };
+        Returns: {
+          id: string;
+          title: string;
+          author: string | null;
+          publisher_fr: string | null;
+          total_volumes: number | null;
+          status: "ongoing" | "completed" | "paused";
+          cover_url: string | null;
+          genres: string[];
+          demographic: Demographic | null;
+          audience_min_age: number | null;
+          external_ids: Json;
+          is_private: boolean;
+          score: number;
+        }[];
+      };
+      consume_import_quota: {
+        Args: { p_user_id: string; p_kind: string; p_limit: number; p_window_seconds: number };
+        Returns: boolean;
       };
     };
   };

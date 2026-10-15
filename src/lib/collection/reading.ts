@@ -59,14 +59,16 @@ export function buildShelves(
 //   2. N = highest read + 1 (or the lowest owned when nothing is read)
 //      - N at home and unread            → propose N
 //      - N missing, a later one at home → say N is missing (gap)
-//      - nothing at home after N        → nothing to propose
-// Unread volumes before the last read one are never proposed.
+//   3. otherwise, an unread volume at home before the last one read
+//      (left aside) → propose it, so it is never forgotten
+//   4. nothing unread at home            → nothing to propose
 // ─────────────────────────────────────────
 
 export type Candidate =
   | { kind: "reading"; volume: number }
   | { kind: "next"; volume: number }
-  | { kind: "gap"; missing: number; available: number };
+  | { kind: "gap"; missing: number; available: number }
+  | { kind: "skipped"; volume: number };
 
 export function nextToRead(shelf: SeriesShelf): Candidate | null {
   if (shelf.reading.length) return { kind: "reading", volume: shelf.reading[0] };
@@ -79,6 +81,9 @@ export function nextToRead(shelf: SeriesShelf): Candidate | null {
 
   const available = shelf.owned.find((v) => v > n && !read.has(v));
   if (available != null) return { kind: "gap", missing: n, available };
+
+  const skipped = shelf.owned.find((v) => !read.has(v));
+  if (skipped != null) return { kind: "skipped", volume: skipped };
   return null;
 }
 
@@ -104,14 +109,17 @@ export function pickHome(shelves: SeriesShelf[]): HomePick {
     };
   }
 
-  // Most recently finished first; unknown dates last; then by title.
+  // Continuing a series before going back to a volume left aside;
+  // then most recently finished first, unknown dates last, then by title.
   const open = shelves
     .map((shelf) => ({ shelf, candidate: nextToRead(shelf) }))
     .filter((x): x is { shelf: SeriesShelf; candidate: Candidate } => x.candidate != null)
     .sort((a, b) => {
+      const ka = a.candidate.kind === "skipped" ? 1 : 0;
+      const kb = b.candidate.kind === "skipped" ? 1 : 0;
       const da = a.shelf.lastFinished ?? "";
       const db = b.shelf.lastFinished ?? "";
-      return db.localeCompare(da) || byTitle(a.shelf, b.shelf);
+      return ka - kb || db.localeCompare(da) || byTitle(a.shelf, b.shelf);
     });
   return { main: open[0] ?? null, alsoReading: [] };
 }
@@ -129,6 +137,20 @@ export function readerCounts(shelves: SeriesShelf[]) {
     waitingAtHome += s.owned.filter((v) => !read.has(v)).length;
   }
   return { volumesRead, waitingAtHome };
+}
+
+// What the home screen should say when there is no volume to propose.
+//   empty      : no series at all
+//   no_volumes : series followed, but no volume at home and none read
+//   all_read   : every volume at home is read
+//   ready      : something to read
+export type ShelfState = "empty" | "no_volumes" | "all_read" | "ready";
+
+export function shelfState(shelves: SeriesShelf[]): ShelfState {
+  if (shelves.length === 0) return "empty";
+  if (shelves.some((s) => nextToRead(s) != null)) return "ready";
+  const anyVolume = shelves.some((s) => s.owned.length > 0 || s.read.length > 0);
+  return anyVolume ? "all_read" : "no_volumes";
 }
 
 // Read volumes in a stable order, for the pile drawing.

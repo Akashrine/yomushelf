@@ -4,6 +4,7 @@ import {
   nextToRead,
   pickHome,
   readerCounts,
+  shelfState,
   type Reading,
   type SeriesMeta,
   type SeriesShelf,
@@ -57,13 +58,36 @@ describe("nextToRead", () => {
     expect(nextToRead(shelf({ title: "Kaiju", owned: range(1, 3), read: range(1, 3) }))).toBeNull();
   });
 
-  it("never proposes an unread volume before the last one read", () => {
+  it("proposes a volume left aside before the last one read", () => {
+    // 1 and 3 read, 2 still unread at home : 2 must not be forgotten
     const s = shelf({ title: "X", owned: [1, 2, 3], read: [1, 3] });
-    expect(nextToRead(s)).toBeNull();
+    expect(nextToRead(s)).toEqual({ kind: "skipped", volume: 2 });
+  });
+
+  it("prefers continuing a series over a volume left aside", () => {
+    const s = shelf({ title: "X", owned: [1, 2, 3, 4], read: [1, 3] });
+    expect(nextToRead(s)).toEqual({ kind: "next", volume: 4 });
+  });
+});
+
+describe("shelfState", () => {
+  it("tells an empty library from series without volumes and from all read", () => {
+    expect(shelfState([])).toBe("empty");
+    expect(shelfState([shelf({ title: "A" })])).toBe("no_volumes");
+    expect(shelfState([shelf({ title: "A", owned: [1], read: [1] })])).toBe("all_read");
+    expect(shelfState([shelf({ title: "A", owned: [1, 2], read: [2] })])).toBe("ready");
   });
 });
 
 describe("pickHome", () => {
+  it("puts a series to continue before a volume left aside", () => {
+    const pick = pickHome([
+      shelf({ title: "A", owned: [1, 2, 3], read: [1, 3], lastFinished: "2026-10-10" }),
+      shelf({ title: "B", owned: [1, 2], read: [1], lastFinished: "2026-01-01" }),
+    ]);
+    expect(pick.main?.shelf.title).toBe("B");
+  });
+
   it("shows volumes in progress first, alphabetically, the others as 'also reading'", () => {
     const pick = pickHome([
       shelf({ title: "Spy × Family", owned: range(1, 9), reading: [8] }),
