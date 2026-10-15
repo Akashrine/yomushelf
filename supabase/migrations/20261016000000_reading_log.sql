@@ -70,49 +70,9 @@ create trigger user_readings_ensure_collection
   for each row execute function public.ensure_user_collection();
 
 -- ─────────────────────────────────────────
--- 2. Move reading state out of user_volumes
--- ─────────────────────────────────────────
-insert into public.user_readings (user_id, manga_id, volume_number, status, finished_on, created_at)
-select
-  uv.user_id,
-  uv.manga_id,
-  uv.volume_number,
-  uv.read_status::text::public.reading_status,
-  case when uv.read_status = 'read' then uv.read_at end,
-  uv.created_at
-from public.user_volumes uv
-where uv.read_status in ('reading', 'read');
-
-alter table public.user_volumes drop column read_status;
-alter table public.user_volumes drop column read_at;
-drop type public.volume_read_status;
-
--- ─────────────────────────────────────────
--- 3. Unknown acquisition and acquisition date
--- ─────────────────────────────────────────
-alter table public.user_volumes
-  alter column acquisition_type drop not null,
-  alter column acquisition_type drop default,
-  alter column acquired_at drop not null,
-  alter column acquired_at drop default;
-
-comment on column public.user_volumes.acquisition_type is 'null = not specified';
-comment on column public.user_volumes.acquired_at is 'null = unknown';
-
--- Rows imported from the legacy arrays by 20261015000000 were stamped
--- 'bought' and dated with the series' first_added_at : both were guesses.
--- That backfill copied first_added_at into created_at, app inserts never do.
-update public.user_volumes uv
-set acquisition_type = null, acquired_at = null
-from public.user_collections uc
-where uc.user_id = uv.user_id
-  and uc.manga_id = uv.manga_id
-  and uv.created_at = uc.first_added_at
-  and uv.acquisition_type = 'bought'
-  and uv.price_eur is null;
-
--- ─────────────────────────────────────────
--- 4. Sync : legacy array + pointer from both tables
+-- 2. Sync : legacy array + pointer from both tables
+-- Redefined BEFORE any data change : the updates below fire these
+-- triggers, and the 20261015 versions read the columns dropped here.
 -- ─────────────────────────────────────────
 create or replace function public.refresh_user_collection(p_user_id uuid, p_manga_id uuid)
 returns void
@@ -181,6 +141,70 @@ $$;
 create trigger user_readings_sync_collection
   after insert or update or delete on public.user_readings
   for each row execute function public.sync_user_collection();
+
+-- ─────────────────────────────────────────
+-- 3. Move reading state out of user_volumes
+-- ─────────────────────────────────────────
+-- The legacy pointer meant "read up to volume N", owned or not : every
+-- volume 1..N becomes a reading with an unknown date. Pointers are copied
+-- first, because inserting readings fires the sync trigger, which
+-- recomputes them from what is already in user_readings.
+-- Legacy series statuses (caught_up, completed) are NOT converted : they
+-- may predate later acquisitions. They are reviewed series by series.
+-- Explicit drop below : no reliance on how the migration tool wraps transactions.
+create temp table legacy_pointers as
+select user_id, manga_id, last_read_volume
+from public.user_collections
+where last_read_volume > 0;
+
+-- Per-volume states first : they may carry a known reading date.
+insert into public.user_readings (user_id, manga_id, volume_number, status, finished_on, created_at)
+select
+  uv.user_id,
+  uv.manga_id,
+  uv.volume_number,
+  uv.read_status::text::public.reading_status,
+  case when uv.read_status = 'read' then uv.read_at end,
+  uv.created_at
+from public.user_volumes uv
+where uv.read_status in ('reading', 'read');
+
+-- Then every volume up to the legacy pointer, owned or not, date unknown.
+insert into public.user_readings (user_id, manga_id, volume_number, status, finished_on)
+select lp.user_id, lp.manga_id, n, 'read', null
+from legacy_pointers lp
+cross join lateral generate_series(1, lp.last_read_volume) as n
+on conflict (user_id, manga_id, volume_number) do nothing;
+
+drop table legacy_pointers;
+
+alter table public.user_volumes drop column read_status;
+alter table public.user_volumes drop column read_at;
+drop type public.volume_read_status;
+
+-- ─────────────────────────────────────────
+-- 4. Unknown acquisition and acquisition date
+-- ─────────────────────────────────────────
+alter table public.user_volumes
+  alter column acquisition_type drop not null,
+  alter column acquisition_type drop default,
+  alter column acquired_at drop not null,
+  alter column acquired_at drop default;
+
+comment on column public.user_volumes.acquisition_type is 'null = not specified';
+comment on column public.user_volumes.acquired_at is 'null = unknown';
+
+-- Rows imported from the legacy arrays by 20261015000000 were stamped
+-- 'bought' and dated with the series' first_added_at : both were guesses.
+-- That backfill copied first_added_at into created_at, app inserts never do.
+update public.user_volumes uv
+set acquisition_type = null, acquired_at = null
+from public.user_collections uc
+where uc.user_id = uv.user_id
+  and uc.manga_id = uv.manga_id
+  and uv.created_at = uc.first_added_at
+  and uv.acquisition_type = 'bought'
+  and uv.price_eur is null;
 
 -- ─────────────────────────────────────────
 -- 5. get_user_stats : readings come from user_readings
