@@ -22,15 +22,32 @@ type Props = {
 const BG = "#0e0b0b";
 
 export function WrappedCarousel({ year, username, avatarInitials, publicSlug, result }: Props) {
-  const [index, setIndex] = useState(0);
-  const touchStartX = useRef<number | null>(null);
-
   // Empty state
   if (!result.success || result.data.total_volumes_added < 10) {
     return <EmptyState year={year} />;
   }
 
-  const data = result.data;
+  return (
+    <WrappedSlides
+      year={year}
+      username={username}
+      avatarInitials={avatarInitials}
+      publicSlug={publicSlug}
+      data={result.data}
+    />
+  );
+}
+
+function WrappedSlides({
+  year,
+  username,
+  avatarInitials,
+  publicSlug,
+  data,
+}: Omit<Props, "result"> & { data: WrappedData }) {
+  const [index, setIndex] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+
   const avgPerVolume = data.total_volumes_added > 0
     ? (data.total_budget_spent / data.total_volumes_added).toFixed(2)
     : null;
@@ -87,7 +104,10 @@ export function WrappedCarousel({ year, username, avatarInitials, publicSlug, re
   function onTouchEnd(e: React.TouchEvent) {
     if (touchStartX.current === null) return;
     const delta = touchStartX.current - e.changedTouches[0].clientX;
-    if (Math.abs(delta) > 50) delta > 0 ? next() : prev();
+    if (Math.abs(delta) > 50) {
+      if (delta > 0) next();
+      else prev();
+    }
     touchStartX.current = null;
   }
 

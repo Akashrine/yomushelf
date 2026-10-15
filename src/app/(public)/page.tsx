@@ -201,7 +201,7 @@ export default async function LandingPage({ searchParams }: Props) {
             <div className="flex flex-col gap-3">
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Sois parmi les premiers.</h2>
               <p className="text-base" style={{ color: "var(--muted)" }}>
-                L'accès est limité au lancement. Inscris-toi maintenant, on te prévient dès que c'est ouvert.
+                L&apos;accès est limité au lancement. Inscris-toi maintenant, on te prévient dès que c&apos;est ouvert.
               </p>
             </div>
             <WaitlistForm source="landing_footer" />

@@ -160,7 +160,7 @@ export function SignupForm() {
       >
         <p className="text-base font-semibold mb-2">Vérifie tes emails 📬</p>
         <p style={{ color: "var(--muted)" }}>
-          On t'a envoyé un lien de confirmation. Clique dessus pour activer ton compte.
+          On t&apos;a envoyé un lien de confirmation. Clique dessus pour activer ton compte.
         </p>
       </div>
     );

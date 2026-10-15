@@ -114,7 +114,7 @@ function PrivateState({ slug }: { slug: string }) {
         <span style={{ fontSize: 48 }}>🔒</span>
         <h1 className="text-xl font-semibold">Ce profil est privé</h1>
         <p className="text-sm max-w-xs" style={{ color: "var(--muted)" }}>
-          @{slug} n'a pas encore rendu sa collection publique.
+          @{slug} n&apos;a pas encore rendu sa collection publique.
         </p>
       </div>
     </div>
