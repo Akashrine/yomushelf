@@ -242,7 +242,7 @@ function SeriesCard({ card }: { card: ShelfCard }) {
           </div>
         )}
         {s.reading.length > 0 && (
-          <span className="absolute left-1.5 top-1.5 rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: "var(--gold)", color: "#2a1a05" }}>
+          <span className="absolute bottom-1.5 left-1.5 rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: "var(--gold)", color: "#2a1a05", boxShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
             En cours
           </span>
         )}

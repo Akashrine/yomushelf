@@ -51,6 +51,7 @@ export function DiscoverView({ suggestions, selections, catalogue, onShelf, wish
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [filters, setFilters] = useState<DiscoveryFilters>({ genre: null, maxAge: null, status: null, length: null });
+  const [shown, setShown] = useState(12);
 
   const shelfSet = useMemo(() => new Set(onShelf), [onShelf]);
   const wishSet = useMemo(() => new Set(wished), [wished]);
@@ -134,7 +135,7 @@ export function DiscoverView({ suggestions, selections, catalogue, onShelf, wish
           <Select
             label="Genre"
             value={filters.genre ?? ""}
-            onChange={(v) => setFilters((f) => ({ ...f, genre: v || null }))}
+            onChange={(v) => { setShown(12); setFilters((f) => ({ ...f, genre: v || null })); }}
             options={[{ value: "", label: "Tous les genres" }, ...GENRES.map((g) => ({ value: g, label: GENRE_LABELS[g] }))]}
           />
           <Select
@@ -173,7 +174,19 @@ export function DiscoverView({ suggestions, selections, catalogue, onShelf, wish
             Aucune série ne correspond. Essaie avec moins de filtres.
           </p>
         ) : (
-          <ul className="grid grid-cols-1 gap-3 min-[560px]:grid-cols-2 lg:grid-cols-3">{filtered.slice(0, 60).map((entry) => card({ entry }))}</ul>
+          <>
+            <ul className="grid grid-cols-1 gap-3 min-[560px]:grid-cols-2 lg:grid-cols-3">{filtered.slice(0, shown).map((entry) => card({ entry }))}</ul>
+            {filtered.length > shown && (
+              <button
+                type="button"
+                onClick={() => setShown((n) => n + 12)}
+                className="min-h-12 self-center rounded-2xl px-5 text-sm font-semibold"
+                style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+              >
+                Voir plus de séries ({filtered.length - shown})
+              </button>
+            )}
+          </>
         )}
       </section>
     </div>

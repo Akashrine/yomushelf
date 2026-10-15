@@ -229,7 +229,7 @@ export function Cover({
     <span
       aria-hidden="true"
       className={`flex shrink-0 flex-col justify-between overflow-hidden rounded-lg font-black ${full ? "rounded-xl p-3" : "p-1.5"}`}
-      style={{ ...size, background: seriesColor(shelf.manga_id), color: "#1a0f0c", boxShadow: "inset -6px 0 0 rgba(0,0,0,0.18), 0 8px 20px rgba(0,0,0,0.45)" }}
+      style={{ ...size, background: `linear-gradient(155deg, ${seriesColor(shelf.manga_id)} 0%, color-mix(in srgb, ${seriesColor(shelf.manga_id)} 72%, #1a0f0c) 100%)`, color: "#1a0f0c", boxShadow: "inset -6px 0 0 rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.25), 0 8px 20px rgba(0,0,0,0.45)" }}
     >
       {!small && <span className={`${full ? "text-sm" : "text-[10px]"} uppercase leading-tight`}>{shelf.title}</span>}
       <span className={`self-end leading-none ${small ? "text-sm" : full ? "text-5xl" : "text-3xl"}`}>{volume}</span>

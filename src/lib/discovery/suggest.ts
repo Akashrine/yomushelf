@@ -125,6 +125,20 @@ export type SuggestOptions = {
   maxAge?: number | null; // only series whose minimum age is at most this
 };
 
+// Suggestions stay close to what the reader already reads : at most two
+// years above the oldest recommended age among the series they read.
+// null when nothing read has a known age (no cap). This only shapes
+// suggestions ; browsing the catalogue stays open.
+export function comfortAge(library: ReaderSeries[], catalogue: Map<string, CatalogueEntry>): number | null {
+  let max: number | null = null;
+  for (const s of library) {
+    if (s.read === 0) continue;
+    const age = catalogue.get(s.manga_id)?.audience_min_age;
+    if (age != null && (max == null || age > max)) max = age;
+  }
+  return max == null ? null : max + 2;
+}
+
 export function suggest(
   library: ReaderSeries[],
   catalogue: CatalogueEntry[],
@@ -134,6 +148,7 @@ export function suggest(
   const byId = new Map(catalogue.map((c) => [c.id, c]));
   const profile = tasteProfile(library, byId);
   if (profile.total === 0) return [];
+  if (maxAge === undefined || maxAge === null) maxAge = comfortAge(library, byId);
 
   const readerSeries = library
     .map((s) => ({ s, entry: byId.get(s.manga_id), w: seriesWeight(s) }))

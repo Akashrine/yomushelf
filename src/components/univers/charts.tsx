@@ -128,7 +128,7 @@ export function ShareBars({
     <ul className="flex flex-col gap-2.5">
       {shown.map((d) => (
         <li key={d.key} className="grid grid-cols-[minmax(6.5rem,auto)_minmax(0,1fr)_3rem] items-center gap-3 text-sm">
-          <span className="font-semibold capitalize">{d.label}</span>
+          <span className="font-semibold first-letter:uppercase">{d.label}</span>
           <span className="h-3 overflow-hidden rounded-full" style={{ background: "var(--background)" }} aria-hidden="true">
             <span className="block h-full rounded-full" style={{ width: `${(d.share / top) * 100}%`, background: color }} />
           </span>

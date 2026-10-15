@@ -55,6 +55,12 @@ describe("suggest", () => {
     expect(out.map((s) => s.entry.id)).not.toContain("mo");
   });
 
+  it("stays close to the ages the reader already reads", () => {
+    // One Piece (9) and Dr. Stone (10) read : nothing above 12 is suggested
+    const out = suggest(library, [...catalogue, entry({ id: "old", title: "Pour ados", genres: ["aventure", "action"], demographic: "shonen", audience_min_age: 16 })], new Set(["op", "ds"]));
+    expect(out.map((s) => s.entry.id)).not.toContain("old");
+  });
+
   it("returns nothing without any reading or volume (cold start is handled by selections)", () => {
     expect(suggest([], catalogue, new Set())).toEqual([]);
   });
