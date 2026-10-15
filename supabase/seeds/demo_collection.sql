@@ -59,17 +59,17 @@ begin
     ('Spy × Family',                 4,  6,  6, 12, 6.95, 'gift',      4, true),
     ('Spy × Family',                 7,  7,  2,  9, 6.95, 'bought',    1, true),
     ('Spy × Family',                 8,  9,  2,  9, 6.95, 'bought',   null, true),
-    -- Chainsaw Man : bought steadily, reading lags behind
-    ('Chainsaw Man',                 1,  2,  9, 20, 7.29, 'bought',    8, true),
-    ('Chainsaw Man',                 3,  4,  6, 20, 7.29, 'bought',    3, true),
-    ('Chainsaw Man',                 5,  6,  3, 15, 7.29, 'bought',   null, true),
-    ('Chainsaw Man',                 7,  8,  0,  2, 7.29, 'bought',   null, true),
+    -- Dr. Stone : bought steadily, reading lags behind
+    ('Dr. Stone',                    1,  2,  9, 20, 6.99, 'bought',    8, true),
+    ('Dr. Stone',                    3,  4,  6, 20, 6.99, 'bought',    3, true),
+    ('Dr. Stone',                    5,  6,  3, 15, 6.99, 'bought',   null, true),
+    ('Dr. Stone',                    7,  8,  0,  2, 6.99, 'bought',   null, true),
     -- Frieren : started as a gift, tome 5 in progress
     ('Frieren : Au-delà du voyage',  1,  3, 10, 24, 7.65, 'gift',      7, true),
     ('Frieren : Au-delà du voyage',  4,  4,  1, 25, 7.65, 'bought',    0, true),
     ('Frieren : Au-delà du voyage',  5,  5,  1, 25, 7.65, 'bought',   null, true),
-    -- Kaiju No. 8
-    ('Kaiju No. 8',                  1,  3,  8, 11, 7.20, 'bought',    7, true),
+    -- Mashle
+    ('Mashle',                       1,  3,  8, 11, 6.99, 'bought',    7, true),
     -- Blue Lock : 1-4 borrowed from a friend and given back, then bought the next ones
     ('Blue Lock',                    1,  4,  5,  6, null, 'borrowed',  4, false),
     ('Blue Lock',                    5,  5,  1,  8, 7.20, 'bought',   null, true),
@@ -122,9 +122,9 @@ begin
   select v_user, m.id, w.vol, w.price
   from (values
     ('One Piece',                   15, 7.20),
-    ('Chainsaw Man',                 9, 7.29),
+    ('Dr. Stone',                    9, 7.29),
     ('Frieren : Au-delà du voyage',  6, 7.65),
-    ('Kaiju No. 8',                  4, 7.20)
+    ('Mashle',                       4, 6.99)
   ) as w(title, vol, price)
   join public.mangas m on m.title = w.title;
 end;
