@@ -74,10 +74,11 @@ export async function upsertOnboardingSelection(
     if (error) return { success: false, error: "Erreur lors de la sauvegarde." };
   }
 
-  await supabase
+  const { error: profileError } = await supabase
     .from("profiles")
     .update({ onboarding_completed: true })
     .eq("id", user.id);
+  if (profileError) return { success: false, error: "Ton inscription n'a pas pu être finalisée. Réessaie." };
 
   return { success: true };
 }

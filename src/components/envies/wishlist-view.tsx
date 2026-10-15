@@ -55,7 +55,7 @@ export function WishlistView({ items, series }: Props) {
     setError(null);
     setNotice(null);
     startTransition(async () => {
-      const result = await action(fd);
+      const result = await action(fd).catch(() => ({ success: false as const, error: "Impossible de confirmer l’enregistrement. Vérifie ta connexion puis réessaie." }));
       if (!result.success) {
         setError(result.error ?? "Pas enregistré. Réessaie.");
         return;

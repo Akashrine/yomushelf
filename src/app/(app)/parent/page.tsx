@@ -29,13 +29,14 @@ export default async function ParentPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [volumes, readings, series, { data: profile }, { data: wishes }] = await Promise.all([
+  const [volumes, readings, series, { data: profile }, { data: wishes, error: wishesError }] = await Promise.all([
     getOwnedVolumes(supabase, user.id),
     getReadings(supabase, user.id),
     getSeriesMeta(supabase, user.id),
     supabase.from("profiles").select("username, avatar_initials").eq("id", user.id).single(),
     supabase.from("wishlist_items").select("target_price").eq("user_id", user.id),
   ]);
+  if (wishesError) throw new Error("Impossible de charger les envies.");
 
   const reads = readIndex(readings);
   const volumesRead = readings.filter((r) => r.status === "read").length;

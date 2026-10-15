@@ -17,7 +17,7 @@ export default async function BibliotequePage() {
   if (!user) redirect("/login");
 
   // Fetch collection with manga details
-  const { data: collections } = await supabase
+  const { data: collections, error: collectionError } = await supabase
     .from("user_collections")
     .select(
       `
@@ -34,11 +34,13 @@ export default async function BibliotequePage() {
     )
     .eq("user_id", user.id)
     .order("updated_at", { ascending: false });
+  if (collectionError) throw new Error("Impossible de charger la bibliothèque.");
 
   // Fetch user stats via RPC
-  const { data: statsRaw } = await supabase.rpc("get_user_stats", {
+  const { data: statsRaw, error: statsError } = await supabase.rpc("get_user_stats", {
     p_user_id: user.id,
   });
+  if (statsError) throw new Error("Impossible de charger les statistiques.");
   const stats = statsRaw?.[0] ?? null;
 
   // Fetch profile

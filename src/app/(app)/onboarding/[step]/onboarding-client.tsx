@@ -126,7 +126,7 @@ export function OnboardingClient({ step, mangas, username }: Props) {
     startTransition(async () => {
       // Save current step's selections (non-blocking for step 1 & 2)
       if (selected.size > 0) {
-        const result = await saveStepSelection([...selected]);
+        const result = await saveStepSelection([...selected]).catch(() => ({ success: false as const, error: "Impossible de confirmer l’enregistrement. Vérifie ta connexion puis réessaie." }));
         if (!result.success) {
           setError(result.error);
           return;
@@ -142,7 +142,7 @@ export function OnboardingClient({ step, mangas, username }: Props) {
       // Step 3: final save + complete
       const fd = new FormData();
       fd.set("manga_ids", JSON.stringify([...selected]));
-      const result = await upsertOnboardingSelection(fd);
+      const result = await upsertOnboardingSelection(fd).catch(() => ({ success: false as const, error: "Impossible de confirmer l’enregistrement. Vérifie ta connexion puis réessaie." }));
       if (!result.success) {
         setError(result.error);
         return;

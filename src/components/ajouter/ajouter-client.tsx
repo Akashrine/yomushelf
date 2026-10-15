@@ -82,7 +82,7 @@ export function AjouterClient() {
       setAddError(null);
       const fd = new FormData();
       fd.set("isbn", isbnQuery);
-      const result = await lookupIsbn(fd);
+      const result = await lookupIsbn(fd).catch(() => ({ success: false as const, error: "Impossible de terminer la recherche. Vérifie ta connexion puis réessaie." }));
       if (!result.success) {
         setAddError(result.error);
         return;
@@ -124,7 +124,7 @@ export function AjouterClient() {
         fd.set("reading", alreadyRead === "read_earlier" ? "read_earlier" : "unchanged");
       }
 
-      const result = await addMangaFromExternalSource(fd);
+      const result = await addMangaFromExternalSource(fd).catch(() => ({ success: false as const, error: "Impossible de confirmer l’enregistrement. Vérifie ta connexion puis réessaie." }));
       if (!result.success) {
         setAddError(result.error);
         return;

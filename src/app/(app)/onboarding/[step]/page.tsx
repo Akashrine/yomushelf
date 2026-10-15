@@ -30,11 +30,12 @@ export default async function OnboardingStepPage({
   if (profile?.onboarding_completed) redirect("/bibliotheque");
 
   // Fetch top 50 for the selection grid
-  const { data: mangas } = await supabase
+  const { data: mangas, error: catalogueError } = await supabase
     .from("mangas")
     .select("id, title, author, publisher_fr, total_volumes, status, cover_url, top_50_rank, genre_primary")
     .eq("is_top_50_fr", true)
     .order("top_50_rank", { ascending: true });
+  if (catalogueError) throw new Error("Impossible de charger le catalogue.");
 
   return (
     <OnboardingClient

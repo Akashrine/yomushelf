@@ -18,6 +18,7 @@ export async function getUserCollection(
     .eq("user_id", userId)
     .eq("manga_id", mangaId)
     .maybeSingle();
+  if (result.error) throw new Error("Impossible de charger cette série.");
   return (result as { data: CollectionRow | null }).data;
 }
 
@@ -41,7 +42,8 @@ export async function getOwnedVolumes(
     .eq("user_id", userId)
     .order("volume_number");
   if (mangaId) query = query.eq("manga_id", mangaId);
-  const { data } = await query;
+  const { data, error } = await query;
+  if (error) throw new Error("Impossible de charger les tomes.");
   // numeric columns come back as strings from PostgREST
   return (data ?? []).map((v) => ({
     ...v,
@@ -66,7 +68,8 @@ export async function getReadings(
     .eq("user_id", userId)
     .order("volume_number");
   if (mangaId) query = query.eq("manga_id", mangaId);
-  const { data } = await query;
+  const { data, error } = await query;
+  if (error) throw new Error("Impossible de charger les lectures.");
   return data ?? [];
 }
 
@@ -79,10 +82,11 @@ export type SeriesMetaRow = {
 
 // The user's series with the bits every reader screen needs.
 export async function getSeriesMeta(supabase: Supabase, userId: string): Promise<SeriesMetaRow[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("user_collections")
     .select("manga_id, mangas ( title, cover_url )")
     .eq("user_id", userId);
+  if (error) throw new Error("Impossible de charger les séries.");
   return (data ?? []).map((row) => {
     const m = row.mangas as unknown as { title: string; cover_url: string | null } | null;
     return {

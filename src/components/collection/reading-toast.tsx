@@ -71,7 +71,7 @@ export function ReadingToast({ toast, onClose }: Props) {
           <div className="min-w-0 flex-1">
             {toast.kind === "error" ? (
               <>
-                <p className="font-bold" style={{ color: "#ff9a8a" }}>Pas enregistré.</p>
+                <p className="font-bold" style={{ color: "#ff9a8a" }}>Enregistrement non confirmé.</p>
                 <p className="text-sm" style={{ color: "var(--muted)" }}>Vérifie ta connexion et réessaie.</p>
               </>
             ) : (

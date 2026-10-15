@@ -15,7 +15,7 @@ export default async function EnviesPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: profile }, { data: wishes }, { data: collections }, volumes] = await Promise.all([
+  const [{ data: profile }, { data: wishes, error: wishesError }, { data: collections, error: collectionError }, volumes] = await Promise.all([
     supabase.from("profiles").select("username, avatar_initials").eq("id", user.id).single(),
     supabase
       .from("wishlist_items")
@@ -27,6 +27,7 @@ export default async function EnviesPage() {
       .eq("user_id", user.id),
     getOwnedVolumes(supabase, user.id),
   ]);
+  if (wishesError || collectionError) throw new Error("Impossible de charger les envies.");
 
   const series: WishSeries[] = (collections ?? [])
     .map((c) => {

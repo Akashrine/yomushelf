@@ -28,7 +28,7 @@ export function BulkReadForm({ series }: Props) {
       const fd = new FormData();
       fd.set("manga_id", mangaId);
       fd.set("up_to", String(n));
-      const result = await markReadUpTo(fd);
+      const result = await markReadUpTo(fd).catch(() => ({ success: false as const, error: "Impossible de confirmer l’enregistrement. Vérifie ta connexion puis réessaie." }));
       setConfirming(false);
       if (!result.success) {
         setMessage({ ok: false, text: result.error });

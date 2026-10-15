@@ -16,7 +16,7 @@ export async function lookupByIsbn(
   const url = `${GB_BASE}?q=isbn:${clean}&maxResults=1`;
 
   const res = await fetch(url, { next: { revalidate: 86400 } });
-  if (!res.ok) return null;
+  if (!res.ok) throw new Error("Google Books unavailable");
 
   const data = (await res.json()) as {
     totalItems: number;

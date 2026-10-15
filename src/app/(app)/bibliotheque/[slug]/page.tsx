@@ -16,15 +16,16 @@ export default async function SeriePage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: manga } = await supabase
+  const { data: manga, error: mangaError } = await supabase
     .from("mangas")
     .select("id, title, author, publisher_fr, total_volumes, status, genre_primary, cover_url")
     .eq("id", slug)
-    .single();
+    .maybeSingle();
 
+  if (mangaError) throw new Error("Impossible de charger cette série.");
   if (!manga) notFound();
 
-  const [volumes, readings, { data: wishes }] = await Promise.all([
+  const [volumes, readings, { data: wishes, error: wishesError }] = await Promise.all([
     getOwnedVolumes(supabase, user.id, manga.id),
     getReadings(supabase, user.id, manga.id),
     supabase
@@ -33,6 +34,7 @@ export default async function SeriePage({
       .eq("user_id", user.id)
       .eq("manga_id", manga.id),
   ]);
+  if (wishesError) throw new Error("Impossible de charger les envies.");
 
   return (
     <SerieDetail

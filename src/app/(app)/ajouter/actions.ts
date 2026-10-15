@@ -63,11 +63,12 @@ export async function lookupIsbn(formData: FormData): Promise<IsbnResult> {
   const isbn = parsed.data.isbn;
 
   // 1. Check local DB first
-  const { data: localVolume } = await supabase
+  const { data: localVolume, error: lookupError } = await supabase
     .from("volumes")
     .select("volume_number, manga_id, mangas(*)")
     .eq("isbn_13", isbn)
     .maybeSingle();
+  if (lookupError) return { success: false, error: "Impossible de vérifier le catalogue. Réessaie." };
 
   if (localVolume?.mangas) {
     const manga = localVolume.mangas as Record<string, unknown>;
@@ -93,7 +94,12 @@ export async function lookupIsbn(formData: FormData): Promise<IsbnResult> {
   }
 
   // 2. Google Books fallback
-  const result = await lookupByIsbn(isbn);
+  let result: MangaSearchResult | null;
+  try {
+    result = await lookupByIsbn(isbn);
+  } catch {
+    return { success: false, error: "Le catalogue en ligne ne répond pas. Réessaie plus tard." };
+  }
   if (!result) {
     return {
       success: false,
@@ -183,18 +189,20 @@ export async function addMangaFromExternalSource(
   let manga_id: string | null = null;
 
   if (d.source === "db") {
-    const { data } = await supabase.from("mangas").select("id").eq("id", d.manga_id).maybeSingle();
+    const { data, error } = await supabase.from("mangas").select("id").eq("id", d.manga_id).maybeSingle();
+    if (error) return { success: false, error: "Impossible de vérifier le catalogue. Réessaie." };
     if (!data) return { success: false, error: "Série introuvable." };
     manga_id = data.id;
   } else {
     // Already in the catalogue ? Reuse it, no quota spent.
     const key = d.source === "mal" ? { mal_id: d.mal_id } : { isbn_13: d.isbn };
-    const { data: existing } = await supabase
+    const { data: existing, error: lookupError } = await supabase
       .from("mangas")
       .select("id")
       .contains("external_ids", key)
       .limit(1)
       .maybeSingle();
+    if (lookupError) return { success: false, error: "Impossible de vérifier le catalogue. Réessaie." };
 
     if (existing) {
       manga_id = existing.id;

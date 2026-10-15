@@ -11,13 +11,14 @@ export type ReadingState = { status: ReadingStatus; finished_on: string | null }
 type Ref = { userId: string; mangaId: string; volumeNumber: number };
 
 export async function getReadingState(supabase: Supabase, ref: Ref): Promise<ReadingState> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("user_readings")
     .select("status, finished_on")
     .eq("user_id", ref.userId)
     .eq("manga_id", ref.mangaId)
     .eq("volume_number", ref.volumeNumber)
     .maybeSingle();
+  if (error) throw new Error("Impossible de vérifier cette lecture.");
   return data ?? null;
 }
 
@@ -44,10 +45,11 @@ export async function setReadingState(supabase: Supabase, ref: Ref, state: Readi
 }
 
 export async function countVolumesRead(supabase: Supabase, userId: string): Promise<number> {
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from("user_readings")
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
     .eq("status", "read");
-  return count ?? 0;
+  if (error || count == null) throw new Error("Impossible de compter les lectures.");
+  return count;
 }

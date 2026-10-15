@@ -25,10 +25,10 @@ const UNDO_MS = 8000;
 function messageFor(
   intent: ReadingIntent,
   t: ReadingTarget,
-  volumesRead: number,
+  volumesRead: number | null,
   changed: boolean,
 ) {
-  const count = `${volumesRead} tome${volumesRead > 1 ? "s" : ""} lu${volumesRead > 1 ? "s" : ""}`;
+  const count = volumesRead == null ? undefined : `${volumesRead} tome${volumesRead > 1 ? "s" : ""} lu${volumesRead > 1 ? "s" : ""}`;
   if (!changed) {
     return intent === "start"
       ? { message: `Tu lis déjà le tome ${t.volume}` }

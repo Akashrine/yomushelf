@@ -18,7 +18,7 @@ import {
 // ─────────────────────────────────────────
 
 export type ReadingResult =
-  | { success: true; changed: boolean; previous: ReadingState; volumesRead: number }
+  | { success: true; changed: boolean; previous: ReadingState; volumesRead: number | null }
   | { success: false; error: string };
 
 const RefSchema = z.object({
@@ -83,7 +83,7 @@ export async function saveReading(input: z.input<typeof SaveSchema>): Promise<Re
     revalidateReader(manga_id);
   }
 
-  return { success: true, changed, previous, volumesRead: await countVolumesRead(supabase, user.id) };
+  return { success: true, changed, previous, volumesRead: await countVolumesRead(supabase, user.id).catch(() => null) };
 }
 
 // "Annuler" : put the reading back exactly as it was before the last action.
@@ -117,5 +117,5 @@ export async function restoreReading(input: z.input<typeof RestoreSchema>): Prom
   if (error) return { success: false, error: SAVE_ERROR };
   revalidateReader(manga_id);
 
-  return { success: true, changed: true, previous: current, volumesRead: await countVolumesRead(supabase, user.id) };
+  return { success: true, changed: true, previous: current, volumesRead: await countVolumesRead(supabase, user.id).catch(() => null) };
 }

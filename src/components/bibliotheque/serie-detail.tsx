@@ -87,7 +87,7 @@ export function SerieDetail({ manga, volumes, readings, wishedVolumes }: Props) 
   function runForm(action: (fd: FormData) => Promise<{ success: boolean; error?: string }>, fd: FormData, after: () => void) {
     setError(null);
     startTransition(async () => {
-      const result = await action(fd);
+      const result = await action(fd).catch(() => ({ success: false as const, error: "Impossible de confirmer l’enregistrement. Vérifie ta connexion puis réessaie." }));
       if (!result.success) {
         setError(result.error ?? "Pas enregistré. Réessaie.");
         return;
