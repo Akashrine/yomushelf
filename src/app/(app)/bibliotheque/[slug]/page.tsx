@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getUserCollection } from "@/lib/supabase/queries";
+import { getOwnedVolumes, getUserCollection } from "@/lib/supabase/queries";
 import { SerieDetail } from "@/components/bibliotheque/serie-detail";
 
 export default async function SeriePage({
@@ -24,7 +24,22 @@ export default async function SeriePage({
 
   if (!manga) notFound();
 
-  const collection = await getUserCollection(supabase, user.id, manga.id);
+  const [collection, volumes, { data: wishes }] = await Promise.all([
+    getUserCollection(supabase, user.id, manga.id),
+    getOwnedVolumes(supabase, user.id, manga.id),
+    supabase
+      .from("wishlist_items")
+      .select("volume_number")
+      .eq("user_id", user.id)
+      .eq("manga_id", manga.id),
+  ]);
 
-  return <SerieDetail manga={manga} collection={collection} />;
+  return (
+    <SerieDetail
+      manga={manga}
+      collection={collection}
+      volumes={volumes}
+      wishedVolumes={(wishes ?? []).flatMap((w) => (w.volume_number == null ? [] : [w.volume_number]))}
+    />
+  );
 }

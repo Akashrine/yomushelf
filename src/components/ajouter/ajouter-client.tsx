@@ -4,6 +4,9 @@ import { useState, useTransition, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { addMangaFromExternalSource, lookupIsbn } from "@/app/(app)/ajouter/actions";
+import { VolumeFields, type VolumeFieldsValue } from "@/components/collection/volume-fields";
+
+const DEFAULT_VOLUME_FIELDS: VolumeFieldsValue = { price: "", acquisition: "bought", read: "unread" };
 
 type SearchResult = {
   id?: string;
@@ -41,6 +44,7 @@ export function AjouterClient() {
   const [isPending, startTransition] = useTransition();
   const [addError, setAddError] = useState<string | null>(null);
   const [isbnQuery, setIsbnQuery] = useState("");
+  const [volumeFields, setVolumeFields] = useState<VolumeFieldsValue>(DEFAULT_VOLUME_FIELDS);
   const [tab, setTab] = useState<"search" | "isbn">("search");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -77,6 +81,7 @@ export function AjouterClient() {
         setAddError(result.error);
         return;
       }
+      setVolumeFields(DEFAULT_VOLUME_FIELDS);
       setConfirm({
         manga: result.manga as SearchResult,
         volumeNumber: result.volume_number ? String(result.volume_number) : "",
@@ -105,7 +110,12 @@ export function AjouterClient() {
         if (m.external_ids?.mal_id) fd.set("mal_id", String(m.external_ids.mal_id));
         if (m.external_ids?.isbn_13) fd.set("isbn_13", m.external_ids.isbn_13);
       }
-      if (confirm.volumeNumber) fd.set("volume_number", confirm.volumeNumber);
+      if (confirm.volumeNumber) {
+        fd.set("volume_number", confirm.volumeNumber);
+        fd.set("price_eur", volumeFields.acquisition === "borrowed" ? "" : volumeFields.price);
+        fd.set("acquisition_type", volumeFields.acquisition);
+        fd.set("read_status", volumeFields.read);
+      }
 
       const result = await addMangaFromExternalSource(fd);
       if (!result.success) {
@@ -178,7 +188,10 @@ export function AjouterClient() {
                   <button
                     key={manga.id ?? manga.external_id ?? i}
                     type="button"
-                    onClick={() => setConfirm({ manga, volumeNumber: "" })}
+                    onClick={() => {
+                      setVolumeFields(DEFAULT_VOLUME_FIELDS);
+                      setConfirm({ manga, volumeNumber: "" });
+                    }}
                     className="w-full flex gap-3 p-3 rounded-xl text-left transition-all active:scale-[0.99]"
                     style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
                   >
@@ -235,7 +248,7 @@ export function AjouterClient() {
         {tab === "isbn" && (
           <div>
             <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
-              Saisis l'ISBN-13 imprimé au dos du tome (ou scanne le code-barres avec l'appareil photo).
+              Saisis l&apos;ISBN-13 imprimé au dos du tome (ou scanne le code-barres avec l&apos;appareil photo).
             </p>
             <div className="flex gap-2 mb-4">
               <input
@@ -276,7 +289,7 @@ export function AjouterClient() {
           onClick={(e) => e.target === e.currentTarget && setConfirm(null)}
         >
           <div
-            className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-6"
+            className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-6 max-h-[92dvh] overflow-y-auto"
             style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
           >
             <h2 className="text-base font-semibold mb-1">{confirm.manga.title}</h2>
@@ -300,6 +313,12 @@ export function AjouterClient() {
                 color: "var(--foreground)",
               }}
             />
+
+            {confirm.volumeNumber && (
+              <div className="mb-5">
+                <VolumeFields value={volumeFields} onChange={setVolumeFields} disabled={isPending} />
+              </div>
+            )}
 
             {addError && (
               <p className="text-xs mb-3 text-center" style={{ color: "#e74c3c" }}>{addError}</p>
