@@ -1,40 +1,36 @@
 import { createClient } from "@supabase/supabase-js";
+import { fetchImageSafely, UnsafeImageError } from "./safe-image";
 
-// Re-caches a remote cover URL into Supabase Storage.
-// Returns the public Supabase Storage URL, or null on failure.
+const EXTENSIONS = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" } as const;
+
+// Re-caches a provider cover into Supabase Storage.
+// Only trusted provider URLs are downloaded (see safe-image.ts).
+// Returns the public Supabase Storage URL, or null when the image is refused
+// or the upload fails : a missing cover never blocks an import.
 export async function cacheCoverToStorage(
   remoteUrl: string,
   mangaId: string
 ): Promise<string | null> {
   try {
-    const res = await fetch(remoteUrl);
-    if (!res.ok) return null;
-
-    const contentType = res.headers.get("content-type") ?? "image/jpeg";
-    const ext = contentType.includes("png") ? "png" : "jpg";
-    const path = `covers/${mangaId}.${ext}`;
+    const { bytes, contentType } = await fetchImageSafely(remoteUrl);
+    const path = `covers/${mangaId}.${EXTENSIONS[contentType]}`;
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const arrayBuffer = await res.arrayBuffer();
     const { error } = await supabase.storage
       .from("manga-covers")
-      .upload(path, arrayBuffer, {
-        contentType,
-        upsert: true,
-      });
-
+      .upload(path, bytes, { contentType, upsert: true });
     if (error) return null;
 
-    const { data } = supabase.storage
-      .from("manga-covers")
-      .getPublicUrl(path);
-
+    const { data } = supabase.storage.from("manga-covers").getPublicUrl(path);
     return data.publicUrl;
-  } catch {
+  } catch (err) {
+    if (err instanceof UnsafeImageError) {
+      console.warn(`[covers] refused ${err.reason}`);
+    }
     return null;
   }
 }

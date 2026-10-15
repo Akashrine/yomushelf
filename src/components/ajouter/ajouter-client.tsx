@@ -91,19 +91,19 @@ export function AjouterClient() {
       const fd = new FormData();
       const m = confirm.manga;
 
-      // If manga already exists in our DB, pass its id directly — no insert needed
+      // Only identify the series : the server fetches everything else.
       if (m.id) {
-        fd.set("existing_manga_id", m.id);
+        fd.set("source", "db");
+        fd.set("manga_id", m.id);
+      } else if (m.external_ids?.mal_id) {
+        fd.set("source", "mal");
+        fd.set("mal_id", String(m.external_ids.mal_id));
+      } else if (m.external_ids?.isbn_13) {
+        fd.set("source", "google_books");
+        fd.set("isbn", m.external_ids.isbn_13);
       } else {
-        fd.set("title", m.title);
-        if (m.author) fd.set("author", m.author);
-        if (m.publisher_fr) fd.set("publisher_fr", m.publisher_fr);
-        if (m.total_volumes) fd.set("total_volumes", String(m.total_volumes));
-        fd.set("status", m.status);
-        if (m.cover_url) fd.set("cover_url", m.cover_url);
-        if (m.genre_primary) fd.set("genre_primary", m.genre_primary);
-        if (m.external_ids?.mal_id) fd.set("mal_id", String(m.external_ids.mal_id));
-        if (m.external_ids?.isbn_13) fd.set("isbn_13", m.external_ids.isbn_13);
+        setAddError("Cette série ne peut pas être ajoutée pour l'instant.");
+        return;
       }
       if (confirm.volumeNumber) fd.set("volume_number", confirm.volumeNumber);
 

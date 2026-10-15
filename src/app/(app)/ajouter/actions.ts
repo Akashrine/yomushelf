@@ -3,8 +3,9 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
-import { getIsbnLimiter } from "@/lib/rate-limit";
+import { consumeImportQuota } from "@/lib/rate-limit/import-quota";
 import { lookupByIsbn } from "@/lib/manga-api/google-books";
+import { getMangaByIdMAL } from "@/lib/manga-api/mal";
 import { cacheCoverToStorage } from "@/lib/manga-api/storage";
 import {
   getUserCollection,
@@ -93,7 +94,8 @@ const IsbnSchema = z.object({
     .string()
     .min(10)
     .max(17)
-    .transform((v) => v.replace(/[-\s]/g, "")),
+    .transform((v) => v.replace(/[-\s]/g, ""))
+    .pipe(z.string().regex(/^\d{13}$|^\d{9}[\dX]$/, "ISBN invalide.")),
 });
 
 type IsbnResult =
@@ -110,10 +112,8 @@ export async function lookupIsbn(formData: FormData): Promise<IsbnResult> {
   } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Non authentifié." };
 
-  const limiter = getIsbnLimiter();
-  const { success: allowed } = await limiter.limit(user.id);
-  if (!allowed) {
-    return { success: false, error: "Trop de scans. Attends une minute." };
+  if (!(await consumeImportQuota(user.id, "isbn_lookup"))) {
+    return { success: false, error: "Trop de recherches. Attends une minute." };
   }
 
   const isbn = parsed.data.isbn;
@@ -131,13 +131,15 @@ export async function lookupIsbn(formData: FormData): Promise<IsbnResult> {
       success: true,
       manga: {
         source: "db",
+        // The add form recognises an existing series by its id.
+        id: String(manga.id),
         external_id: String(manga.id),
         title: String(manga.title),
         author: manga.author ? String(manga.author) : null,
         publisher_fr: manga.publisher_fr ? String(manga.publisher_fr) : null,
         total_volumes: manga.total_volumes ? Number(manga.total_volumes) : null,
         status: (manga.status as MangaSearchResult["status"]) ?? "ongoing",
-        avg_price_eur: Number(manga.avg_price_eur) ?? 7.5,
+        avg_price_eur: Number(manga.avg_price_eur) || 7.5,
         genre_primary: manga.genre_primary ? String(manga.genre_primary) : null,
         cover_url: manga.cover_url ? String(manga.cover_url) : null,
         external_ids: { isbn_13: isbn },
@@ -160,95 +162,113 @@ export async function lookupIsbn(formData: FormData): Promise<IsbnResult> {
 
 // ─────────────────────────────────────────
 // addMangaFromExternalSource
+//
+// The client only says WHICH series : a catalogue id, a MyAnimeList id or
+// an ISBN. Title, author, cover… are fetched here from the provider, never
+// taken from the form, because they end up in the shared catalogue.
 // ─────────────────────────────────────────
 
-const AddFromExternalSchema = z.object({
-  existing_manga_id: z.string().uuid().optional(),
-  mal_id: z.coerce.number().int().positive().optional(),
-  isbn_13: z.string().optional(),
-  title: z.string().min(1).optional(),
-  author: z.string().optional(),
-  publisher_fr: z.string().optional(),
-  total_volumes: z.coerce.number().int().positive().optional(),
-  status: z.enum(["ongoing", "completed", "paused"]).default("ongoing"),
-  cover_url: z.string().url().optional(),
-  genre_primary: z.string().optional(),
-  volume_number: z.coerce.number().int().positive().optional(),
-});
+const VolumeNumberField = z.coerce.number().int().positive().max(999).optional();
+
+const ImportSchema = z.discriminatedUnion("source", [
+  z.object({ source: z.literal("db"), manga_id: z.string().uuid(), volume_number: VolumeNumberField }),
+  z.object({ source: z.literal("mal"), mal_id: z.coerce.number().int().positive(), volume_number: VolumeNumberField }),
+  z.object({
+    source: z.literal("google_books"),
+    isbn: z.string().regex(/^\d{13}$/),
+    volume_number: VolumeNumberField,
+  }),
+]);
 
 type AddFromExternalResult =
   | { success: true; manga_id: string }
   | { success: false; error: string };
 
+function formObject(formData: FormData) {
+  const out: Record<string, string> = {};
+  for (const key of ["source", "manga_id", "mal_id", "isbn", "volume_number"]) {
+    const v = formData.get(key);
+    if (typeof v === "string" && v !== "") out[key] = v;
+  }
+  return out;
+}
+
+// Inserts a provider record into the shared catalogue (service role).
+async function insertCatalogEntry(meta: MangaSearchResult): Promise<string | null> {
+  const service = getServiceClient();
+  const id = crypto.randomUUID();
+  const cover = meta.cover_url ? await cacheCoverToStorage(meta.cover_url, id) : null;
+  const external_ids: Json = {
+    ...(meta.external_ids.mal_id ? { mal_id: meta.external_ids.mal_id } : {}),
+    ...(meta.external_ids.isbn_13 ? { isbn_13: meta.external_ids.isbn_13 } : {}),
+  };
+  const { data, error } = await service
+    .from("mangas")
+    .insert({
+      id,
+      title: meta.title.slice(0, 200),
+      author: meta.author?.slice(0, 200) ?? null,
+      publisher_fr: meta.publisher_fr,
+      total_volumes: meta.total_volumes,
+      status: meta.status,
+      avg_price_eur: 7.5,
+      genre_primary: meta.genre_primary,
+      cover_url: cover,
+      external_ids,
+      is_top_50_fr: false,
+    })
+    .select("id")
+    .single();
+  if (error || !data) return null;
+  return data.id;
+}
+
 export async function addMangaFromExternalSource(
   formData: FormData
 ): Promise<AddFromExternalResult> {
-  const parsed = AddFromExternalSchema.safeParse(
-    Object.fromEntries(formData.entries())
-  );
-  if (!parsed.success) {
-    return { success: false, error: "Données invalides." };
-  }
-
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Non authentifié." };
 
+  const parsed = ImportSchema.safeParse(formObject(formData));
+  if (!parsed.success) return { success: false, error: "Données invalides." };
   const d = parsed.data;
-  let manga_id: string | null = d.existing_manga_id ?? null;
 
-  // If we already have a DB id, skip all lookups and inserts
-  if (!manga_id && d.mal_id) {
-    const { data } = await supabase
+  let manga_id: string | null = null;
+
+  if (d.source === "db") {
+    const { data } = await supabase.from("mangas").select("id").eq("id", d.manga_id).maybeSingle();
+    if (!data) return { success: false, error: "Série introuvable." };
+    manga_id = data.id;
+  } else {
+    // Already in the catalogue ? Reuse it, no quota spent.
+    const key = d.source === "mal" ? { mal_id: d.mal_id } : { isbn_13: d.isbn };
+    const { data: existing } = await supabase
       .from("mangas")
       .select("id")
-      .contains("external_ids", { mal_id: d.mal_id })
+      .contains("external_ids", key)
+      .limit(1)
       .maybeSingle();
-    if (data) manga_id = data.id;
-  }
 
-  if (!manga_id) {
-    if (!d.title) return { success: false, error: "Titre manquant." };
-
-    let cachedCover: string | null = null;
-    if (d.cover_url) {
-      const tempId = crypto.randomUUID();
-      cachedCover = await cacheCoverToStorage(d.cover_url, tempId);
+    if (existing) {
+      manga_id = existing.id;
+    } else {
+      if (!(await consumeImportQuota(user.id, "import"))) {
+        return { success: false, error: "Tu as ajouté beaucoup de séries d'un coup. Réessaie dans une heure." };
+      }
+      let meta: MangaSearchResult | null = null;
+      try {
+        meta = d.source === "mal" ? await getMangaByIdMAL(d.mal_id) : await lookupByIsbn(d.isbn);
+      } catch {
+        return { success: false, error: "Le catalogue en ligne ne répond pas. Réessaie plus tard." };
+      }
+      if (!meta) return { success: false, error: "Série introuvable." };
+      manga_id = await insertCatalogEntry(meta);
+      if (!manga_id) return { success: false, error: "Erreur lors de l'ajout du manga." };
     }
-
-    const external_ids: Json = {
-      ...(d.mal_id ? { mal_id: d.mal_id } : {}),
-      ...(d.isbn_13 ? { isbn_13: d.isbn_13 } : {}),
-    };
-
-    // Use service role — RLS blocks user inserts into mangas table
-    const service = getServiceClient();
-    const { data: newManga, error } = await service
-      .from("mangas")
-      .insert({
-        title: d.title,
-        author: d.author ?? null,
-        publisher_fr: d.publisher_fr ?? null,
-        total_volumes: d.total_volumes ?? null,
-        status: d.status ?? "ongoing",
-        avg_price_eur: 7.5,
-        genre_primary: d.genre_primary ?? null,
-        cover_url: cachedCover,
-        external_ids,
-        is_top_50_fr: false,
-      })
-      .select("id")
-      .single();
-
-    if (error || !newManga) {
-      return { success: false, error: "Erreur lors de l'ajout du manga." };
-    }
-    manga_id = newManga.id;
   }
-
-  if (!manga_id) return { success: false, error: "Manga introuvable." };
 
   if (d.volume_number) {
     const volumeFormData = new FormData();
@@ -257,10 +277,11 @@ export async function addMangaFromExternalSource(
     const addResult = await addVolumeToCollection(volumeFormData);
     if (!addResult.success) return { success: false, error: addResult.error };
   } else {
-    await supabase.from("user_collections").upsert(
+    const { error } = await supabase.from("user_collections").upsert(
       { user_id: user.id, manga_id, owned_volumes: [], status: "not_started" },
       { onConflict: "user_id,manga_id", ignoreDuplicates: true }
     );
+    if (error) return { success: false, error: "Erreur lors de l'ajout. Réessaie." };
   }
 
   return { success: true, manga_id };

@@ -1,6 +1,7 @@
 // Normalized manga result — shared by MAL, Google Books, and DB
 export type MangaSearchResult = {
   source: "mal" | "google_books" | "db";
+  id?: string;               // catalogue id, only when source = "db"
   external_id: string;       // MAL id (string) or ISBN-13
   title: string;
   title_fr?: string;         // alternative title in French if available
