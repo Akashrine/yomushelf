@@ -6,10 +6,8 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { getIsbnLimiter } from "@/lib/rate-limit";
 import { lookupByIsbn } from "@/lib/manga-api/google-books";
 import { cacheCoverToStorage } from "@/lib/manga-api/storage";
-import {
-  getUserCollection,
-  updateCollectionVolumes,
-} from "@/lib/supabase/queries";
+import { todayIso } from "@/lib/collection/value";
+import { VolumeDetailsSchema, formValues } from "@/lib/collection/schema";
 import type { MangaSearchResult } from "@/lib/manga-api/types";
 import type { Json } from "@/lib/types/database";
 
@@ -21,28 +19,32 @@ function getServiceClient() {
 }
 
 // ─────────────────────────────────────────
-// addVolumeToCollection
+// addVolumeToCollection — one volume with its price, origin and reading state
 // ─────────────────────────────────────────
 
-const AddVolumeSchema = z.object({
+const VOLUME_FIELDS = [
+  "manga_id",
+  "volume_number",
+  "price_eur",
+  "acquisition_type",
+  "read_status",
+  "acquired_at",
+];
+
+const AddVolumeSchema = VolumeDetailsSchema.extend({
   manga_id: z.string().uuid(),
   volume_number: z.coerce.number().int().positive(),
 });
 
-type AddVolumeResult =
-  | { success: true; owned_volumes: number[] }
-  | { success: false; error: string };
+type AddVolumeResult = { success: true } | { success: false; error: string };
 
 export async function addVolumeToCollection(
   formData: FormData
 ): Promise<AddVolumeResult> {
-  const parsed = AddVolumeSchema.safeParse({
-    manga_id: formData.get("manga_id"),
-    volume_number: formData.get("volume_number"),
-  });
+  const parsed = AddVolumeSchema.safeParse(formValues(formData, VOLUME_FIELDS));
 
   if (!parsed.success) {
-    return { success: false, error: "Données invalides." };
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Données invalides." };
   }
 
   const supabase = await createClient();
@@ -51,37 +53,25 @@ export async function addVolumeToCollection(
   } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Non authentifié." };
 
-  const { manga_id, volume_number } = parsed.data;
+  const d = parsed.data;
+  const today = todayIso();
 
-  const existing = await getUserCollection(supabase, user.id, manga_id);
-
-  if (existing) {
-    if (existing.owned_volumes.includes(volume_number)) {
-      return { success: true, owned_volumes: existing.owned_volumes };
-    }
-
-    const newVolumes = [...existing.owned_volumes, volume_number].sort(
-      (a, b) => a - b
-    );
-    const { error } = await updateCollectionVolumes(
-      supabase,
-      existing.id,
-      newVolumes
-    );
-    if (error) return { success: false, error: "Erreur lors de l'ajout." };
-    return { success: true, owned_volumes: newVolumes };
-  }
-
-  // First volume for this series
-  const { error } = await supabase.from("user_collections").insert({
-    user_id: user.id,
-    manga_id,
-    owned_volumes: [volume_number],
-    status: "not_started",
-  });
+  const { error } = await supabase.from("user_volumes").upsert(
+    {
+      user_id: user.id,
+      manga_id: d.manga_id,
+      volume_number: d.volume_number,
+      price_eur: d.price_eur,
+      acquisition_type: d.acquisition_type,
+      read_status: d.read_status,
+      read_at: d.read_status === "read" ? today : null,
+      acquired_at: d.acquired_at ?? today,
+    },
+    { onConflict: "user_id,manga_id,volume_number" }
+  );
 
   if (error) return { success: false, error: "Erreur lors de l'ajout." };
-  return { success: true, owned_volumes: [volume_number] };
+  return { success: true };
 }
 
 // ─────────────────────────────────────────
@@ -254,6 +244,10 @@ export async function addMangaFromExternalSource(
     const volumeFormData = new FormData();
     volumeFormData.set("manga_id", manga_id);
     volumeFormData.set("volume_number", String(d.volume_number));
+    for (const key of ["price_eur", "acquisition_type", "read_status"]) {
+      const value = formData.get(key);
+      if (value != null) volumeFormData.set(key, value);
+    }
     const addResult = await addVolumeToCollection(volumeFormData);
     if (!addResult.success) return { success: false, error: addResult.error };
   } else {

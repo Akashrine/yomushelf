@@ -6,6 +6,10 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
+export type AcquisitionType = "bought" | "gift" | "borrowed" | "other";
+export type VolumeReadStatus = "unread" | "reading" | "read";
+export type WishlistPriority = "high" | "low";
+
 export type Database = {
   public: {
     Tables: {
@@ -196,6 +200,101 @@ export type Database = {
           },
           {
             foreignKeyName: "user_collections_manga_id_fkey";
+            columns: ["manga_id"];
+            isOneToOne: false;
+            referencedRelation: "mangas";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      user_volumes: {
+        Row: {
+          id: string;
+          user_id: string;
+          manga_id: string;
+          volume_number: number;
+          price_eur: number | null;
+          acquisition_type: AcquisitionType;
+          acquired_at: string;
+          read_status: VolumeReadStatus;
+          read_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          manga_id: string;
+          volume_number: number;
+          price_eur?: number | null;
+          acquisition_type?: AcquisitionType;
+          acquired_at?: string;
+          read_status?: VolumeReadStatus;
+          read_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          manga_id?: string;
+          volume_number?: number;
+          price_eur?: number | null;
+          acquisition_type?: AcquisitionType;
+          acquired_at?: string;
+          read_status?: VolumeReadStatus;
+          read_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_volumes_manga_id_fkey";
+            columns: ["manga_id"];
+            isOneToOne: false;
+            referencedRelation: "mangas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_volumes_collection_fkey";
+            columns: ["user_id", "manga_id"];
+            isOneToOne: false;
+            referencedRelation: "user_collections";
+            referencedColumns: ["user_id", "manga_id"];
+          }
+        ];
+      };
+      wishlist_items: {
+        Row: {
+          id: string;
+          user_id: string;
+          manga_id: string;
+          volume_number: number | null;
+          target_price: number | null;
+          priority: WishlistPriority;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          manga_id: string;
+          volume_number?: number | null;
+          target_price?: number | null;
+          priority?: WishlistPriority;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          manga_id?: string;
+          volume_number?: number | null;
+          target_price?: number | null;
+          priority?: WishlistPriority;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wishlist_items_manga_id_fkey";
             columns: ["manga_id"];
             isOneToOne: false;
             referencedRelation: "mangas";

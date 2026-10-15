@@ -21,14 +21,36 @@ export async function getUserCollection(
   return (result as { data: CollectionRow | null }).data;
 }
 
-export async function updateCollectionVolumes(
+export const OWNED_VOLUME_COLUMNS =
+  "manga_id, volume_number, price_eur, acquisition_type, acquired_at, read_status, read_at";
+
+type OwnedVolumeRow = Pick<
+  Database["public"]["Tables"]["user_volumes"]["Row"],
+  | "manga_id"
+  | "volume_number"
+  | "price_eur"
+  | "acquisition_type"
+  | "acquired_at"
+  | "read_status"
+  | "read_at"
+>;
+
+// All volumes of a user, optionally for one series. RLS scopes to the caller.
+export async function getOwnedVolumes(
   supabase: Supabase,
-  collectionId: string,
-  ownedVolumes: number[]
-): Promise<{ error: { message: string } | null }> {
-  const result = await supabase
-    .from("user_collections")
-    .update({ owned_volumes: ownedVolumes } as Database["public"]["Tables"]["user_collections"]["Update"])
-    .eq("id", collectionId);
-  return result as { error: { message: string } | null };
+  userId: string,
+  mangaId?: string
+): Promise<OwnedVolumeRow[]> {
+  let query = supabase
+    .from("user_volumes")
+    .select(OWNED_VOLUME_COLUMNS)
+    .eq("user_id", userId)
+    .order("volume_number");
+  if (mangaId) query = query.eq("manga_id", mangaId);
+  const { data } = await query;
+  // numeric columns come back as strings from PostgREST
+  return (data ?? []).map((v) => ({
+    ...v,
+    price_eur: v.price_eur == null ? null : Number(v.price_eur),
+  }));
 }
