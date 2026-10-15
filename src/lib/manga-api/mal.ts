@@ -4,11 +4,33 @@ const MAL_BASE = "https://api.myanimelist.net/v2";
 const FIELDS =
   "id,title,main_picture,alternative_titles,status,num_volumes,genres,authors{first_name,last_name},serialization{name},nsfw,media_type";
 
-// Only Japanese manga suitable for everyone enter the shared catalogue :
-// no adult content, no manhwa, manhua, novels or doujinshi.
-const ALLOWED_MEDIA = new Set(["manga", "one_shot"]);
+// What may enter the shared catalogue from MyAnimeList. Three separate
+// questions, each with its own reason (see docs/politique-contenu.md) :
+// 1. Type of work (product scope) : paper manga only. Novels, light novels
+//    and self-published doujinshi are not what Yomushelf tracks.
+// 2. Origin (product scope of this version) : Japanese manga. Korean,
+//    Chinese and other comics are out of the automatic import for now.
+//    This is not a safety rule. Anyone can still create a private entry.
+// 3. Content signal (protection of the shared catalogue) : only entries
+//    MyAnimeList flags "white" (no sexual content reported). "gray",
+//    "black" or a missing flag are refused. A "white" flag does NOT mean
+//    the series suits a child : imported rows get no age and stay out of
+//    Découvrir until reviewed.
+const MANGA_TYPES = new Set(["manga", "one_shot"]);
+const OTHER_ORIGINS = new Set(["manhwa", "manhua", "oel"]);
+
+export type ImportRefusal = "type" | "origin" | "content";
+
+export function malImportRefusal(node: Pick<MALMangaNode, "nsfw" | "media_type">): ImportRefusal | null {
+  const type = node.media_type ?? "";
+  if (OTHER_ORIGINS.has(type)) return "origin";
+  if (!MANGA_TYPES.has(type)) return "type";
+  if (node.nsfw !== "white") return "content";
+  return null;
+}
+
 export function isAllowedMalEntry(node: Pick<MALMangaNode, "nsfw" | "media_type">): boolean {
-  return node.nsfw === "white" && ALLOWED_MEDIA.has(node.media_type ?? "");
+  return malImportRefusal(node) === null;
 }
 
 function getClientId(): string {
@@ -87,9 +109,11 @@ export async function searchMangaMAL(
   return data.data.filter((d) => isAllowedMalEntry(d.node)).map((d) => normalizeMalManga(d.node));
 }
 
+// null : unknown id. { refused } : exists but may not enter the shared
+// catalogue (see malImportRefusal).
 export async function getMangaByIdMAL(
   malId: number
-): Promise<MangaSearchResult | null> {
+): Promise<MangaSearchResult | { refused: ImportRefusal } | null> {
   const url = `${MAL_BASE}/manga/${malId}?fields=${FIELDS}`;
 
   const res = await fetch(url, {
@@ -102,7 +126,8 @@ export async function getMangaByIdMAL(
 
   const node = (await res.json()) as MALMangaNode;
   // Ids come from the client : refuse what search would never have offered.
-  if (!isAllowedMalEntry(node)) return null;
+  const refusal = malImportRefusal(node);
+  if (refusal) return { refused: refusal };
   return normalizeMalManga(node);
 }
 

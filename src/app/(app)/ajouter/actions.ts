@@ -7,6 +7,8 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { consumeImportQuota } from "@/lib/rate-limit/import-quota";
 import { lookupByIsbn } from "@/lib/manga-api/google-books";
 import { getMangaByIdMAL } from "@/lib/manga-api/mal";
+import { splitVolumeTitle } from "@/lib/manga-api/volume-title";
+import { titleKey } from "@/lib/manga-api/merge";
 import { cacheCoverToStorage } from "@/lib/manga-api/storage";
 import { upsertUserVolume } from "@/app/(app)/bibliotheque/actions";
 import type { MangaSearchResult } from "@/lib/manga-api/types";
@@ -111,7 +113,38 @@ export async function lookupIsbn(formData: FormData): Promise<IsbnResult> {
     };
   }
 
-  return { success: true, manga: result, volume_number: null };
+  // The record names a volume : point to the series already in the
+  // catalogue instead of offering a new one for every volume.
+  const known = await findSeriesForVolumeTitle(supabase, result.title);
+  if (known) {
+    const { data: manga } = await supabase
+      .from("mangas")
+      .select("id, title, author, publisher_fr, total_volumes, status, genre_primary, cover_url")
+      .eq("id", known.manga_id)
+      .single();
+    if (manga) {
+      return {
+        success: true,
+        manga: {
+          source: "db",
+          id: manga.id,
+          external_id: manga.id,
+          title: manga.title,
+          author: manga.author,
+          publisher_fr: manga.publisher_fr,
+          total_volumes: manga.total_volumes,
+          status: manga.status,
+          avg_price_eur: 7.5,
+          genre_primary: manga.genre_primary,
+          cover_url: manga.cover_url,
+          external_ids: { isbn_13: isbn },
+        },
+        volume_number: known.volume,
+      };
+    }
+  }
+
+  return { success: true, manga: result, volume_number: splitVolumeTitle(result.title).volume };
 }
 
 // ─────────────────────────────────────────
@@ -180,6 +213,25 @@ async function insertCatalogEntry(meta: MangaSearchResult): Promise<string | nul
 type Supabase = SupabaseClient<Database>;
 type Resolved = { ok: true; manga_id: string } | { ok: false; error: string };
 
+// A bookstore record ("One Piece - Tome 12") → the catalogue series it
+// belongs to, matched on its title or aliases. Never creates anything.
+async function findSeriesForVolumeTitle(
+  supabase: Supabase,
+  rawTitle: string
+): Promise<{ manga_id: string; volume: number | null } | null> {
+  const split = splitVolumeTitle(rawTitle);
+  const candidates = [...new Set([split.series, rawTitle.trim()])];
+  for (const candidate of candidates) {
+    const { data: hits, error } = await supabase.rpc("search_mangas", { p_query: candidate, p_limit: 5 });
+    if (error || !hits?.length) continue;
+    const { data: rows } = await supabase.from("mangas").select("id, title, aliases").in("id", hits.map((h) => h.id));
+    const key = titleKey(candidate);
+    const match = (rows ?? []).find((r) => [r.title, ...(r.aliases ?? [])].some((t) => titleKey(t) === key));
+    if (match) return { manga_id: match.id, volume: candidate === split.series ? split.volume : null };
+  }
+  return null;
+}
+
 type SeriesSource =
   | { source: "db"; manga_id: string }
   | { source: "mal"; mal_id: number }
@@ -241,13 +293,38 @@ async function resolveSeries(supabase: Supabase, userId: string, src: SeriesSour
   if (!(await consumeImportQuota(userId, "import"))) {
     return { ok: false, error: "Tu as ajouté beaucoup de séries d'un coup. Réessaie dans une heure." };
   }
-  let meta: MangaSearchResult | null = null;
+  if (src.source === "google_books") {
+    // A bookstore record describes one volume with poor metadata : it is
+    // only used to recognise a series already in the catalogue.
+    let record: MangaSearchResult | null = null;
+    try {
+      record = await lookupByIsbn(src.isbn);
+    } catch {
+      return { ok: false, error: "Le catalogue en ligne ne répond pas. Réessaie plus tard." };
+    }
+    if (!record) return { ok: false, error: "ISBN introuvable. Cherche la série par son titre." };
+    const known = await findSeriesForVolumeTitle(supabase, record.title);
+    if (known) return { ok: true, manga_id: known.manga_id };
+    return {
+      ok: false,
+      error: "Cette série n'est pas encore au catalogue. Cherche-la par son titre, ou ajoute-la toi-même.",
+    };
+  }
+
+  let found: Awaited<ReturnType<typeof getMangaByIdMAL>> = null;
   try {
-    meta = src.source === "mal" ? await getMangaByIdMAL(src.mal_id) : await lookupByIsbn(src.isbn);
+    found = await getMangaByIdMAL(src.mal_id);
   } catch {
     return { ok: false, error: "Le catalogue en ligne ne répond pas. Réessaie plus tard." };
   }
-  if (!meta) return { ok: false, error: "Série introuvable." };
+  if (!found) return { ok: false, error: "Série introuvable." };
+  if ("refused" in found) {
+    return {
+      ok: false,
+      error: "Cette œuvre ne peut pas entrer dans le catalogue commun. Tu peux l'ajouter toi-même en fiche personnelle.",
+    };
+  }
+  const meta = found;
   const id = await insertCatalogEntry(meta);
   if (!id) return { ok: false, error: "Erreur lors de l'ajout du manga." };
   return { ok: true, manga_id: id };

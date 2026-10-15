@@ -49,7 +49,7 @@ export async function lookupByIsbn(
     total_volumes: null, // Google Books doesn't know manga series length
     status: "ongoing",
     avg_price_eur: 7.5,
-    genre_primary: "Shōnen",
+    genre_primary: null, // unknown : never guessed
     cover_url,
     external_ids: { isbn_13: isbn13 },
   };

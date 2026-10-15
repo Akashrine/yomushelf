@@ -43,6 +43,8 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: state.user } }) },
     from: (table: string) => query(table),
+    // Catalogue search used to recognise a series from a bookstore record
+    rpc: async () => ({ data: [], error: null }),
   }),
 }));
 
@@ -225,5 +227,21 @@ describe("lookupIsbn", () => {
 
   it("rejects something that is not an ISBN", async () => {
     expect(await lookupIsbn(form({ isbn: "https://evil.example" }))).toEqual({ success: false, error: "ISBN invalide." });
+  });
+
+  it("refuses an entry the shared catalogue does not accept and points to a private entry", async () => {
+    getMangaByIdMAL.mockResolvedValue({ refused: "content" });
+    const res = await addMangaFromExternalSource(form({ source: "mal", mal_id: "42" }));
+    expect(res.success).toBe(false);
+    expect(res.success === false && res.error).toMatch(/fiche personnelle/);
+    expect(state.inserted).toHaveLength(0);
+    expect(cacheCoverToStorage).not.toHaveBeenCalled();
+  });
+
+  it("never creates a shared series from a bookstore record it cannot match", async () => {
+    lookupByIsbn.mockResolvedValue({ ...MAL_META, source: "google_books", title: "Série inconnue - Tome 3", external_ids: { isbn_13: "9782344000000" } });
+    const res = await addMangaFromExternalSource(form({ source: "google_books", isbn: "9782344000000" }));
+    expect(res.success).toBe(false);
+    expect(state.inserted).toHaveLength(0);
   });
 });
