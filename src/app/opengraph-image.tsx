@@ -16,15 +16,15 @@ export default function OpengraphImage() {
           flexDirection: "column",
           justifyContent: "center",
           padding: "80px",
-          background: "#0e0b0b",
-          color: "#f0ebe8",
+          background: "#f6f0e7",
+          color: "#1d2433",
           fontFamily: "sans-serif",
         }}
       >
-        <div style={{ display: "flex", fontSize: 36, color: "#a8918c", marginBottom: 32 }}>Yomushelf</div>
+        <div style={{ display: "flex", fontSize: 36, color: "#6b6359", marginBottom: 32 }}>Yomushelf</div>
         <div style={{ display: "flex", fontSize: 84, fontWeight: 700, lineHeight: 1.1 }}>Ses mangas,</div>
-        <div style={{ display: "flex", fontSize: 84, fontWeight: 700, lineHeight: 1.1, color: "#c0392b" }}>et où il en est.</div>
-        <div style={{ display: "flex", fontSize: 34, color: "#a8918c", marginTop: 40 }}>
+        <div style={{ display: "flex", fontSize: 84, fontWeight: 700, lineHeight: 1.1, color: "#b5502f" }}>et où il en est.</div>
+        <div style={{ display: "flex", fontSize: 34, color: "#6b6359", marginTop: 40 }}>
           Sa collection et sa lecture, tome par tome.
         </div>
       </div>

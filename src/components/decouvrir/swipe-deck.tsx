@@ -38,10 +38,21 @@ const form = (entries: Record<string, string>) => {
   return fd;
 };
 
-export function SwipeDeck({ deck }: { deck: DeckCard[] }) {
+// `demo` (landing, no account) : nothing is saved ; `renderEnd` replaces the
+// last screen and receives the cards wished during the visit.
+export function SwipeDeck({
+  deck,
+  demo = false,
+  renderEnd,
+}: {
+  deck: DeckCard[];
+  demo?: boolean;
+  renderEnd?: (wished: DeckCard[]) => React.ReactNode;
+}) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [done, setDone] = useState<Set<string>>(new Set()); // chosen in this visit
+  const [wishedHere, setWishedHere] = useState<DeckCard[]>([]);
   const [drag, setDrag] = useState(0);
   const [leaving, setLeaving] = useState<{ id: string; dir: 1 | -1 } | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -55,7 +66,12 @@ export function SwipeDeck({ deck }: { deck: DeckCard[] }) {
   const next = queue[1];
 
   function save(card: DeckCard, choice: Choice) {
+    if (choice === "wish") setWishedHere((w) => [...w, card]);
     if (choice === "skip") return;
+    if (demo) {
+      if (choice === "wish") setToast({ ok: true, text: `${card.entry.title} : dans tes envies !` });
+      return;
+    }
     const id = card.entry.id;
     const title = card.entry.title;
     const call =
@@ -124,6 +140,7 @@ export function SwipeDeck({ deck }: { deck: DeckCard[] }) {
   }
 
   if (!top) {
+    if (renderEnd) return <>{renderEnd(wishedHere)}</>;
     return (
       <div className="flex flex-col items-center gap-2 rounded-3xl p-8 text-center" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
         <p className="text-lg font-bold">Tu as tout vu pour l&apos;instant !</p>
@@ -178,7 +195,7 @@ export function SwipeDeck({ deck }: { deck: DeckCard[] }) {
             <Stamp show={dx < -30} side="right" color="var(--muted)" text="Pas pour moi" />
           </div>
           <div className="flex flex-col gap-1 p-4">
-            <h3 className="text-xl font-bold leading-snug">{top.entry.title}</h3>
+            <h2 className="text-xl leading-snug">{top.entry.title}</h2>
             <p className="text-sm font-semibold" style={{ color: "var(--read)" }}>{top.reason}</p>
             {facts && <p className="text-xs" style={{ color: "var(--muted)" }}>{facts}</p>}
           </div>
