@@ -1,236 +1,133 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
-import { WaitlistForm } from "@/components/landing/waitlist-form";
-import { WaitlistCount } from "@/components/landing/waitlist-count";
-import { LibraryPhoneMockup } from "@/components/landing/library-phone-mockup";
 import Link from "next/link";
+import { ShelfHero } from "@/components/landing/shelf-hero";
+import { CollectionPreview } from "@/components/landing/collection-preview";
+import { ReadingPreview } from "@/components/landing/reading-preview";
+import { getLandingCovers } from "@/lib/landing/covers";
 
 export const revalidate = 60;
 
+const TITLE = "Yomushelf : ses mangas, et où il en est";
+const DESCRIPTION =
+  "La collection de mangas de ton enfant avec les vraies couvertures, et sa lecture tome par tome. Gratuit, sans pub, sans profil public.";
+
 export const metadata: Metadata = {
-  title: "Yomushelf : tes mangas, là où tu en es",
-  description:
-    "Retrouve les mangas que tu as, où tu en es dans chaque série, et ceux que tu aimeras ensuite. Simple pour toute la famille. Inscription liste d'attente.",
-  openGraph: {
-    title: "Yomushelf : tes mangas, là où tu en es",
-    description: "Retrouve les mangas que tu as, où tu en es dans chaque série, et ceux que tu aimeras ensuite.",
-    url: "https://yomushelf.com",
-    images: [{ url: "https://yomushelf.com/og-image.png", width: 1200, height: 630 }],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Yomushelf : tes mangas, là où tu en es",
-    description: "Retrouve les mangas que tu as, où tu en es dans chaque série, et ceux que tu aimeras ensuite.",
-    images: ["https://yomushelf.com/og-image.png"],
-  },
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: "https://www.yomushelf.com" },
+  openGraph: { title: TITLE, description: DESCRIPTION, url: "https://www.yomushelf.com", locale: "fr_FR", type: "website" },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
 };
 
-const FEATURES = [
-  {
-    icon: "📚",
-    title: "Ta bibliothèque, enfin claire",
-    body: "Tous tes tomes au même endroit. Vois en un coup d'œil ce que tu as, ce qu'il te manque, et où tu en es dans chaque série.",
-  },
-  {
-    icon: "🧭",
-    title: "Ta prochaine série",
-    body: "Des idées qui ressemblent à ce que tu aimes, chacune avec son explication. Et une carte de tes goûts pour explorer.",
-  },
-  {
-    icon: "💶",
-    title: "Tes dépenses, si tu veux",
-    body: "Note le prix payé quand tu le connais. Les cadeaux restent à part, et rien n'est inventé.",
-  },
-];
+function SignupButton() {
+  return (
+    <Link
+      href="/signup"
+      className="flex min-h-12 items-center justify-center rounded-lg px-6 text-base font-semibold transition-colors"
+      style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+    >
+      Créer un compte
+    </Link>
+  );
+}
 
-type Props = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
-
-export default async function LandingPage({ searchParams }: Props) {
-  const params = await searchParams;
-  const utmSource = typeof params.utm_source === "string" ? params.utm_source : undefined;
-  const heroSource =
-    utmSource === "tiktok" ? "tiktok_campaign"
-    : utmSource === "other" ? "other"
-    : "landing_hero";
+export default async function LandingPage() {
+  const covers = await getLandingCovers();
+  const [first, second] = covers;
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* ── HEADER ── */}
+    <div className="flex min-h-screen flex-col">
       <header
-        className="sticky top-0 z-50 px-6 py-4 flex items-center justify-between"
+        className="sticky top-0 z-50 flex items-center justify-between px-6 py-4"
         style={{ borderBottom: "1px solid var(--border)", background: "var(--background)" }}
       >
         <div className="flex items-center gap-2">
-          <span className="text-xl font-bold tracking-tight" style={{ color: "var(--accent)" }}>漫</span>
+          <span className="text-xl font-bold tracking-tight" style={{ color: "var(--accent)" }} aria-hidden="true">漫</span>
           <span className="text-base font-semibold tracking-tight">Yomushelf</span>
         </div>
-        <a href="/login" className="flex min-h-11 items-center rounded-lg px-4 text-sm font-medium transition-colors" style={{ color: "var(--muted)" }}>
+        <Link href="/login" className="flex min-h-11 items-center rounded-lg px-4 text-sm font-medium" style={{ color: "var(--muted)" }}>
           Connexion
-        </a>
+        </Link>
       </header>
 
       <main className="flex-1">
-        {/* ── HERO ── */}
-        <section className="relative overflow-hidden">
-          <div className="mx-auto max-w-6xl px-6 pt-16 pb-24 lg:pt-24">
-            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-              {/* Left: text + form */}
-              <div className="flex flex-col gap-8">
-                <div className="inline-flex w-fit">
-                  <span
-                    className="text-xs font-medium px-3 py-1.5 rounded-full"
-                    style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", color: "var(--muted)" }}
-                  >
-                    Bientôt disponible
-                  </span>
-                </div>
-
-                <div className="flex flex-col gap-4">
-                  <h1 className="text-4xl sm:text-5xl lg:text-5xl xl:text-6xl font-bold leading-[1.1] tracking-tight">
-                    Tes mangas, là où tu en es.
-                    <br />
-                    <span style={{ color: "var(--accent)" }}>Et ceux que tu aimeras ensuite.</span>
-                  </h1>
-                  <p className="text-lg leading-relaxed max-w-md" style={{ color: "var(--muted)" }}>
-                    Retrouve tes séries, ce que tu as déjà lu et le prochain tome à lire. Assez simple pour un enfant,
-                    agréable pour les ados et les adultes.
-                  </p>
-                </div>
-
-                {/* Waitlist form + social proof */}
-                <div className="flex flex-col gap-2 max-w-md">
-                  <WaitlistForm source={heroSource} />
-                  <p className="text-xs" style={{ color: "var(--muted)" }}>
-                    En t&apos;inscrivant, tu acceptes que ton email soit utilisé pour te prévenir du lancement.
-                    Aucun spam, désinscription possible à tout moment.
-                  </p>
-                  <Suspense fallback={null}>
-                    <WaitlistCount />
-                  </Suspense>
-                </div>
-
-                {/* Social proof */}
-                <div className="flex items-center gap-3 max-w-md">
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                    style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", color: "var(--accent)" }}
-                  >
-                    JB
-                  </div>
-                  <p className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
-                    Construit par un collectionneur de{" "}
-                    <span style={{ color: "var(--foreground)" }}>800 tomes</span>
-                    {" "}qui en avait marre de racheter deux fois le même.
-                  </p>
-                </div>
-              </div>
-
-              {/* Right: phone mockup */}
-              <div className="hidden lg:block h-[560px]">
-                <LibraryPhoneMockup />
-              </div>
-            </div>
-          </div>
-
-          <div
-            className="absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl opacity-10 pointer-events-none"
-            style={{ background: "var(--accent)" }}
-          />
-        </section>
-
-        {/* ── FEATURES ── */}
-        <section className="py-24" style={{ borderTop: "1px solid var(--border)" }}>
-          <div className="mx-auto max-w-6xl px-6">
-            <div className="flex flex-col gap-4 mb-14 max-w-xl">
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Ce que Yomushelf fait pour toi</h2>
-              <p className="text-base" style={{ color: "var(--muted)" }}>
-                Conçu pour les collectionneurs qui achètent en librairie et jonglent avec plusieurs séries en parallèle.
+        <section className="mx-auto grid max-w-6xl items-center gap-10 px-6 pt-14 pb-16 lg:grid-cols-2 lg:gap-16 lg:pt-24 lg:pb-24">
+          <div className="flex flex-col gap-8">
+            <div className="flex flex-col gap-5">
+              <h1 className="text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl xl:text-6xl">
+                Ses mangas,
+                <br />
+                <span style={{ color: "var(--accent)" }}>et où il en est.</span>
+              </h1>
+              <p className="max-w-md text-lg leading-relaxed" style={{ color: "var(--muted)" }}>
+                La collection de ton enfant avec les vraies couvertures, et sa lecture tome par tome. Simple pour lui,
+                clair pour toi.
               </p>
             </div>
-            <div className="grid sm:grid-cols-3 gap-6">
-              {FEATURES.map((f) => (
-                <article
-                  key={f.title}
-                  className="flex flex-col gap-4 rounded-xl p-6"
-                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-                >
-                  <span className="text-2xl">{f.icon}</span>
-                  <h3 className="font-semibold text-base leading-snug">{f.title}</h3>
-                  <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>{f.body}</p>
-                </article>
-              ))}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <SignupButton />
+              <Link href="/login" className="flex min-h-12 items-center justify-center px-4 text-sm font-medium" style={{ color: "var(--muted)" }}>
+                J&apos;ai déjà un compte
+              </Link>
             </div>
+            <p className="text-sm" style={{ color: "var(--muted)" }}>Gratuit. Pas de pub, pas de profil public.</p>
           </div>
+          <ShelfHero covers={covers} />
         </section>
 
-        {/* ── PAIN POINTS ── */}
-        <section className="py-24" style={{ background: "var(--surface)", borderTop: "1px solid var(--border)" }}>
-          <div className="mx-auto max-w-3xl px-6 text-center flex flex-col gap-10">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Tu te reconnais ?</h2>
-            <div className="grid sm:grid-cols-2 gap-4 text-left">
-              {[
-                "Tu achètes un tome en double parce que tu ne savais plus ce que tu avais.",
-                "Tu ne sais plus où tu en es dans ta lecture depuis 6 mois.",
-                "Ton budget manga est un mystère total.",
-                "Tu rates des sorties parce que tu perds le fil des séries.",
-              ].map((pain) => (
-                <div
-                  key={pain}
-                  className="flex gap-3 items-start rounded-xl p-4"
-                  style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
-                >
-                  <span style={{ color: "var(--accent)" }} className="mt-0.5 text-sm">✕</span>
-                  <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>{pain}</p>
-                </div>
-              ))}
-            </div>
-            <p className="text-base font-medium">
-              Yomushelf règle ça.{" "}
-              <span style={{ color: "var(--accent)" }}>Simplement.</span>
-            </p>
-          </div>
-        </section>
-
-        {/* ── CTA FOOTER ── */}
-        <section className="py-24" style={{ borderTop: "1px solid var(--border)" }}>
-          <div className="mx-auto max-w-xl px-6 text-center flex flex-col gap-6">
-            <div className="flex flex-col gap-3">
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Sois parmi les premiers.</h2>
-              <p className="text-base" style={{ color: "var(--muted)" }}>
-                L&apos;accès est limité au lancement. Inscris-toi maintenant, on te prévient dès que c&apos;est ouvert.
+        <section style={{ borderTop: "1px solid var(--border)" }}>
+          <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-20 lg:grid-cols-2 lg:gap-16">
+            <div className="flex flex-col gap-4">
+              <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Voir sa collection</h2>
+              <p className="max-w-md text-base leading-relaxed" style={{ color: "var(--muted)" }}>
+                Toutes ses séries sur une étagère, avec les vraies couvertures. Tu vois d&apos;un coup d&apos;œil les tomes
+                qu&apos;il a et ceux qui manquent. Fini le tome acheté en double.
               </p>
             </div>
-            <WaitlistForm source="landing_footer" />
-            <p className="text-xs" style={{ color: "var(--muted)" }}>
-              En t&apos;inscrivant, tu acceptes que ton email soit utilisé pour te prévenir du lancement.
-              Aucun spam, désinscription possible à tout moment.
+            <CollectionPreview cover={first} />
+          </div>
+        </section>
+
+        <section style={{ borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
+          <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-20 lg:grid-cols-2 lg:gap-16">
+            <div className="flex flex-col gap-4 lg:order-2">
+              <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Suivre sa lecture</h2>
+              <p className="max-w-md text-base leading-relaxed" style={{ color: "var(--muted)" }}>
+                Le dernier tome lu, le prochain à lire. Il le note lui-même en un geste, et tu sais où il en est sans
+                avoir à demander.
+              </p>
+            </div>
+            <div className="lg:order-1">
+              <ReadingPreview cover={second} />
+            </div>
+          </div>
+        </section>
+
+        <section style={{ borderTop: "1px solid var(--border)" }}>
+          <div className="mx-auto flex max-w-xl flex-col items-center gap-6 px-6 py-20 text-center">
+            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Commence par une série.</h2>
+            <p className="text-base" style={{ color: "var(--muted)" }}>
+              Crée un compte, ajoute celle qu&apos;il lit en ce moment. Le reste suit.
             </p>
-            <Suspense fallback={null}>
-              <WaitlistCount />
-            </Suspense>
+            <SignupButton />
+            <p className="text-sm" style={{ color: "var(--muted)" }}>Ses données restent privées.</p>
           </div>
         </section>
       </main>
 
-      {/* ── FOOTER ── */}
       <footer
-        className="px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4"
+        className="flex flex-col items-center justify-between gap-4 px-6 py-8 sm:flex-row"
         style={{ borderTop: "1px solid var(--border)", color: "var(--muted)" }}
       >
         <div className="flex items-center gap-2 text-sm font-medium">
-          <span style={{ color: "var(--accent)" }}>漫</span>
+          <span style={{ color: "var(--accent)" }} aria-hidden="true">漫</span>
           <span>Yomushelf</span>
         </div>
-        <div className="flex flex-wrap items-center justify-center gap-4 text-xs" style={{ color: "var(--muted)" }}>
-          <Link href="/mentions-legales" className="hover:opacity-80 transition-opacity">Mentions légales</Link>
-          <Link href="/confidentialite" className="hover:opacity-80 transition-opacity">Confidentialité</Link>
-          <span>Vos données restent privées.</span>
-        </div>
-        <p className="text-xs" style={{ color: "var(--muted)" }}>
-          © {new Date().getFullYear()} Yomushelf
-        </p>
+        <nav className="flex flex-wrap items-center justify-center gap-4 text-xs" aria-label="Informations légales">
+          <Link href="/mentions-legales" className="flex min-h-11 items-center">Mentions légales</Link>
+          <Link href="/confidentialite" className="flex min-h-11 items-center">Confidentialité</Link>
+        </nav>
+        <p className="text-xs">© {new Date().getFullYear()} Yomushelf</p>
       </footer>
     </div>
   );
