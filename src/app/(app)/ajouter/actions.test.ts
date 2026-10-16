@@ -20,6 +20,7 @@ function query(table: string) {
     select: () => q,
     eq: () => ((filter = filter ?? "eq"), q),
     contains: () => ((filter = "contains"), q),
+    is: () => q,
     limit: () => q,
     maybeSingle: async () => ({
       data: table === "mangas" ? (filter === "contains" ? state.existingByExternal : state.existingById) : null,
