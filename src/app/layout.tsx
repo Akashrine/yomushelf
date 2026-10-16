@@ -10,12 +10,13 @@ const geistSans = Geist({
   display: "swap",
 });
 
-// Display serif for titles (h1, h2 in globals.css)
+// Display serif for titles (h1, h2 in globals.css). One weight only : the
+// full variable font (118 KB) delayed the landing's first paint on 4G.
 const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
   display: "swap",
-  axes: ["SOFT", "opsz"],
+  weight: "600",
 });
 
 export const viewport: Viewport = {
