@@ -7,6 +7,7 @@
 -- * profiles.liked_genres / avoided_genres : tastes declared by the
 --   reader (used to start discovery without history, and to leave out
 --   genres they do not want).
+-- * profiles.discovery_scope : "all" or "youth_verified" (see below).
 -- Rollback : supabase/rollbacks/20261017000500_reader_preferences_down.sql
 -- ============================================================
 
@@ -48,5 +49,13 @@ do $$ begin
     and not (liked_genres && avoided_genres)
   );
 exception when duplicate_object then null; end $$;
+-- What Découvrir may propose to this reader : the whole catalogue (series
+-- without a verified recommendation are labelled), or only series the
+-- CNLJ recommends for young readers.
+alter table public.profiles
+  add column if not exists discovery_scope text not null default 'all'
+    check (discovery_scope in ('all', 'youth_verified'));
+
 -- profiles uses column-level grants : readers read and write only these new ones.
-grant select (liked_genres, avoided_genres), update (liked_genres, avoided_genres) on public.profiles to authenticated;
+grant select (liked_genres, avoided_genres, discovery_scope), update (liked_genres, avoided_genres, discovery_scope)
+  on public.profiles to authenticated;

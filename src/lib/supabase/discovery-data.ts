@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/types/database";
-import type { CatalogueEntry, DeclaredTastes, ReaderSeries } from "@/lib/discovery/suggest";
+import type { CatalogueEntry, DeclaredTastes, DiscoveryScope, ReaderSeries } from "@/lib/discovery/suggest";
 import type { SeriesMetaRow } from "./queries";
 import type { OwnedVolume } from "@/lib/collection/value";
 import type { Reading } from "@/lib/collection/reading";
@@ -8,13 +8,14 @@ import type { Reading } from "@/lib/collection/reading";
 type Supabase = SupabaseClient<Database>;
 
 const CATALOGUE_SELECT =
-  "id, title, author, genres, demographic, audience_min_age, audience_age_source, total_volumes, status, top_50_rank, cover_url";
+  "id, title, author, genres, demographic, audience_min_age, audience_age_source, audience_age_scope, audience_age_volumes, total_volumes, status, top_50_rank, cover_url";
 
 export type DiscoveryContext = {
   catalogue: CatalogueEntry[]; // curated shared series only
   dismissed: Set<string>;
   wished: string[];
   declared: DeclaredTastes;
+  scope: DiscoveryScope;
 };
 
 // What discovery may propose : editorial (curated) shared series, never a
@@ -25,7 +26,7 @@ export async function loadDiscoveryContext(supabase: Supabase, userId: string): 
     supabase.from("mangas").select(CATALOGUE_SELECT).is("created_by", null).is("merged_into", null).eq("curated", true),
     supabase.from("discovery_dismissals").select("manga_id").eq("user_id", userId),
     supabase.from("wishlist_items").select("manga_id").eq("user_id", userId),
-    supabase.from("profiles").select("liked_genres, avoided_genres").eq("id", userId).single(),
+    supabase.from("profiles").select("liked_genres, avoided_genres, discovery_scope").eq("id", userId).single(),
   ]);
   if (catalogue.error || dismissals.error || wishes.error || profile.error) {
     throw new Error("Impossible de charger les découvertes.");
@@ -35,6 +36,7 @@ export async function loadDiscoveryContext(supabase: Supabase, userId: string): 
     dismissed: new Set((dismissals.data ?? []).map((d) => d.manga_id)),
     wished: [...new Set((wishes.data ?? []).map((w) => w.manga_id))],
     declared: { liked: profile.data?.liked_genres ?? [], avoided: profile.data?.avoided_genres ?? [] },
+    scope: profile.data?.discovery_scope === "youth_verified" ? "youth_verified" : "all",
   };
 }
 

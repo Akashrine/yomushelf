@@ -25,6 +25,7 @@ export type Database = {
           avatar_initials: string;
           is_public: boolean;
           liked_genres: string[];
+          discovery_scope: "all" | "youth_verified";
           avoided_genres: string[];
           bio: string | null;
           public_slug: string | null;
@@ -39,6 +40,7 @@ export type Database = {
           avatar_initials?: string;
           is_public?: boolean;
           liked_genres?: string[];
+          discovery_scope?: "all" | "youth_verified";
           avoided_genres?: string[];
           bio?: string | null;
           public_slug?: string | null;
@@ -52,6 +54,7 @@ export type Database = {
           avatar_initials?: string;
           is_public?: boolean;
           liked_genres?: string[];
+          discovery_scope?: "all" | "youth_verified";
           avoided_genres?: string[];
           bio?: string | null;
           public_slug?: string | null;
@@ -76,6 +79,9 @@ export type Database = {
           demographic: Demographic | null;
           audience_min_age: number | null;
           audience_age_source: "cnlj" | "estimate" | null;
+          audience_age_scope: "series" | "volume" | null;
+          audience_age_volumes: number[] | null;
+          audience_age_ref: string | null;
           curated: boolean;
           merged_into: string | null;
           synopsis: string | null;
@@ -102,6 +108,9 @@ export type Database = {
           demographic?: Demographic | null;
           audience_min_age?: number | null;
           audience_age_source?: "cnlj" | "estimate" | null;
+          audience_age_scope?: "series" | "volume" | null;
+          audience_age_volumes?: number[] | null;
+          audience_age_ref?: string | null;
           curated?: boolean;
           merged_into?: string | null;
           synopsis?: string | null;
@@ -127,6 +136,9 @@ export type Database = {
           demographic?: Demographic | null;
           audience_min_age?: number | null;
           audience_age_source?: "cnlj" | "estimate" | null;
+          audience_age_scope?: "series" | "volume" | null;
+          audience_age_volumes?: number[] | null;
+          audience_age_ref?: string | null;
           curated?: boolean;
           merged_into?: string | null;
           synopsis?: string | null;

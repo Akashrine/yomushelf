@@ -68,7 +68,9 @@ export type CatalogueEntry = {
   genres: string[];
   demographic: Demographic | null;
   audience_min_age: number | null;
-  audience_age_source?: "cnlj" | "estimate" | null; // only "cnlj" is ever shown as an age
+  audience_age_source?: "cnlj" | "estimate" | null;
+  audience_age_scope?: "series" | "volume" | null; // what the CNLJ recommendation covers
+  audience_age_volumes?: number[] | null; // the volumes, when scope = volume
   total_volumes: number | null;
   status: "ongoing" | "completed" | "paused";
   top_50_rank: number | null;
@@ -137,25 +139,86 @@ export function tasteProfile(
 const joinFr = (items: string[]) =>
   items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} et ${items[items.length - 1]}`;
 
+export type DiscoveryScope = "all" | "youth_verified";
+
 export type SuggestOptions = {
   limit?: number;
   maxAge?: number | null; // explicit cap (overrides the comfort age)
   declared?: DeclaredTastes;
+  scope?: DiscoveryScope;
 };
 
-// Prudence : suggestions stay close to what the reader already reads, at
-// most two years above the highest age indication among series they read.
-// Age indications include estimates here, because they can only make the
-// suggestions MORE cautious. A series with no age indication at all is
-// never suggested. null when nothing read has an indication.
+// ─────────────────────────────────────────
+// Content rules (docs/politique-contenu.md). Only verified information is
+// used ; anything else counts as unknown.
+//   A verified age : a CNLJ recommendation covering the whole series. A
+//   recommendation on some volumes is shown as such, never extended to the
+//   series. Unverified estimates are not used at all.
+// ─────────────────────────────────────────
+
+export function verifiedAge(c: CatalogueEntry): number | null {
+  return c.audience_age_source === "cnlj" && c.audience_age_scope === "series" ? c.audience_min_age : null;
+}
+
+// What to say about a series' age, from verified information only.
+export function ageLabel(c: CatalogueEntry): string {
+  if (c.audience_age_source === "cnlj" && c.audience_min_age != null) {
+    if (c.audience_age_scope === "series") return `conseillé dès ${c.audience_min_age} ans (CNLJ)`;
+    const v = c.audience_age_volumes ?? [];
+    if (c.audience_age_scope === "volume" && v.length) {
+      return `CNLJ : tome${v.length > 1 ? "s" : ""} ${v.join(", ")} conseillé${v.length > 1 ? "s" : ""} dès ${c.audience_min_age} ans`;
+    }
+  }
+  return "âge non vérifié";
+}
+
+// Japanese magazines aimed at young adults. Descriptive catalogue data, not
+// an age rating : used only to hold such series back from readers who do
+// not read them already.
+const ADULT_TARGET = new Set(["seinen", "josei"]);
+
+export function readsAdultTarget(library: ReaderSeries[], catalogue: Map<string, CatalogueEntry>): boolean {
+  return library.some((s) => (s.read > 0 || s.liked === true) && ADULT_TARGET.has(catalogue.get(s.manga_id)?.demographic ?? ""));
+}
+
+// Prudence : with verified ages among the series read, suggestions stay at
+// most two years above the highest of them. null without any verified age.
 export function comfortAge(library: ReaderSeries[], catalogue: Map<string, CatalogueEntry>): number | null {
   let max: number | null = null;
   for (const s of library) {
     if (s.read === 0) continue;
-    const age = catalogue.get(s.manga_id)?.audience_min_age;
+    const entry = catalogue.get(s.manga_id);
+    const age = entry ? verifiedAge(entry) : null;
     if (age != null && (max == null || age > max)) max = age;
   }
   return max == null ? null : max + 2;
+}
+
+export type ContentContext = {
+  scope: DiscoveryScope;
+  maxAge: number | null;
+  adultTargetOk: boolean;
+  declared: DeclaredTastes;
+};
+
+// May this series be PROPOSED (suggestion, other universe, map discovery) ?
+// Browsing the catalogue with filters stays open.
+export function contentAllowed(c: CatalogueEntry, ctx: ContentContext): boolean {
+  if (avoids(c, ctx.declared)) return false;
+  const age = verifiedAge(c);
+  if (ctx.scope === "youth_verified") return age != null && (ctx.maxAge == null || age <= ctx.maxAge);
+  if (age != null) return ctx.maxAge == null || age <= ctx.maxAge;
+  // unknown age : no young-adult magazine series for a reader who does not read them
+  return !(c.demographic && ADULT_TARGET.has(c.demographic)) || ctx.adultTargetOk;
+}
+
+export function contentContext(library: ReaderSeries[], byId: Map<string, CatalogueEntry>, declared: DeclaredTastes, scope: DiscoveryScope, maxAge?: number | null): ContentContext {
+  return {
+    scope,
+    maxAge: maxAge ?? comfortAge(library, byId),
+    adultTargetOk: readsAdultTarget(library, byId),
+    declared,
+  };
 }
 
 function avoids(c: CatalogueEntry, declared: DeclaredTastes) {
@@ -166,12 +229,12 @@ export function suggest(
   library: ReaderSeries[],
   catalogue: CatalogueEntry[],
   excluded: Set<string>, // in the library, wished, or set aside
-  { limit = 12, maxAge = null, declared = NO_TASTES }: SuggestOptions = {}
+  { limit = 12, maxAge = null, declared = NO_TASTES, scope = "all" }: SuggestOptions = {}
 ): Suggestion[] {
   const byId = new Map(catalogue.map((c) => [c.id, c]));
   const profile = tasteProfile(library, byId, declared);
   if (profile.total === 0) return [];
-  if (maxAge === undefined || maxAge === null) maxAge = comfortAge(library, byId);
+  const ctx = contentContext(library, byId, declared, scope, maxAge);
 
   const readerSeries = library
     .map((s) => ({ s, entry: byId.get(s.manga_id), w: seriesWeight(s) }))
@@ -180,9 +243,7 @@ export function suggest(
   const out: Suggestion[] = [];
   for (const c of catalogue) {
     if (excluded.has(c.id)) continue;
-    if (c.audience_min_age == null) continue; // unknown : never suggested
-    if (maxAge != null && c.audience_min_age > maxAge) continue;
-    if (avoids(c, declared)) continue;
+    if (!contentAllowed(c, ctx)) continue;
     if (c.genres.length === 0 && !c.demographic) continue;
 
     let score = 0;
@@ -292,11 +353,11 @@ export function territoryDiscoveries(
   key: TerritoryKey,
   catalogue: CatalogueEntry[],
   excluded: Set<string>,
-  { limit = 3, maxAge = null, declared = NO_TASTES }: { limit?: number; maxAge?: number | null; declared?: DeclaredTastes } = {}
+  ctx: ContentContext,
+  limit = 3
 ): CatalogueEntry[] {
   return catalogue
-    .filter((c) => !excluded.has(c.id) && c.audience_min_age != null && (maxAge == null || c.audience_min_age <= maxAge))
-    .filter((c) => !avoids(c, declared) && territoriesOf(c.genres).includes(key))
+    .filter((c) => !excluded.has(c.id) && contentAllowed(c, ctx) && territoriesOf(c.genres).includes(key))
     .sort((a, b) => (a.top_50_rank ?? 999) - (b.top_50_rank ?? 999) || a.title.localeCompare(b.title, "fr"))
     .slice(0, limit);
 }
@@ -307,17 +368,17 @@ export function otherUniverses(
   library: ReaderSeries[],
   catalogue: CatalogueEntry[],
   excluded: Set<string>,
-  { limit = 3, declared = NO_TASTES }: { limit?: number; declared?: DeclaredTastes } = {}
+  { limit = 3, declared = NO_TASTES, scope = "all" }: { limit?: number; declared?: DeclaredTastes; scope?: DiscoveryScope } = {}
 ): { entry: CatalogueEntry; reason: string }[] {
   const byId = new Map(catalogue.map((c) => [c.id, c]));
   const tastes = territoryTastes(library, byId, declared);
   if (tastes.every((t) => t.share === 0)) return [];
-  const maxAge = comfortAge(library, byId);
+  const ctx = contentContext(library, byId, declared, scope);
   const out: { entry: CatalogueEntry; reason: string }[] = [];
   const taken = new Set(excluded);
   for (const t of [...tastes].filter((t) => !t.avoided).sort((a, b) => a.share - b.share)) {
     if (out.length >= limit || t.share >= 0.25) break;
-    const [pick] = territoryDiscoveries(t.key, catalogue, taken, { limit: 1, maxAge, declared });
+    const [pick] = territoryDiscoveries(t.key, catalogue, taken, ctx, 1);
     if (!pick) continue;
     taken.add(pick.id);
     out.push({
@@ -354,7 +415,10 @@ export function matchesFilters(c: CatalogueEntry, f: DiscoveryFilters): boolean 
   if (f.genre && !c.genres.includes(f.genre)) return false;
   // Age filter : only the CNLJ indication counts. Unknown or estimated
   // ages are left out when the filter is on.
-  if (f.maxAge != null && (c.audience_age_source !== "cnlj" || c.audience_min_age == null || c.audience_min_age > f.maxAge)) return false;
+  if (f.maxAge != null) {
+    const age = verifiedAge(c);
+    if (age == null || age > f.maxAge) return false;
+  }
   if (f.status === "completed" && c.status !== "completed") return false;
   if (f.status === "ongoing" && c.status === "completed") return false;
   if (f.length && lengthOf(c.total_volumes) !== f.length) return false;

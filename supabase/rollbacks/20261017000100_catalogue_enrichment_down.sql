@@ -24,4 +24,5 @@ update public.mangas set title = 'Boruto' where title = 'Boruto - Naruto Next Ge
 drop table if exists public.catalogue_enrichment_inserted;
 
 -- Columns added by the forward migration.
-alter table public.mangas drop column if exists audience_age_source, drop column if exists curated;
+alter table public.mangas drop column if exists audience_age_source, drop column if exists curated,
+  drop column if exists audience_age_scope, drop column if exists audience_age_volumes, drop column if exists audience_age_ref;

@@ -7,7 +7,7 @@ import { loadDiscoveryContext, readerLibrary, withReaderSeries } from "@/lib/sup
 import { formatEur, formatMonthShort, lastKnownPrice, todayIso } from "@/lib/collection/value";
 import { buildShelves } from "@/lib/collection/reading";
 import { readingsOverview, spendingOverview, waitingAtHome, wishPrice, wishlistEstimate } from "@/lib/univers/stats";
-import { comfortAge, territoryDiscoveries, territoryTastes } from "@/lib/discovery/suggest";
+import { contentContext, territoryDiscoveries, territoryTastes } from "@/lib/discovery/suggest";
 import { TERRITORIES, type TerritoryKey } from "@/lib/discovery/territories";
 import { AppShell } from "@/components/app/app-shell";
 import { AppIcon } from "@/components/app/app-icon";
@@ -42,11 +42,11 @@ export default async function UniversPage() {
   // Taste map : territories from real readings, "J'ai aimé" and declared genres.
   const territories = territoryTastes(library, known, discovery.declared);
   const excluded = new Set([...series.map((s) => s.manga_id), ...discovery.wished, ...discovery.dismissed]);
-  const maxAge = comfortAge(library, known);
+  const ctx = contentContext(library, known, discovery.declared, discovery.scope);
   const discoveries: Partial<Record<TerritoryKey, MapDiscovery[]>> = Object.fromEntries(
     TERRITORIES.map((t) => [
       t.key,
-      territoryDiscoveries(t.key, discovery.catalogue, excluded, { limit: 3, maxAge, declared: discovery.declared }).map((c) => ({
+      territoryDiscoveries(t.key, discovery.catalogue, excluded, ctx, 3).map((c) => ({
         id: c.id,
         title: c.title,
         cover_url: c.cover_url,

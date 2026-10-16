@@ -14,7 +14,7 @@ import { addSeriesToLibrary } from "@/app/(app)/ajouter/actions";
 import { addWishlistItem } from "@/app/(app)/envies/actions";
 import { lastKnownPrice, nextVolumeToBuy, type OwnedVolume } from "@/lib/collection/value";
 import { buildShelves, nextToRead, type Reading } from "@/lib/collection/reading";
-import { DEMOGRAPHIC_LABELS, GENRE_LABELS } from "@/lib/discovery/suggest";
+import { DEMOGRAPHIC_LABELS, GENRE_LABELS, ageLabel } from "@/lib/discovery/suggest";
 import type { Demographic } from "@/lib/types/database";
 
 type Manga = {
@@ -29,6 +29,8 @@ type Manga = {
   demographic: Demographic | null;
   audience_min_age: number | null;
   audience_age_source: "cnlj" | "estimate" | null;
+  audience_age_scope: "series" | "volume" | null;
+  audience_age_volumes: number[] | null;
   synopsis: string | null;
   is_private: boolean;
 };
@@ -168,8 +170,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
             {[
               MANGA_STATUS_LABELS[manga.status],
               totalVolumes > 0 ? `${totalVolumes} tomes parus` : null,
-              // Only an age given by the CNLJ is shown ; estimates never are.
-              manga.audience_age_source === "cnlj" && manga.audience_min_age != null ? `conseillé dès ${manga.audience_min_age} ans (CNLJ)` : null,
+              manga.is_private ? null : ageLabel({ ...manga, author: null, top_50_rank: null, demographic: manga.demographic }),
               manga.publisher_fr,
             ]
               .filter(Boolean)

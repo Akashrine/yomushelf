@@ -57,18 +57,26 @@ export async function restoreSuggestions(formData: FormData): Promise<ActionResu
 // Tastes the reader declares : genres liked, genres avoided.
 const Genre = z.enum(GENRES);
 const TastesSchema = z
-  .object({ liked: z.array(Genre).max(GENRES.length), avoided: z.array(Genre).max(GENRES.length) })
+  .object({
+    liked: z.array(Genre).max(GENRES.length),
+    avoided: z.array(Genre).max(GENRES.length),
+    scope: z.enum(["all", "youth_verified"]).default("all"),
+  })
   .refine((t) => !t.liked.some((g) => t.avoided.includes(g)), "Un genre ne peut pas être aimé et évité à la fois.");
 
-export async function saveDeclaredTastes(input: { liked: string[]; avoided: string[] }): Promise<ActionResult> {
-  const parsed = TastesSchema.safeParse({ liked: [...new Set(input?.liked ?? [])], avoided: [...new Set(input?.avoided ?? [])] });
+export async function saveDeclaredTastes(input: { liked: string[]; avoided: string[]; scope?: string }): Promise<ActionResult> {
+  const parsed = TastesSchema.safeParse({
+    liked: [...new Set(input?.liked ?? [])],
+    avoided: [...new Set(input?.avoided ?? [])],
+    scope: input?.scope,
+  });
   if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Données invalides." };
   const { supabase, user } = await getAuthed();
   if (!user) return { success: false, error: "Non authentifié." };
 
   const { error } = await supabase
     .from("profiles")
-    .update({ liked_genres: parsed.data.liked, avoided_genres: parsed.data.avoided })
+    .update({ liked_genres: parsed.data.liked, avoided_genres: parsed.data.avoided, discovery_scope: parsed.data.scope })
     .eq("id", user.id);
   if (error) return { success: false, error: "Pas enregistré. Vérifie ta connexion et réessaie." };
   revalidateDiscovery();

@@ -11,9 +11,11 @@ import {
   DEMOGRAPHIC_LABELS,
   GENRE_LABELS,
   GENRES,
+  ageLabel,
   matchesFilters,
   type CatalogueEntry,
   type DeclaredTastes,
+  type DiscoveryScope,
   type DiscoveryFilters,
   type LengthFilter,
 } from "@/lib/discovery/suggest";
@@ -40,6 +42,7 @@ type Props = {
   onShelf: string[];
   wished: string[];
   declared: DeclaredTastes;
+  scope: DiscoveryScope;
   dismissedCount: number;
   hasHistory: boolean;
   initialTerritory: TerritoryKey | null;
@@ -75,6 +78,7 @@ export function DiscoverView({
   onShelf,
   wished,
   declared,
+  scope,
   dismissedCount,
   hasHistory,
   initialTerritory,
@@ -191,8 +195,10 @@ export function DiscoverView({
         <div>
           <h2 id="h-pour-toi" className="text-lg font-bold">Pour toi</h2>
           <p className="text-sm" style={{ color: "var(--muted)" }}>
-            D&apos;après ce que tu lis, ce que tu as aimé et les genres que tu as choisis. Une série sans indication d&apos;âge
-            n&apos;est jamais proposée ici.
+            D&apos;après ce que tu lis, ce que tu as aimé et les genres que tu as choisis.{" "}
+            {scope === "youth_verified"
+              ? "Seulement des séries recommandées pour la jeunesse par le CNLJ."
+              : "Quand l'âge n'est pas vérifié, la carte le dit."}
           </p>
         </div>
         {suggestions.length > 0 ? (
@@ -217,8 +223,9 @@ export function DiscoverView({
       </section>
 
       <TastesEditor
-        key={`${declared.liked.join(",")}|${declared.avoided.join(",")}`}
+        key={`${declared.liked.join(",")}|${declared.avoided.join(",")}|${scope}`}
         declared={declared}
+        scope={scope}
         openByDefault={!hasHistory && declared.liked.length === 0}
         pending={isPending && pendingId === "tastes"}
         onSave={(t) => run("tastes", () => saveDeclaredTastes(t), "Tes goûts sont enregistrés. Les suggestions sont à jour.")}
@@ -344,19 +351,22 @@ export function DiscoverView({
 // Genres the reader likes or avoids. Three states per genre, plain words.
 function TastesEditor({
   declared,
+  scope,
   openByDefault,
   pending,
   onSave,
 }: {
   declared: DeclaredTastes;
+  scope: DiscoveryScope;
   openByDefault: boolean;
   pending: boolean;
-  onSave: (t: DeclaredTastes) => void;
+  onSave: (t: DeclaredTastes & { scope: DiscoveryScope }) => void;
 }) {
   const [liked, setLiked] = useState(new Set(declared.liked));
   const [avoided, setAvoided] = useState(new Set(declared.avoided));
+  const [youth, setYouth] = useState(scope === "youth_verified");
   const same = (a: Set<string>, b: string[]) => [...a].sort().join() === [...b].sort().join();
-  const changed = !same(liked, declared.liked) || !same(avoided, declared.avoided);
+  const changed = !same(liked, declared.liked) || !same(avoided, declared.avoided) || youth !== (scope === "youth_verified");
 
   function cycle(g: string) {
     // neutral → j'aime → j'évite → neutral
@@ -414,9 +424,20 @@ function TastesEditor({
             );
           })}
         </ul>
+        <fieldset className="mt-5 flex flex-col gap-1">
+          <legend className="mb-1 text-sm font-semibold">Ce que Découvrir te propose</legend>
+          <label className="flex min-h-11 cursor-pointer items-start gap-2 text-sm">
+            <input type="radio" name="scope" checked={!youth} onChange={() => setYouth(false)} className="mt-1 h-5 w-5 shrink-0" />
+            <span>Tout le catalogue. Les séries sans âge vérifié sont signalées, et celles des magazines pour jeunes adultes ne sont proposées qu&apos;à qui en lit déjà.</span>
+          </label>
+          <label className="flex min-h-11 cursor-pointer items-start gap-2 text-sm">
+            <input type="radio" name="scope" checked={youth} onChange={() => setYouth(true)} className="mt-1 h-5 w-5 shrink-0" />
+            <span>Seulement des séries recommandées pour la jeunesse par le CNLJ (Bibliothèque nationale de France). Moins de choix, et c&apos;est une indication, pas une garantie.</span>
+          </label>
+        </fieldset>
         <button
           type="button"
-          onClick={() => onSave({ liked: [...liked], avoided: [...avoided] })}
+          onClick={() => onSave({ liked: [...liked], avoided: [...avoided], scope: youth ? "youth_verified" : "all" })}
           disabled={pending || !changed}
           className="mt-4 min-h-12 rounded-2xl px-5 text-sm font-bold text-white disabled:opacity-50"
           style={{ background: "linear-gradient(135deg, var(--read), var(--read-deep))" }}
@@ -445,8 +466,7 @@ function SeriesCard({
 }) {
   const e = card.entry;
   const facts = [
-    // Only an age given by the CNLJ is shown : estimates never are.
-    e.audience_age_source === "cnlj" && e.audience_min_age != null ? `conseillé dès ${e.audience_min_age} ans (CNLJ)` : null,
+    ageLabel(e),
     e.total_volumes ? `${e.total_volumes} tomes` : null,
     e.status === "completed" ? "terminée" : "en cours",
   ].filter(Boolean);

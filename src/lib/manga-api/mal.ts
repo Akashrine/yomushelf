@@ -4,27 +4,23 @@ const MAL_BASE = "https://api.myanimelist.net/v2";
 const FIELDS =
   "id,title,main_picture,alternative_titles,status,num_volumes,genres,authors{first_name,last_name},serialization{name},nsfw,media_type";
 
-// What may enter the shared catalogue from MyAnimeList. Three separate
+// What may enter the shared catalogue from MyAnimeList. Two separate
 // questions, each with its own reason (see docs/politique-contenu.md) :
-// 1. Type of work (product scope) : paper manga only. Novels, light novels
-//    and self-published doujinshi are not what Yomushelf tracks.
-// 2. Origin (product scope of this version) : Japanese manga. Korean,
-//    Chinese and other comics are out of the automatic import for now.
-//    This is not a safety rule. Anyone can still create a private entry.
-// 3. Content signal (protection of the shared catalogue) : only entries
+// 1. Type of work (product scope) : comics read like manga (manga,
+//    one-shot, manhwa, manhua). Novels, light novels and self-published
+//    doujinshi are not what Yomushelf tracks. The country of origin is
+//    never a reason to refuse.
+// 2. Content signal (protection of the shared catalogue) : only entries
 //    MyAnimeList flags "white" (no sexual content reported). "gray",
 //    "black" or a missing flag are refused. A "white" flag does NOT mean
 //    the series suits a child : imported rows get no age and stay out of
 //    Découvrir until reviewed.
-const MANGA_TYPES = new Set(["manga", "one_shot"]);
-const OTHER_ORIGINS = new Set(["manhwa", "manhua", "oel"]);
+const COMIC_TYPES = new Set(["manga", "one_shot", "manhwa", "manhua", "oel"]);
 
-export type ImportRefusal = "type" | "origin" | "content";
+export type ImportRefusal = "type" | "content";
 
 export function malImportRefusal(node: Pick<MALMangaNode, "nsfw" | "media_type">): ImportRefusal | null {
-  const type = node.media_type ?? "";
-  if (OTHER_ORIGINS.has(type)) return "origin";
-  if (!MANGA_TYPES.has(type)) return "type";
+  if (!COMIC_TYPES.has(node.media_type ?? "")) return "type";
   if (node.nsfw !== "white") return "content";
   return null;
 }

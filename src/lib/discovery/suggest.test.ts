@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { matchesFilters, otherUniverses, suggest, tasteProfile, territoryTastes, type CatalogueEntry } from "./suggest";
+import { ageLabel, matchesFilters, otherUniverses, suggest, tasteProfile, territoryTastes, type CatalogueEntry } from "./suggest";
 
 function entry(partial: Partial<CatalogueEntry> & { id: string; title: string }): CatalogueEntry {
   return {
@@ -15,13 +15,14 @@ function entry(partial: Partial<CatalogueEntry> & { id: string; title: string })
   };
 }
 
-const onePiece = entry({ id: "op", title: "One Piece", genres: ["aventure", "action", "comedie"], demographic: "shonen", author: "Eiichiro Oda", audience_min_age: 9 });
-const drStone = entry({ id: "ds", title: "Dr. Stone", genres: ["aventure", "science-fiction"], demographic: "shonen", audience_min_age: 10, status: "completed", total_volumes: 27 });
+const cnlj = { audience_age_source: "cnlj" as const, audience_age_scope: "series" as const };
+const onePiece = entry({ id: "op", title: "One Piece", genres: ["aventure", "action", "comedie"], demographic: "shonen", author: "Eiichiro Oda", audience_min_age: 9, ...cnlj });
+const drStone = entry({ id: "ds", title: "Dr. Stone", genres: ["aventure", "science-fiction"], demographic: "shonen", audience_min_age: 10, status: "completed", total_volumes: 27, ...cnlj });
 const haikyu = entry({ id: "hk", title: "Haikyu!!", genres: ["sport", "comedie"], demographic: "shonen", audience_min_age: 8, status: "completed", total_volumes: 45 });
 const monster = entry({ id: "mo", title: "Monster", genres: ["mystere", "psychologique", "drame"], demographic: "seinen", audience_min_age: 16 });
 const daï = entry({ id: "dai", title: "Dragon Quest - Daï", genres: ["aventure", "fantasy", "action"], demographic: "shonen", audience_min_age: 9 });
 const wanted = entry({ id: "ws", title: "Wanted (Oda)", genres: ["action"], demographic: "shonen", author: "Eiichiro Oda", audience_min_age: 9 });
-const chi = entry({ id: "chi", title: "Chi", genres: ["tranche-de-vie", "comedie"], demographic: "kodomo", audience_min_age: 6, audience_age_source: "cnlj", total_volumes: 12, status: "completed" });
+const chi = entry({ id: "chi", title: "Chi", genres: ["tranche-de-vie", "comedie"], demographic: "kodomo", audience_min_age: 6, audience_age_source: "cnlj", audience_age_scope: "series", total_volumes: 12, status: "completed" });
 const catalogue = [onePiece, drStone, haikyu, monster, daï, wanted, chi];
 
 describe("suggest", () => {
@@ -57,7 +58,7 @@ describe("suggest", () => {
 
   it("stays close to the ages the reader already reads", () => {
     // One Piece (9) and Dr. Stone (10) read : nothing above 12 is suggested
-    const out = suggest(library, [...catalogue, entry({ id: "old", title: "Pour ados", genres: ["aventure", "action"], demographic: "shonen", audience_min_age: 16 })], new Set(["op", "ds"]));
+    const out = suggest(library, [...catalogue, entry({ id: "old", title: "Pour ados", genres: ["aventure", "action"], demographic: "shonen", audience_min_age: 16, ...cnlj })], new Set(["op", "ds"]));
     expect(out.map((s) => s.entry.id)).not.toContain("old");
   });
 
@@ -82,6 +83,8 @@ describe("matchesFilters", () => {
     expect(matchesFilters(chi, { genre: "comedie" })).toBe(true);
     expect(matchesFilters(chi, { genre: "sport" })).toBe(false);
     expect(matchesFilters(monster, { maxAge: 12 })).toBe(false);
+    // a recommendation on one volume is not one for the series
+    expect(matchesFilters(entry({ id: "v", title: "v", audience_min_age: 9, audience_age_source: "cnlj", audience_age_scope: "volume", audience_age_volumes: [1] }), { maxAge: 12 })).toBe(false);
     expect(matchesFilters(chi, { maxAge: 8 })).toBe(true); // CNLJ indication
     expect(matchesFilters(entry({ id: "e", title: "e", audience_min_age: 6, audience_age_source: "estimate" }), { maxAge: 12 })).toBe(false); // an estimate is not an indication
     expect(matchesFilters(entry({ id: "x", title: "x" }), { maxAge: 12 })).toBe(false); // unknown age is not assumed safe
@@ -127,14 +130,31 @@ describe("preferences", () => {
     expect(out.find((s) => s.entry.id === "dai")?.reason).toMatch(/^Parce que tu as One Piece chez toi/);
   });
 
-  it("leaves out avoided genres and series with no age indication", () => {
-    const noAge = entry({ id: "na", title: "Sans âge", genres: ["aventure", "action"] });
-    const out = suggest([{ manga_id: "op", read: 3, owned: 3 }], [...catalogue, noAge], new Set(["op"]), {
+  it("leaves out avoided genres ; unknown age is allowed but young-adult magazines only for their readers", () => {
+    const unknownShonen = entry({ id: "us", title: "Shōnen sans âge", genres: ["aventure", "action"], demographic: "shonen" });
+    const unknownSeinen = entry({ id: "use", title: "Seinen sans âge", genres: ["aventure", "action"], demographic: "seinen" });
+    const out = suggest([{ manga_id: "op", read: 3, owned: 3 }], [...catalogue, unknownShonen, unknownSeinen], new Set(["op"]), {
       declared: { liked: [], avoided: ["fantasy"] },
     });
     const ids = out.map((s) => s.entry.id);
     expect(ids).not.toContain("dai"); // fantasy avoided
-    expect(ids).not.toContain("na"); // unknown age
+    expect(ids).toContain("us"); // unknown age, shōnen : proposed (labelled "âge non vérifié")
+    expect(ids).not.toContain("use"); // unknown age, seinen, reader reads no seinen
+    const seinenReader = suggest([{ manga_id: "op", read: 3, owned: 3 }, { manga_id: "mo", read: 2, owned: 2 }], [...catalogue, unknownSeinen], new Set(["op", "mo"]));
+    expect(seinenReader.map((s) => s.entry.id)).toContain("use");
+  });
+
+  it("youth mode proposes only series the CNLJ recommends as a whole", () => {
+    const unknownShonen = entry({ id: "us", title: "Shōnen sans âge", genres: ["aventure", "action"], demographic: "shonen" });
+    const out = suggest([{ manga_id: "op", read: 3, owned: 3 }], [...catalogue, unknownShonen], new Set(["op"]), { scope: "youth_verified" });
+    expect(out.length).toBeGreaterThan(0);
+    expect(out.every((s) => s.entry.audience_age_source === "cnlj" && s.entry.audience_age_scope === "series")).toBe(true);
+  });
+
+  it("states ages from verified information only", () => {
+    expect(ageLabel(chi)).toBe("conseillé dès 6 ans (CNLJ)");
+    expect(ageLabel(entry({ id: "v", title: "v", audience_min_age: 9, audience_age_source: "cnlj", audience_age_scope: "volume", audience_age_volumes: [1] }))).toBe("CNLJ : tome 1 conseillé dès 9 ans");
+    expect(ageLabel(entry({ id: "e", title: "e", audience_min_age: 12, audience_age_source: "estimate" }))).toBe("âge non vérifié");
   });
 
   it("proposes another universe the reader has not explored", () => {

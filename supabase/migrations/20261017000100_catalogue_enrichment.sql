@@ -27,7 +27,12 @@
 alter table public.mangas
   add column if not exists audience_age_source text
     check (audience_age_source in ('cnlj', 'estimate')),
-  add column if not exists curated boolean not null default false;
+  add column if not exists curated boolean not null default false,
+  -- what the CNLJ recommendation covers : the whole series, or only some
+  -- volumes (a recommendation on a volume is not one for the series)
+  add column if not exists audience_age_scope text check (audience_age_scope in ('series', 'volume')),
+  add column if not exists audience_age_volumes integer[],
+  add column if not exists audience_age_ref text; -- source URL
 
 -- Series this migration creates (and only those) : the rollback deletes
 -- exactly these, never a series that existed before. Service role only.

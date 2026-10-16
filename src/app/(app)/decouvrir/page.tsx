@@ -48,7 +48,7 @@ export default async function DecouvrirPage({ searchParams }: { searchParams: Pr
   ]);
   if (selectionsResult.error) throw new Error("Impossible de charger les découvertes.");
 
-  const { catalogue, dismissed, wished, declared } = discovery;
+  const { catalogue, dismissed, wished, declared, scope } = discovery;
   const byId = new Map(catalogue.map((c) => [c.id, c]));
   const known = [...withReaderSeries(catalogue, series).values()];
 
@@ -57,8 +57,8 @@ export default async function DecouvrirPage({ searchParams }: { searchParams: Pr
   const onShelf = series.filter((s) => !s.archived_at).map((s) => s.manga_id);
   const excluded = new Set([...series.map((s) => s.manga_id), ...wished, ...dismissed]);
 
-  const suggestions = suggest(library, known, excluded, { limit: 9, declared }).map((s) => ({ entry: s.entry, reason: s.reason }));
-  const others = otherUniverses(library, known, new Set([...excluded, ...suggestions.map((s) => s.entry.id)]), { declared });
+  const suggestions = suggest(library, known, excluded, { limit: 9, declared, scope }).map((s) => ({ entry: s.entry, reason: s.reason }));
+  const others = otherUniverses(library, known, new Set([...excluded, ...suggestions.map((s) => s.entry.id)]), { declared, scope });
 
   // Continue a series / read a volume already at home : from the reader's shelf.
   const continueItems: ContinueItem[] = buildShelves(series.filter((s) => !s.archived_at), volumes, readings)
@@ -102,6 +102,7 @@ export default async function DecouvrirPage({ searchParams }: { searchParams: Pr
         onShelf={onShelf}
         wished={wished}
         declared={declared}
+        scope={scope}
         dismissedCount={dismissed.size}
         hasHistory={library.some((l) => l.read + l.owned > 0 || l.liked != null)}
         initialTerritory={initialTerritory}
