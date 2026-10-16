@@ -42,25 +42,25 @@
   --muted: #6b6359;
 
   /* Terracotta */
-  --accent: #b5502f;
-  --accent-hover: #9c4227;
+  --accent: #ad4b2c;
+  --accent-hover: #933d23;
   --accent-foreground: #ffffff;
 
   /* Same meanings as before, tuned for paper (text use passes WCAG AA) :
      value / wish = amber, read = terracotta, waiting = night blue,
      gift = amber ribbon, borrowed = sea blue */
-  --gold: #9a6412;
-  --gold-deep: #7a4e0c;
-  --read: #c0532f;
-  --read-deep: #9e3f20;
+  --gold: #8c5a10;
+  --gold-deep: #6e460b;
+  --read: #b04a28;
+  --read-deep: #8f3a1d;
   --sleep: #4f5fa3;
   --sleep-deep: #3b4884;
-  --gift: #9a6412;
+  --gift: #8c5a10;
   --borrow: #276f8c;
 
   /* Feedback */
   --danger: #b3261e;
-  --success: #2e7d5b;
+  --success: #2a7353;
 }
 
 * {
