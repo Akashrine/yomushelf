@@ -166,7 +166,8 @@ export function ageLabel(c: CatalogueEntry): string {
     if (c.audience_age_scope === "series") return `conseillé dès ${c.audience_min_age} ans (CNLJ)`;
     const v = c.audience_age_volumes ?? [];
     if (c.audience_age_scope === "volume" && v.length) {
-      return `CNLJ : tome${v.length > 1 ? "s" : ""} ${v.join(", ")} conseillé${v.length > 1 ? "s" : ""} dès ${c.audience_min_age} ans`;
+      // a review of some volumes, not a recommendation for the series
+      return `avis CNLJ sur ${v.length > 1 ? "les tomes" : "le tome"} ${v.join(", ")} (dès ${c.audience_min_age} ans)`;
     }
   }
   return "âge non vérifié";

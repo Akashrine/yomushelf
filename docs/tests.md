@@ -23,6 +23,8 @@ Ce que couvrent les tests unitaires (`src/**/*.test.ts`) :
 | Politique | `lib/manga-api/mal.test.ts` | type d'œuvre, origine, signal de contenu |
 | Couvertures | `lib/manga-api/safe-image.test.ts` | hôtes autorisés, redirections contrôlées, taille, délai, type réel du fichier |
 | Routes privilégiées | `lib/server/cron-auth.test.ts` | secret absent ou court refusé |
+| Maintenance | `lib/maintenance.test.ts` | tout bloqué sauf avec le jeton, jeton court ou absent refusé |
+| Import nocturne | `lib/catalogue/ingest.test.ts` | désactivé par défaut, simulation sans écriture, fiches éditoriales intactes, doublons évités, limites |
 
 ## 2. Migrations sur une base locale
 
@@ -67,6 +69,27 @@ docker exec supabase_db_Yomushelf-v2 psql "$DB" -f /tmp/t600.sql | grep -E "T[0-
   - un lecteur ne peut pas la lancer.
 
 Les comptes de test viennent de `e2e/reset.sql`, à charger d'abord.
+
+## 3 bis. Stockage des couvertures
+
+La pile locale doit tourner avec le service de stockage (`supabase start` sans exclure `storage`).
+
+```bash
+API=http://127.0.0.1:55421 ANON=<clé anon> SERVICE=<clé service> \
+USER_EMAIL=<compte de test> USER_PASSWORD=<mot de passe> bash supabase/tests/cover_storage_test.sh
+```
+
+Dix vérifications :
+- le serveur dépose une couverture, et tout le monde peut la lire ;
+- un visiteur ou un lecteur connecté ne peut ni déposer, ni remplacer, ni supprimer, ni lister ;
+- un SVG et un fichier de 3 Mo sont refusés par le bucket lui-même.
+
+## 3 ter. Répétition de la bascule de production
+
+Voir `docs/publication.md`, section « Répétition effectuée ». Outils :
+- `supabase/rehearsal/legacy_data.sql` : données au format ancien ;
+- `supabase/rehearsal/check-app.mjs` : sonde de l'application ;
+- `ops/backup.sh`, `ops/restore.sh` et `ops/fingerprint.sql`.
 
 ## 4. Parcours dans un vrai navigateur
 

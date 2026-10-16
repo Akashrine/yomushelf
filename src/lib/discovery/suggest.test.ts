@@ -153,7 +153,7 @@ describe("preferences", () => {
 
   it("states ages from verified information only", () => {
     expect(ageLabel(chi)).toBe("conseillé dès 6 ans (CNLJ)");
-    expect(ageLabel(entry({ id: "v", title: "v", audience_min_age: 9, audience_age_source: "cnlj", audience_age_scope: "volume", audience_age_volumes: [1] }))).toBe("CNLJ : tome 1 conseillé dès 9 ans");
+    expect(ageLabel(entry({ id: "v", title: "v", audience_min_age: 9, audience_age_source: "cnlj", audience_age_scope: "volume", audience_age_volumes: [1] }))).toBe("avis CNLJ sur le tome 1 (dès 9 ans)");
     expect(ageLabel(entry({ id: "e", title: "e", audience_min_age: 12, audience_age_source: "estimate" }))).toBe("âge non vérifié");
   });
 

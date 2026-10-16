@@ -66,7 +66,8 @@ export async function signUp(
     password: parsed.data.password,
     options: {
       data: { username: parsed.data.username ?? "" },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+      // The email link lands on /auth/confirm (see supabase/templates).
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm?next=/bibliotheque`,
     },
   });
 
@@ -119,7 +120,7 @@ export async function resetPassword(
 
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/univers%23reglages`,
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm?next=/univers%23reglages`,
   });
 
   if (error) return { error: "Erreur. Vérifie ton email et réessaie." };

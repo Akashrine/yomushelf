@@ -12,6 +12,7 @@ const CALLBACK_ERRORS: Record<string, string> = {
   oauth: "La connexion avec Google n'a pas abouti. Réessaie.",
   access_denied: "Connexion annulée.",
   no_code: "Ce lien de connexion n'est pas valable. Redemande-en un.",
+  link_invalid: "Ce lien a expiré ou a déjà servi. Redemande-en un.",
   // Also happens when the link is opened on another device than the one
   // that asked for it (PKCE) : a sign-up is then confirmed all the same.
   exchange_failed:
