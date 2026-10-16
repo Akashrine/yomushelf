@@ -48,7 +48,7 @@ function Field({
 function FormError({ text }: { text?: string }) {
   if (!text) return null;
   return (
-    <p role="alert" className="rounded-lg px-3 py-2 text-sm" style={{ background: "#c0392b22", color: "#ff8a7a", border: "1px solid #c0392b66" }}>
+    <p role="alert" className="rounded-lg px-3 py-2 text-sm" style={{ background: "rgba(179,38,30,0.08)", color: "var(--danger)", border: "1px solid rgba(179,38,30,0.35)" }}>
       {text}
     </p>
   );

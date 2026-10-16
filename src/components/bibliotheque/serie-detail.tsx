@@ -579,7 +579,7 @@ function SeriesOptions({
         </div>
 
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-semibold" style={{ color: "#ff9a8a" }}>Supprimer définitivement</p>
+          <p className="text-sm font-semibold" style={{ color: "var(--danger)" }}>Supprimer définitivement</p>
           <p className="text-sm" style={{ color: "var(--muted)" }}>
             Efface la série, ses tomes, tes lectures et tes envies pour cette série. On ne peut pas revenir en arrière.
           </p>
@@ -611,7 +611,7 @@ function SeriesOptions({
               </div>
             </div>
           ) : (
-            <button type="button" onClick={() => setDeleting(true)} className="flex min-h-11 items-center gap-2 self-start rounded-xl px-3 text-sm font-semibold" style={{ border: "1px solid rgba(255,110,90,0.4)", color: "#ff9a8a" }}>
+            <button type="button" onClick={() => setDeleting(true)} className="flex min-h-11 items-center gap-2 self-start rounded-xl px-3 text-sm font-semibold" style={{ border: "1px solid var(--danger)", color: "var(--danger)" }}>
               <AppIcon name="trash" size={16} /> Supprimer définitivement
             </button>
           )}
@@ -796,7 +796,7 @@ function VolumeTile({
           {icon && <AppIcon name={icon} size={12} strokeWidth={icon === "check" ? 3 : 2} filled={icon === "play"} />}
         </span>
         {borrowed && (
-          <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-black" style={{ background: "var(--borrow)", color: "#06202b" }} aria-hidden="true">
+          <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-black" style={{ background: "var(--borrow)", color: "white" }} aria-hidden="true">
             E
           </span>
         )}
@@ -819,7 +819,7 @@ function VolumeTile({
         </span>
       )}
       {borrowed && (
-        <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-black" style={{ background: "var(--borrow)", color: "#06202b" }} aria-hidden="true">
+        <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-black" style={{ background: "var(--borrow)", color: "white" }} aria-hidden="true">
           E
         </span>
       )}
@@ -847,7 +847,7 @@ function Legend() {
         </li>
       ))}
       <li className="flex items-center gap-2">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black" style={{ background: "var(--borrow)", color: "#06202b" }}>E</span>
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black" style={{ background: "var(--borrow)", color: "white" }}>E</span>
         Emprunté
       </li>
     </ul>

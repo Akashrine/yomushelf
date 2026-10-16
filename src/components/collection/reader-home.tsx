@@ -223,7 +223,7 @@ export function Cover({
       <span
         aria-hidden="true"
         className="relative block shrink-0 overflow-hidden rounded-lg"
-        style={{ ...size, background: `url(${shelf.cover_url}) center/cover no-repeat, #1a1010`, boxShadow: "0 8px 20px rgba(0,0,0,0.45)" }}
+        style={{ ...size, background: `url(${shelf.cover_url}) center/cover no-repeat, var(--surface-raised)`, boxShadow: "0 6px 16px rgba(29,36,51,0.18)" }}
       >
         {!small && !full && (
           <span className="absolute bottom-1 right-1 rounded-md px-1.5 text-sm font-black" style={{ background: "rgba(0,0,0,0.7)" }}>
@@ -238,7 +238,7 @@ export function Cover({
     <span
       aria-hidden="true"
       className={`flex shrink-0 flex-col justify-between overflow-hidden rounded-lg font-black ${full ? "rounded-xl p-3" : "p-1.5"}`}
-      style={{ ...size, background: `linear-gradient(155deg, ${seriesColor(shelf.manga_id)} 0%, color-mix(in srgb, ${seriesColor(shelf.manga_id)} 72%, #1a0f0c) 100%)`, color: "#1a0f0c", boxShadow: "inset -6px 0 0 rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.25), 0 8px 20px rgba(0,0,0,0.45)" }}
+      style={{ ...size, background: `linear-gradient(155deg, ${seriesColor(shelf.manga_id)} 0%, color-mix(in srgb, ${seriesColor(shelf.manga_id)} 72%, #1a0f0c) 100%)`, color: "#1a0f0c", boxShadow: "inset -6px 0 0 rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.25), 0 6px 16px rgba(29,36,51,0.18)" }}
     >
       {!small && <span className={`${full ? "text-sm" : "text-[10px]"} uppercase leading-tight`}>{shelf.title}</span>}
       <span className={`self-end leading-none ${small ? "text-sm" : full ? "text-5xl" : "text-3xl"}`}>{volume}</span>
@@ -405,7 +405,7 @@ function EmptyState({
     <section className="rounded-3xl p-8 text-center" style={{ background: "var(--surface)", border: "1px dashed var(--border)" }}>
       <span
         className="inline-flex h-14 w-14 items-center justify-center rounded-2xl"
-        style={{ background: done ? "rgba(127,209,168,0.15)" : "rgba(255,106,61,0.14)", color: done ? "#7fd1a8" : "var(--read)" }}
+        style={{ background: done ? "rgba(46,125,91,0.12)" : "rgba(192,83,47,0.12)", color: done ? "var(--success)" : "var(--read)" }}
       >
         <AppIcon name={done ? "check" : "books"} size={28} strokeWidth={done ? 3 : 2} />
       </span>

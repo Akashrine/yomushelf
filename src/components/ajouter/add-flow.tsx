@@ -420,7 +420,7 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
 
       {step === "done" && series && saved && (
         <section className="flex flex-col items-start gap-4 rounded-3xl p-6" style={{ background: "var(--surface)", border: "1px solid var(--border)" }} aria-labelledby="h-done">
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: "rgba(127,209,168,0.15)", color: "#7fd1a8" }}>
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: "rgba(46,125,91,0.12)", color: "var(--success)" }}>
             <AppIcon name="check" size={26} strokeWidth={3} />
           </span>
           <h1 id="h-done" ref={headingRef} tabIndex={-1} className="text-2xl font-bold outline-none">
