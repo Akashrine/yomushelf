@@ -31,8 +31,8 @@ security invoker
 set search_path = public
 as $$
   select
-    count(distinct uc.manga_id),
-    sum(array_length(uc.owned_volumes, 1)),
+    count(distinct uc.manga_id)                              as total_series,
+    sum(array_length(uc.owned_volumes, 1))                   as total_volumes_owned,
     sum(
       array_length(uc.owned_volumes, 1) *
       coalesce(
@@ -44,8 +44,8 @@ as $$
         ),
         m.avg_price_eur
       )
-    ),
-    sum(coalesce(uc.last_read_volume, 0))
+    )                                                        as total_budget_eur,
+    sum(coalesce(uc.last_read_volume, 0))                    as volumes_read
   from public.user_collections uc
   join public.mangas m on m.id = uc.manga_id
   where uc.user_id = p_user_id

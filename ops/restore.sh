@@ -23,22 +23,51 @@ for f in $(ls supabase/rollbacks/*_down.sql | sort -r); do
   fi
 done
 docker cp "./$NAME.dump" "$C:/tmp/$NAME.dump"
-docker exec "$C" pg_restore --data-only -n public -f "/tmp/$NAME-data.sql" "/tmp/$NAME.dump"
-cat > /tmp/restore-data.sql <<SQL
-\set ON_ERROR_STOP 1
-begin;
-set local session_replication_role = replica;
-truncate public.user_collections, public.volumes, public.mangas, public.profiles, public.waitlist_entries,
-         public.analytics_events, public.share_events, public.wrapped_snapshots, public.catalog_import_events;
-\i /tmp/$NAME-data.sql
+
+# Reload mode. "replica" (session_replication_role : no triggers, no FK
+# checks) needs a permission Supabase grants to postgres ; checked here in
+# a transaction that is rolled back. Otherwise "ordered" : the user
+# triggers of the old tables are disabled (table owner right) and the
+# tables are reloaded parents first, FK checks still on.
+MODE=${RESTORE_RELOAD:-auto}
+if [ "$MODE" = auto ]; then
+  if docker exec "$C" psql "$DB_URL" -q -v ON_ERROR_STOP=1 -c "begin; set local session_replication_role = replica; rollback;" > /dev/null 2>&1; then
+    MODE=replica
+  else
+    MODE=ordered
+  fi
+fi
+echo "Rechargement des données : mode $MODE"
+TABLES="profiles mangas volumes user_collections waitlist_entries analytics_events share_events wrapped_snapshots catalog_import_events"
+{
+  echo '\set ON_ERROR_STOP 1'
+  echo 'begin;'
+  if [ "$MODE" = replica ]; then
+    echo 'set local session_replication_role = replica;'
+  else
+    for t in $TABLES; do echo "alter table public.$t disable trigger user;"; done
+  fi
+  echo "truncate $(echo $TABLES | sed 's/\([a-z_]*\)/public.\1/g; s/ /, /g');"
+  for t in $TABLES; do echo "\\i /tmp/$NAME-data-$t.sql"; done
+  echo "\\i /tmp/$NAME-data-sequences.sql"
+  cat <<'SQL'
 -- Accounts created after the backup keep a minimal profile (the old app
 -- cannot work for them without one). Listed below for a manual check.
 insert into public.profiles (id, email, avatar_initials)
 select u.id, u.email, upper(left(coalesce(u.email, '?'), 2)) from auth.users u
 where not exists (select 1 from public.profiles p where p.id = u.id) and u.email is not null;
 delete from supabase_migrations.schema_migrations where version >= '20261015';
-commit;
 SQL
+  if [ "$MODE" != replica ]; then
+    for t in $TABLES; do echo "alter table public.$t enable trigger user;"; done
+  fi
+  echo 'commit;'
+} > /tmp/restore-data.sql
+# one data file per table (parents first in the script above), sequences apart
+for t in $TABLES; do
+  docker exec "$C" pg_restore --data-only -n public -t "$t" -f "/tmp/$NAME-data-$t.sql" "/tmp/$NAME.dump"
+done
+docker exec "$C" sh -c "pg_restore -l /tmp/$NAME.dump | grep 'SEQUENCE SET' > /tmp/$NAME-seq.list; pg_restore --data-only -L /tmp/$NAME-seq.list -f /tmp/$NAME-data-sequences.sql /tmp/$NAME.dump"
 docker cp /tmp/restore-data.sql "$C:/tmp/restore-data.sql"
 docker exec "$C" psql "$DB_URL" -q -f /tmp/restore-data.sql > /dev/null
 NEW=0

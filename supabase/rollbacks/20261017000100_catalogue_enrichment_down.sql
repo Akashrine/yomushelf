@@ -25,4 +25,5 @@ drop table if exists public.catalogue_enrichment_inserted;
 
 -- Columns added by the forward migration.
 alter table public.mangas drop column if exists audience_age_source, drop column if exists curated,
-  drop column if exists audience_age_scope, drop column if exists audience_age_volumes, drop column if exists audience_age_ref;
+  drop column if exists audience_age_scope, drop column if exists audience_age_volumes, drop column if exists audience_age_ref,
+  drop column if exists audience_age_year;

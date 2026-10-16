@@ -1,6 +1,6 @@
 # Publication : procédure finale (répétée hors production)
 
-Rien de ce document n'a été exécuté en production. Chaque étape **[accord]** demande l'autorisation explicite du propriétaire.
+Rien de ce document n'a été exécuté en production à la date de sa rédaction. Chaque étape **[accord]** demande l'autorisation explicite du propriétaire.
 
 ## Principe
 
@@ -67,9 +67,29 @@ Après la migration, il faut exactement 113 tomes et 45 lectures, série par sé
 ## Procédure
 
 À préparer :
-- l'URL de session de la base de production (`DB_URL`) ;
+- l'URL de session de la base de production (`DB_URL`, rôle `postgres`, pooler en mode session, port 5432), dans un fichier local hors du dépôt ;
 - un jeton de maintenance de 16 caractères ou plus ;
-- une adresse de contrôle qui peut recevoir les e-mails d'authentification (voir les risques).
+- une adresse de contrôle **externe à l'équipe** qui reçoit les e-mails d'authentification.
+
+### Conditions préalables (avant toute interruption)
+
+1. **Droits du rôle de restauration**, vérifiés sans modification : `DB_URL=… ops/check_restore_access.sh`. Il utilise le même mode de connexion que `ops/restore.sh` (psql dans le conteneur Supabase local, même `DB_URL`). Il vérifie :
+   - `session_replication_role = replica` dans une transaction annulée ;
+   - la désactivation des déclencheurs, annulée ;
+   - la propriété des tables ;
+   - la suppression dans l'historique des migrations ;
+   - `pg_dump`.
+
+   Résultat sur le projet hébergé de test, le 2026-10-16 : 6 sur 6. Si le mode `replica` est refusé en production, `ops/restore.sh` passe seul au mode `ordered` : déclencheurs désactivés, tables rechargées parents d'abord. Ce mode a été validé en local par un cycle complet (11 migrations, puis restauration), avec des données et un schéma identiques à la sauvegarde.
+2. **SMTP de production** : un fournisseur qui envoie à toute adresse, depuis un domaine vérifié (SPF et DKIM). Le service intégré de Supabase n'envoie qu'aux membres de l'équipe, environ 2 e-mails par heure. Il ne suffit pas pour une ouverture publique.
+3. **Configuration Auth sauvegardée**, valeurs exactes, hors du dépôt. Valeurs relevées le 2026-10-16 :
+   - `SITE_URL` : `https://yomushelf.com` ;
+   - liste de redirection : `https://yomushelf.com/**` seulement ;
+   - sujets « Confirm Your Signup » et « Reset Your Password » ;
+   - modèles par défaut de Supabase ;
+   - SMTP personnalisé désactivé.
+
+   Le site répond sur `https://www.yomushelf.com` (`yomushelf.com` redirige en 307). La liste doit donc gagner `https://www.yomushelf.com/**` et `https://yomushelf.vercel.app/**`.
 
 1. **[accord] Variables Vercel de production** :
    - ajouter `MAINTENANCE_MODE=1` et `MAINTENANCE_BYPASS_TOKEN=<jeton>` ;
@@ -132,7 +152,7 @@ Gel et maintenance restent actifs pendant tout le retour arrière.
    - vérifie l'empreinte ;
    - peut être relancé sans risque.
 2. Vercel → Instant Rollback vers le déploiement précédent (`yomushelf-mtjdhb5dz…`).
-3. Remettre les modèles d'e-mail par défaut si l'étape 9 a eu lieu.
+3. Si l'étape 9 a eu lieu, remettre **exactement** les valeurs sauvegardées (condition préalable 3) : `SITE_URL`, liste de redirection, sujets, modèles et réglage SMTP. Pas les valeurs par défaut.
 4. `psql "$DB_URL" -f ops/unfreeze.sql`, puis retirer `MAINTENANCE_MODE`.
 
 **Écritures perdues** :
@@ -152,6 +172,7 @@ Gel et maintenance restent actifs pendant tout le retour arrière.
 | Sauvegarde puis 11 migrations sous gel | 3 s ; conversion identique série par série |
 | Contrôle Auth sous maintenance et gel (Mailpit) | 6/6 : inscription, confirmation sur un autre navigateur, réinitialisation, connexion, lien réutilisé refusé |
 | Échec simulé puis `ops/restore.sh` sous gel | données identiques à la sauvegarde ; relance sûre ; l'ancien code refonctionne |
+| Cycle complet, modes `replica` et `ordered` | données et schéma `public` identiques à la sauvegarde (le cycle a corrigé deux annulations : colonne `audience_age_year` oubliée, texte exact de `get_user_stats`) |
 | Nouveau code sur les données converties | parcours 25/25 |
 
 ## Opérations séparées (accords distincts)
