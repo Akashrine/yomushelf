@@ -6,7 +6,7 @@ import { countVolumesRead, getReadingState } from "@/lib/collection/readings-db"
 
 function client(result: { data: unknown; error: unknown; count?: number | null }) {
   const query = {
-    select: () => query, eq: () => query, is: () => query, order: () => query,
+    select: () => query, eq: () => query, is: () => query, order: () => query, range: () => query,
     maybeSingle: async () => result,
     then: (resolve: (value: typeof result) => unknown) => Promise.resolve(resolve(result)),
   };
@@ -35,6 +35,22 @@ describe("collection load failures", () => {
     expect(await getReadings(db, "user")).toEqual([]);
     expect(await getSeriesMeta(db, "user")).toEqual([]);
     expect(await countVolumesRead(db, "user")).toBe(0);
+  });
+
+  it("reads every row past the 1000-row page limit", async () => {
+    // 2500 rows served 1000 at a time, like PostgREST with max_rows = 1000
+    const rows = Array.from({ length: 2500 }, (_, i) => ({ manga_id: "m", volume_number: i + 1, status: "read", finished_on: null }));
+    let page = { from: 0, to: 0 };
+    const query = {
+      select: () => query, eq: () => query, order: () => query,
+      range: (from: number, to: number) => ((page = { from, to }), query),
+      then: (resolve: (v: unknown) => unknown) =>
+        Promise.resolve(resolve({ data: rows.slice(page.from, Math.min(page.to + 1, page.from + 1000)), error: null })),
+    };
+    const db = { from: () => query } as unknown as SupabaseClient<Database>;
+    const read = await getReadings(db, "user");
+    expect(read).toHaveLength(2500);
+    expect(read.at(-1)?.volume_number).toBe(2500);
   });
 
   it("still accepts an absent reading", async () => {

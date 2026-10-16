@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { todayIso } from "@/lib/collection/value";
-import { formValues, priceField } from "@/lib/collection/schema";
+import { formValues, priceField, volumeNumberField } from "@/lib/collection/schema";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -26,7 +26,7 @@ const AddWishSchema = z.object({
     .string()
     .optional()
     .transform((v) => (v ? Number(v) : null))
-    .pipe(z.number().int().positive().nullable()),
+    .pipe(volumeNumberField.nullable()),
   target_price: priceField,
   priority: z.enum(["high", "low"]).optional(),
 });

@@ -15,7 +15,7 @@ import type { MangaSearchResult } from "@/lib/manga-api/types";
 import type { Database, Json } from "@/lib/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { todayIso } from "@/lib/collection/value";
-import { acquisitionTypeField, priceField } from "@/lib/collection/schema";
+import { acquisitionTypeField, MAX_VOLUME, priceField, volumeNumberField } from "@/lib/collection/schema";
 
 function getServiceClient() {
   return createServiceClient(
@@ -155,7 +155,7 @@ export async function lookupIsbn(formData: FormData): Promise<IsbnResult> {
 // taken from the form, because they end up in the shared catalogue.
 // ─────────────────────────────────────────
 
-const VolumeNumberField = z.coerce.number().int().positive().max(999).optional();
+const VolumeNumberField = z.coerce.number().pipe(volumeNumberField).optional();
 
 const ImportSchema = z.discriminatedUnion("source", [
   z.object({ source: z.literal("db"), manga_id: z.string().uuid(), volume_number: VolumeNumberField }),
@@ -400,12 +400,7 @@ export async function addMangaFromExternalSource(
 // readings keep their date. Unknown dates stay unknown.
 // ─────────────────────────────────────────
 
-const MAX_VOLUME = 500;
-const VolumeNumber = z
-  .number({ error: "Numéro de tome invalide." })
-  .int("Numéro de tome invalide.")
-  .positive("Numéro de tome invalide.")
-  .max(MAX_VOLUME, `${MAX_VOLUME} tomes maximum.`);
+const VolumeNumber = volumeNumberField;
 
 const AddSeriesSchema = z.object({
   series: z.discriminatedUnion("source", [
