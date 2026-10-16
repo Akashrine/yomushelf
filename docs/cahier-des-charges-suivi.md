@@ -126,3 +126,17 @@ Voir `docs/tests.md` (procédures) et le compte rendu final (résultats).
 - téléphone réel ;
 - Google OAuth et e-mails réels ;
 - indisponibilité réelle de MyAnimeList côté navigateur (couverte côté serveur et par tests unitaires).
+
+## Résultats obtenus le 2026-10-16 (commit 603dd44)
+
+| Contrôle | Résultat |
+|---|---|
+| Typage (`tsc`), lint | OK. Restent 2 avertissements, présents avant ce travail |
+| Tests unitaires (`vitest`) | 135 / 135 |
+| Tests SQL | `private_libraries_test.sql` OK ; `catalogue_merge_test.sql` 21 / 21 |
+| Parcours navigateur, base locale, mobile, avec création de compte | 26 / 26 |
+| Parcours navigateur, base locale, ordinateur | 25 / 25 |
+| Parcours navigateur, base de test, compilation de production, mobile | 25 / 25 |
+| Lighthouse mobile, compilation de production (bibliothèque, Découvrir, Mon univers, Ajouter) | performance 94 à 96, accessibilité 100, bonnes pratiques 96 |
+
+La seule erreur de console relevée par Lighthouse est `/_vercel/insights/script.js` en 404. Ce script n'existe que sur Vercel.
