@@ -429,8 +429,14 @@ const AddSeriesSchema = z.object({
     z.object({ mode: z.literal("added") }),
     z.object({ mode: z.literal("up_to"), to: VolumeNumber }),
   ]),
-  // The volumes arrived now (a new purchase) or were already on the shelf.
+  // When the volumes arrived : today (a new purchase), a given date, or
+  // unknown (already on the shelf). Never in the future.
   arrived_now: z.boolean().default(false),
+  acquired_on: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide.")
+    .refine((d) => d <= todayIso(), "La date ne peut pas être dans le futur.")
+    .nullish(),
   acquisition_type: acquisitionTypeField,
   price_eur: priceField,
 });
@@ -439,6 +445,13 @@ export type AddSeriesInput = z.input<typeof AddSeriesSchema>;
 export type AddSeriesResult =
   | { success: true; manga_id: string; added_volumes: number; added_readings: number }
   | { success: false; error: string };
+
+// Honest message when the volumes went in but the readings did not.
+function partialReadings(addedVolumes: number): string {
+  return addedVolumes
+    ? `${addedVolumes} tome${addedVolumes > 1 ? "s" : ""} enregistré${addedVolumes > 1 ? "s" : ""}, mais pas tes lectures. Réessaie : rien ne sera ajouté deux fois.`
+    : "Tes lectures n'ont pas été enregistrées. Réessaie.";
+}
 
 export async function addSeriesToLibrary(input: AddSeriesInput): Promise<AddSeriesResult> {
   const supabase = await createClient();
@@ -483,12 +496,17 @@ export async function addSeriesToLibrary(input: AddSeriesInput): Promise<AddSeri
           volume_number: n,
           price_eur: d.price_eur,
           acquisition_type: d.acquisition_type,
-          acquired_at: d.arrived_now ? todayIso() : null,
+          acquired_at: d.acquired_on ?? (d.arrived_now ? todayIso() : null),
         })),
         { onConflict: "user_id,manga_id,volume_number", ignoreDuplicates: true }
       )
       .select("volume_number");
-    if (error) return { success: false, error: "Les tomes n'ont pas été enregistrés. Réessaie." };
+    if (error) {
+      return {
+        success: false,
+        error: "La série est dans ta bibliothèque, mais les tomes n'ont pas été enregistrés. Réessaie : rien ne sera ajouté deux fois.",
+      };
+    }
     addedVolumes = inserted?.length ?? 0;
   }
 
@@ -501,7 +519,7 @@ export async function addSeriesToLibrary(input: AddSeriesInput): Promise<AddSeri
       .select("volume_number")
       .eq("user_id", user.id)
       .eq("manga_id", manga_id);
-    if (error) return { success: false, error: "Les lectures n'ont pas été enregistrées. Réessaie." };
+    if (error) return { success: false, error: partialReadings(addedVolumes) };
     atHome = [...new Set([...owned, ...(rows ?? []).map((r) => r.volume_number)])].sort((a, b) => a - b);
   }
 
@@ -523,7 +541,7 @@ export async function addSeriesToLibrary(input: AddSeriesInput): Promise<AddSeri
       .eq("manga_id", manga_id)
       .eq("status", "reading")
       .in("volume_number", readVolumes);
-    if (upgradeError) return { success: false, error: "Les lectures n'ont pas été enregistrées. Réessaie." };
+    if (upgradeError) return { success: false, error: partialReadings(addedVolumes) };
     const { data: inserted, error } = await supabase
       .from("user_readings")
       .upsert(
@@ -531,7 +549,7 @@ export async function addSeriesToLibrary(input: AddSeriesInput): Promise<AddSeri
         { onConflict: "user_id,manga_id,volume_number", ignoreDuplicates: true }
       )
       .select("volume_number");
-    if (error) return { success: false, error: "Les lectures n'ont pas été enregistrées. Réessaie." };
+    if (error) return { success: false, error: partialReadings(addedVolumes) };
     addedReadings = inserted?.length ?? 0;
   }
 

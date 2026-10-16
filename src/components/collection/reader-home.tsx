@@ -10,16 +10,12 @@ import {
   candidateVolume,
   nextToRead,
   pickHome,
-  readerCounts,
-  readSpines,
   shelfState,
   type Candidate,
   type SeriesShelf,
 } from "@/lib/collection/reading";
 
 type Props = { shelves: SeriesShelf[] };
-
-const PILE_MAX = 80;
 
 // The reading of the moment : one volume to act on, the other volumes in
 // progress, and a way to choose another one. Renders nothing for an empty
@@ -189,7 +185,7 @@ function MainCard({
               key={x.shelf.manga_id}
               type="button"
               onClick={() => onPick(x.shelf.manga_id)}
-              className="min-h-10 rounded-full px-3 font-semibold"
+              className="min-h-11 rounded-full px-3 font-semibold"
               style={{ background: "var(--surface-raised)", color: "var(--foreground)", border: "1px solid var(--border)" }}
             >
               {x.shelf.title} {x.volume}
@@ -250,59 +246,6 @@ export function Cover({
   );
 }
 
-export function ReadCount({
-  volumesRead,
-  waitingAtHome,
-  shelves,
-}: {
-  volumesRead: number;
-  waitingAtHome: number;
-  shelves: SeriesShelf[];
-}) {
-  const spines = readSpines(shelves);
-  const shown = spines.slice(0, PILE_MAX);
-  return (
-    <section
-      aria-label={`${volumesRead} tomes lus`}
-      className="rise-in flex flex-col gap-3 rounded-3xl p-4 sm:p-6"
-      style={{ background: "var(--surface)", border: "1px solid var(--border)", animationDelay: "120ms" }}
-    >
-      <p className="flex items-baseline gap-2">
-        {/* key : the number pops again each time the server confirms a new reading */}
-        <span key={volumesRead} className="pop-in text-5xl font-black tabular-nums leading-none">
-          {volumesRead}
-        </span>
-        <span className="text-lg font-bold">tome{volumesRead > 1 ? "s" : ""} lu{volumesRead > 1 ? "s" : ""}</span>
-      </p>
-
-      {shown.length > 0 && (
-        <div className="flex flex-wrap items-end gap-[3px] pb-1" style={{ borderBottom: "5px solid #6b4430" }} aria-hidden="true">
-          {shown.map((s, i) => (
-            <span
-              key={`${s.manga_id}-${s.volume}`}
-              className="spine-drop block w-[6px] rounded-[2px]"
-              style={{ height: 30 + ((i * 7) % 12), background: seriesColor(s.manga_id), animationDelay: `${Math.min(i * 12, 600)}ms` }}
-            />
-          ))}
-          {spines.length > PILE_MAX && (
-            <span className="ml-1 text-xs font-bold" style={{ color: "var(--muted)" }}>+{spines.length - PILE_MAX}</span>
-          )}
-        </div>
-      )}
-
-      <p className="flex items-center gap-2 text-sm" style={{ color: "var(--muted)" }}>
-        <span style={{ color: "var(--sleep)" }}><AppIcon name="books" size={18} /></span>
-        {waitingAtHome > 0 ? (
-          <span>
-            <strong style={{ color: "var(--foreground)" }}>{waitingAtHome}</strong> tome{waitingAtHome > 1 ? "s" : ""} à lire chez toi
-          </span>
-        ) : (
-          <span>Rien à lire en attente chez toi</span>
-        )}
-      </p>
-    </section>
-  );
-}
 
 function ChooseSheet({
   shelves,
@@ -327,6 +270,20 @@ function ChooseSheet({
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onCloseRef.current();
+      // Keep Tab inside the sheet.
+      if (e.key === "Tab" && dialogRef.current) {
+        const items = dialogRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), [href]");
+        if (!items.length) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => {
@@ -387,10 +344,7 @@ function ChooseSheet({
             );
           })}
         </ul>
-        <div className="flex items-center justify-between gap-2">
-          <Link href="/bibliotheque" className="min-h-11 content-center text-sm underline underline-offset-4" style={{ color: "var(--muted)" }}>
-            Voir mes séries
-          </Link>
+        <div className="flex items-center justify-end gap-2">
           <button type="button" onClick={onClose} className="min-h-11 rounded-xl px-4 text-sm font-semibold" style={{ background: "var(--surface-raised)" }}>
             Fermer
           </button>

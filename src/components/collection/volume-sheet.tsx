@@ -10,13 +10,14 @@ import {
   type VolumeFieldsValue,
 } from "@/components/collection/volume-fields";
 import type { ReadingIntent } from "@/components/collection/use-reading-action";
-import { removeUserVolume, upsertUserVolume } from "@/app/(app)/bibliotheque/actions";
+import { removeUserVolume, setReadingDate, upsertUserVolume } from "@/app/(app)/bibliotheque/actions";
 import type { AcquisitionType, ReadingStatus } from "@/lib/types/database";
 
 export type SheetVolume = {
   volume_number: number;
   price_eur: number | null;
   acquisition_type: AcquisitionType | null;
+  acquired_at?: string | null;
 };
 
 export type SheetReading = { status: ReadingStatus; finished_on: string | null } | null;
@@ -67,7 +68,11 @@ export function VolumeSheet({
     price: existing?.price_eur != null ? formatPriceInput(Number(existing.price_eur)) : "",
     acquisition: existing?.acquisition_type ?? null,
   }));
+  const [acquiredAt, setAcquiredAt] = useState(existing?.acquired_at ?? "");
+  const [editingDate, setEditingDate] = useState(false);
+  const [finishedOn, setFinishedOn] = useState(reading?.finished_on ?? "");
   const busy = isPending || readingPending;
+  const today = new Date().toISOString().slice(0, 10);
 
   // Latest onClose without re-running the mount effect on every parent render.
   const onCloseRef = useRef(onClose);
@@ -84,9 +89,28 @@ export function VolumeSheet({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onCloseRef.current();
     };
+    // Keep Tab inside the dialog while it is open.
+    const onTab = (e: KeyboardEvent) => {
+      if (e.key !== "Tab" || !dialogRef.current) return;
+      const items = dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select, textarea, summary, [tabindex]:not([tabindex="-1"])'
+      );
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     window.addEventListener("keydown", onKey);
+    window.addEventListener("keydown", onTab);
     return () => {
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keydown", onTab);
       document.body.style.overflow = overflow;
       previous?.focus();
     };
@@ -101,6 +125,9 @@ export function VolumeSheet({
       fd.set("mode", existing ? "edit" : "add");
       fd.set("price_eur", value.acquisition === "borrowed" ? "" : value.price);
       fd.set("acquisition_type", value.acquisition ?? "");
+      // Date : a known one, "unknown" to forget the one saved, or nothing.
+      if (acquiredAt) fd.set("acquired_at", acquiredAt);
+      else if (existing?.acquired_at) fd.set("acquired_at", "unknown");
       // Only a new volume asks "déjà lu ?" ; an edit never touches the reading.
       fd.set("reading", !existing && !reading && alreadyRead === "read_earlier" ? "read_earlier" : "unchanged");
       const result = await upsertUserVolume(fd).catch(() => ({ success: false as const, error: "Impossible de confirmer l’enregistrement. Vérifie ta connexion puis réessaie." }));
@@ -109,6 +136,23 @@ export function VolumeSheet({
         return;
       }
       onSaved({ kind: existing ? "updated" : "added", volume: volumeNumber });
+    });
+  }
+
+  function saveReadingDate() {
+    setError(null);
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.set("manga_id", mangaId);
+      fd.set("volume_number", String(volumeNumber));
+      fd.set("finished_on", finishedOn);
+      const result = await setReadingDate(fd).catch(() => ({ success: false as const, error: "Impossible de confirmer l’enregistrement. Vérifie ta connexion puis réessaie." }));
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      setEditingDate(false);
+      onSaved({ kind: "updated", volume: volumeNumber });
     });
   }
 
@@ -180,6 +224,28 @@ export function VolumeSheet({
                   </span>
                 )}
               </p>
+              {editingDate ? (
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="flex flex-col gap-1 text-xs font-semibold" style={{ color: "var(--muted)" }}>
+                    Fini le (laisse vide si tu ne sais pas)
+                    <input
+                      type="date"
+                      value={finishedOn}
+                      max={today}
+                      onChange={(e) => setFinishedOn(e.target.value)}
+                      className="min-h-11 rounded-xl px-3 text-base outline-none focus:ring-2"
+                      style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+                    />
+                  </label>
+                  <button type="button" onClick={saveReadingDate} disabled={busy} className="min-h-11 rounded-xl px-4 text-sm font-bold disabled:opacity-60" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+                    Enregistrer la date
+                  </button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => setEditingDate(true)} disabled={busy} className="min-h-11 self-start text-sm underline underline-offset-4" style={{ color: "var(--muted)" }}>
+                  {reading?.finished_on ? "Corriger la date" : "Ajouter la date de fin"}
+                </button>
+              )}
               <SecondaryButton onClick={() => onReading("clear")} disabled={busy}>
                 En fait, pas encore lu
               </SecondaryButton>
@@ -223,6 +289,18 @@ export function VolumeSheet({
                 {existing ? "Sur ton étagère" : "Ajouter à ton étagère"}
               </p>
               <VolumeFields value={value} onChange={setValue} suggestedPrice={suggestedPrice} disabled={busy} />
+              <label className="flex flex-col gap-1 text-sm font-semibold">
+                Arrivé le <span className="font-normal" style={{ color: "var(--muted)" }}>(facultatif, laisse vide si tu ne sais pas)</span>
+                <input
+                  type="date"
+                  value={acquiredAt}
+                  max={today}
+                  onChange={(e) => setAcquiredAt(e.target.value)}
+                  disabled={busy}
+                  className="min-h-11 w-48 rounded-xl px-3 text-base font-normal outline-none focus:ring-2"
+                  style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+                />
+              </label>
               {!existing && !reading && (
                 <AlreadyReadField value={alreadyRead} onChange={setAlreadyRead} disabled={busy} />
               )}

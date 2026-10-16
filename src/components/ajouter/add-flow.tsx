@@ -51,6 +51,7 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchHit[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchedFor, setSearchedFor] = useState<string | null>(null); // query whose answer is shown
   const [searchError, setSearchError] = useState<string | null>(null);
   const [remoteDown, setRemoteDown] = useState(false);
 
@@ -69,7 +70,8 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
   const [readTo, setReadTo] = useState(1);
 
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [arrivedNow, setArrivedNow] = useState(false);
+  const [when, setWhen] = useState<"unknown" | "today" | "date">("unknown");
+  const [acquiredOn, setAcquiredOn] = useState("");
   const [details, setDetails] = useState<VolumeFieldsValue>({ price: "", acquisition: null });
 
   const [isPending, startTransition] = useTransition();
@@ -98,9 +100,13 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
         const json = (await res.json()) as { results?: SearchHit[]; remote_unavailable?: boolean; error?: string };
         if (!res.ok) throw new Error(json.error ?? "search");
         setResults(json.results ?? []);
+        setSearchedFor(q);
         setRemoteDown(Boolean(json.remote_unavailable));
       } catch (e) {
-        if ((e as Error).name !== "AbortError") setSearchError("La recherche ne répond pas. Vérifie ta connexion et réessaie.");
+        if ((e as Error).name !== "AbortError") {
+          setSearchError("La recherche ne répond pas. Vérifie ta connexion et réessaie.");
+          setSearchedFor(q);
+        }
       } finally {
         setSearching(false);
       }
@@ -113,8 +119,12 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
 
   // A query too short to search shows no stale results or error.
   const queryReady = query.trim().length >= 2;
-  const shownResults = queryReady ? results : [];
-  const shownError = queryReady ? searchError : null;
+  // Only the answer to what is typed now : no stale list, and no "Rien
+  // trouvé" before the search has even run.
+  const answered = queryReady && searchedFor === query.trim();
+  const shownResults = answered && !searchError ? results : [];
+  const shownError = answered ? searchError : null;
+  const waiting = queryReady && !answered;
 
   // Catalogue totals lag behind ongoing series : only the server limit applies.
   const maxVolume = MAX_VOLUME;
@@ -172,7 +182,8 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
             ? { mode: "range", from: startsLater ? rangeFrom : 1, to: rangeTo }
             : { mode: "list", volumes: ownedPreview },
       reading: readingMode === "up_to" ? { mode: "up_to", to: readTo } : { mode: readingMode },
-      arrived_now: arrivedNow,
+      arrived_now: when === "today",
+      acquired_on: when === "date" && acquiredOn ? acquiredOn : null,
       acquisition_type: details.acquisition ?? "",
       price_eur: details.acquisition === "borrowed" ? "" : details.price,
     };
@@ -194,7 +205,9 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
     setResults([]);
     setSaved(null);
     setDetails({ price: "", acquisition: null });
-    setArrivedNow(false);
+    setWhen("unknown");
+    setAcquiredOn("");
+    setSearchedFor(null);
     setDetailsOpen(false);
     setStep("search");
   }
@@ -222,7 +235,7 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
           </label>
           <p className="text-sm" style={{ color: "var(--muted)" }}>Pas besoin de l&apos;écrire parfaitement : « spi famili » trouve Spy x Family.</p>
 
-          {searching && <p className="text-sm" role="status" style={{ color: "var(--muted)" }}>Je cherche…</p>}
+          {(searching || waiting) && <p className="text-sm" role="status" style={{ color: "var(--muted)" }}>Je cherche…</p>}
           {shownError && <p className="text-sm" role="alert" style={{ color: "var(--accent-hover)" }}>{shownError}</p>}
 
           {shownResults.length > 0 && (
@@ -257,7 +270,7 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
             </ul>
           )}
 
-          {query.trim().length >= 2 && !searching && (
+          {answered && !searching && (
             <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: "var(--surface)", border: "1px dashed var(--border)" }}>
               <p className="text-sm">
                 {shownResults.length === 0 ? "Rien trouvé." : "Ce n'est pas dans la liste ?"}{" "}
@@ -295,7 +308,7 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
 
       {step === "volumes" && series && (
         <section className="flex flex-col gap-4" aria-labelledby="h-volumes">
-          {!initial && <BackButton onClick={() => setStep("search")} />}
+          <BackButton onClick={() => setStep("search")} />
           <SeriesHeader series={series} />
           <h1 id="h-volumes" ref={headingRef} tabIndex={-1} className="text-xl font-bold outline-none">Quels tomes as-tu ?</h1>
           {series.owned.length > 0 && (
@@ -339,7 +352,7 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
                           return next;
                         })
                       }
-                      className="flex aspect-square min-h-10 items-center justify-center rounded-lg text-sm font-bold"
+                      className="flex aspect-square min-h-11 items-center justify-center rounded-lg text-sm font-bold"
                       style={
                         on
                           ? { background: "var(--sleep)", color: "#120e2a", opacity: here ? 0.6 : 1 }
@@ -406,10 +419,30 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
             </button>
             {detailsOpen && (
               <div className="flex flex-col gap-4 px-4 pb-4">
-                <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
-                  <input type="checkbox" checked={arrivedNow} onChange={(e) => setArrivedNow(e.target.checked)} className="h-5 w-5" />
-                  Je viens de les avoir (date d&apos;aujourd&apos;hui)
-                </label>
+                <fieldset className="flex flex-col gap-1">
+                  <legend className="mb-1 text-sm font-semibold">Quand les as-tu eus ?</legend>
+                  {([
+                    ["unknown", "Je ne sais pas"],
+                    ["today", "Aujourd'hui"],
+                    ["date", "Une autre date"],
+                  ] as const).map(([v, label]) => (
+                    <label key={v} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
+                      <input type="radio" name="when" checked={when === v} onChange={() => setWhen(v)} className="h-5 w-5" />
+                      {label}
+                    </label>
+                  ))}
+                  {when === "date" && (
+                    <input
+                      type="date"
+                      value={acquiredOn}
+                      max={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => setAcquiredOn(e.target.value)}
+                      aria-label="Date d'arrivée"
+                      className="min-h-11 w-48 rounded-xl px-3 text-base outline-none focus:ring-2"
+                      style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+                    />
+                  )}
+                </fieldset>
                 <VolumeFields value={details} onChange={setDetails} disabled={isPending} />
                 {ownedPreview.length > 1 && details.price && (
                   <p className="text-xs" style={{ color: "var(--muted)" }}>Ce prix sera noté pour chacun des {ownedPreview.length} tomes.</p>

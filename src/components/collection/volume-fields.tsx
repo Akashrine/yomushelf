@@ -131,7 +131,7 @@ export function VolumeFields({ value, onChange, suggestedPrice, disabled }: Prop
                   type="button"
                   disabled={disabled}
                   onClick={() => onChange({ ...value, price: formatted })}
-                  className="min-h-9 rounded-lg px-3 py-1.5 text-sm font-semibold tabular-nums transition-transform active:scale-95"
+                  className="min-h-11 rounded-lg px-3 py-1.5 text-sm font-semibold tabular-nums transition-transform active:scale-95"
                   style={{
                     background: active ? "rgba(248,192,74,0.16)" : "var(--surface-raised)",
                     border: `1px solid ${active ? "var(--gold)" : "var(--border)"}`,
@@ -149,7 +149,7 @@ export function VolumeFields({ value, onChange, suggestedPrice, disabled }: Prop
             })}
           </div>
           <p id={priceHintId} className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
-            Le prix au dos, c&apos;est le prix neuf. Si vous l&apos;avez payé moins cher, note le vrai prix.
+            Le prix au dos, c&apos;est le prix neuf. Si tu l&apos;as payé moins cher, note le vrai prix.
           </p>
         </div>
       )}

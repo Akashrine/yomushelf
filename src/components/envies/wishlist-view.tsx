@@ -5,14 +5,15 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AppIcon } from "@/components/app/app-icon";
 import { formatPriceInput } from "@/components/collection/volume-fields";
-import { acquireWishlistItem, addWishlistItem, removeWishlistItem } from "@/app/(app)/envies/actions";
+import { acquireWishlistItem, addWishlistItem, removeWishlistItem, setWishPriority } from "@/app/(app)/envies/actions";
 import { formatEur } from "@/lib/collection/value";
 
 export type WishItem = {
   id: string;
   manga_id: string;
   volume_number: number | null;
-  target_price: number | null;
+  target_price: number | null; // indicative price typed by the reader
+  priority: "high" | "low";
 };
 
 export type WishSeries = {
@@ -21,7 +22,8 @@ export type WishSeries = {
   cover_url: string | null;
   nextVolume: number;
   lastPrice: number | null;
-  estimate: number | null; // average price of a volume, shown as an estimate only
+  estimate: number | null; // from prices the reader paid, shown as an estimate only
+  estimateBasis: "series" | "average" | null;
 };
 
 type Props = {
@@ -37,14 +39,14 @@ export function WishlistView({ items, series }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ text: string; undo?: () => void } | null>(null);
   // "Je l'ai" asks how it arrived and the price really paid (optional).
   const [acquiring, setAcquiring] = useState<{ id: string; how: "bought" | "gift" } | null>(null);
   const [paid, setPaid] = useState("");
 
   const seriesById = new Map(series.map((s) => [s.manga_id, s]));
 
-  // Stable order : series title, then volume number.
+  // Series with a "prochain à acheter" first, then by title ; volumes in order.
   const groups = [...new Set(items.map((i) => i.manga_id))]
     .map((id) => ({
       series: seriesById.get(id),
@@ -53,7 +55,12 @@ export function WishlistView({ items, series }: Props) {
         .filter((i) => i.manga_id === id)
         .sort((a, b) => (a.volume_number ?? 0) - (b.volume_number ?? 0)),
     }))
-    .sort((a, b) => (a.series?.title ?? "").localeCompare(b.series?.title ?? "", "fr"));
+    .sort(
+      (a, b) =>
+        Number(b.items.some((i) => i.priority === "high")) - Number(a.items.some((i) => i.priority === "high")) ||
+        (a.series?.title ?? "").localeCompare(b.series?.title ?? "", "fr")
+    );
+  const nextOnes = items.filter((i) => i.priority === "high" && i.volume_number != null);
 
   function run(action: ActionFn, fd: FormData, after?: () => void) {
     setError(null);
@@ -77,14 +84,37 @@ export function WishlistView({ items, series }: Props) {
     run(acquireWishlistItem, fd, () => {
       setAcquiring(null);
       setPaid("");
-      setNotice(`Tome ${item.volume_number} sur ton étagère !`);
+      setNotice({ text: `Tome ${item.volume_number} sur ton étagère !` });
     });
   }
 
   function remove(item: WishItem) {
     const fd = new FormData();
     fd.set("id", item.id);
-    run(removeWishlistItem, fd);
+    const title = seriesById.get(item.manga_id)?.title ?? "Série";
+    const label = item.volume_number != null ? `${title}, tome ${item.volume_number}` : title;
+    run(removeWishlistItem, fd, () =>
+      setNotice({
+        text: `${label} retiré de tes envies.`,
+        undo: () => {
+          const back = new FormData();
+          back.set("manga_id", item.manga_id);
+          if (item.volume_number != null) back.set("volume_number", String(item.volume_number));
+          if (item.target_price != null) back.set("target_price", String(item.target_price));
+          back.set("priority", item.priority);
+          run(addWishlistItem, back, () => setNotice({ text: `${label} est de retour dans tes envies.` }));
+        },
+      })
+    );
+  }
+
+  function togglePriority(item: WishItem) {
+    const fd = new FormData();
+    fd.set("id", item.id);
+    fd.set("priority", item.priority === "high" ? "low" : "high");
+    run(setWishPriority, fd, () =>
+      setNotice({ text: item.priority === "high" ? "Retiré de tes prochains tomes." : "Ajouté à tes prochains tomes." })
+    );
   }
 
   return (
@@ -98,8 +128,39 @@ export function WishlistView({ items, series }: Props) {
         </p>
       )}
 
-      {error && <p className="text-sm" role="alert" style={{ color: "var(--accent-hover)" }}>{error}</p>}
-      {notice && !error && <p className="text-sm font-semibold" role="status" style={{ color: "var(--read)" }}>{notice}</p>}
+      {nextOnes.length > 0 && (
+        <section aria-labelledby="h-prochains" className="rounded-3xl p-4" style={{ background: "rgba(248,192,74,0.08)", border: "1px solid rgba(248,192,74,0.3)" }}>
+          <h2 id="h-prochains" className="text-base font-bold">Mes prochains tomes</h2>
+          <ul className="mt-2 flex flex-wrap gap-2 text-sm">
+            {nextOnes.map((i) => (
+              <li key={i.id} className="rounded-full px-3 py-1.5 font-semibold" style={{ background: "var(--surface)" }}>
+                {seriesById.get(i.manga_id)?.title ?? "Série"} · tome {i.volume_number}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Feedback stays in view, wherever the button was. */}
+      <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-24 z-40 flex justify-center px-4 md:bottom-6">
+        {(error || notice) && (
+          <div
+            role={error ? "alert" : "status"}
+            className="pointer-events-auto flex max-w-md items-center gap-2 rounded-2xl py-1 pl-4 pr-1 text-sm font-semibold shadow-lg"
+            style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", color: error ? "var(--accent-hover)" : "var(--foreground)" }}
+          >
+            <span className="py-2">{error ?? notice?.text}</span>
+            {!error && notice?.undo && (
+              <button type="button" onClick={notice.undo} className="min-h-11 shrink-0 px-2 underline underline-offset-4">
+                Annuler
+              </button>
+            )}
+            <button type="button" onClick={() => { setError(null); setNotice(null); }} aria-label="Fermer le message" className="flex h-11 w-11 shrink-0 items-center justify-center">
+              <AppIcon name="close" size={16} />
+            </button>
+          </div>
+        )}
+      </div>
 
       {groups.map((g) => {
         const s = g.series;
@@ -145,9 +206,32 @@ export function WishlistView({ items, series }: Props) {
                         : "prix inconnu"}
                   </span>
                   {item.target_price == null && s?.estimate != null && (
-                    <span className="sr-only">estimation au prix moyen d&apos;un tome</span>
+                    <span className="text-xs" style={{ color: "var(--muted)" }}>
+                      {s.estimateBasis === "series" ? "d'après ton dernier prix payé pour cette série" : "d'après ton prix moyen payé"}
+                    </span>
                   )}
-                  <span className="ml-auto flex items-center gap-1.5">
+                  <span className="ml-auto flex flex-wrap items-center gap-1.5">
+                    {item.volume_number != null && (
+                      <button
+                        type="button"
+                        onClick={() => togglePriority(item)}
+                        disabled={isPending}
+                        aria-pressed={item.priority === "high"}
+                        className="flex min-h-11 items-center gap-1 rounded-xl px-3 text-sm font-semibold disabled:opacity-50"
+                        style={item.priority === "high" ? { background: "rgba(248,192,74,0.18)", color: "var(--gold)" } : { color: "var(--muted)", border: "1px solid var(--border)" }}
+                      >
+                        <AppIcon name="star" size={15} filled={item.priority === "high"} /> {item.priority === "high" ? "Prochain" : "Mettre en prochain"}
+                      </button>
+                    )}
+                    {item.volume_number == null && (
+                      <Link
+                        href={`/ajouter?serie=${item.manga_id}`}
+                        className="flex min-h-11 items-center rounded-xl px-3 text-sm font-bold text-white"
+                        style={{ background: "linear-gradient(135deg, var(--read), var(--read-deep))" }}
+                      >
+                        J&apos;ai eu des tomes
+                      </Link>
+                    )}
                     {item.volume_number != null && (
                       <>
                         <button
@@ -180,7 +264,7 @@ export function WishlistView({ items, series }: Props) {
                       type="button"
                       onClick={() => remove(item)}
                       disabled={isPending}
-                      aria-label={`Retirer le tome ${item.volume_number ?? ""} de tes envies`}
+                      aria-label={item.volume_number != null ? `Retirer le tome ${item.volume_number} de tes envies` : `Retirer ${s?.title ?? "cette série"} de tes envies`}
                       className="flex h-11 w-11 items-center justify-center rounded-full"
                       style={{ color: "var(--muted)" }}
                     >
@@ -228,7 +312,7 @@ export function WishlistView({ items, series }: Props) {
       <AddWishForm
         series={series}
         disabled={isPending}
-        onSubmit={(fd, title, volume) => run(addWishlistItem, fd, () => setNotice(`${title}, tome ${volume}, dans tes envies`))}
+        onSubmit={(fd, title, volume) => run(addWishlistItem, fd, () => setNotice({ text: `${title}, tome ${volume}, dans tes envies` }))}
       />
     </div>
   );
@@ -302,7 +386,7 @@ function AddWishForm({
           <input type="number" min={1} inputMode="numeric" value={volume} onChange={(e) => setVolume(e.target.value)} className={`${field} w-24 tabular-nums`} style={fieldStyle} />
         </label>
         <label className="flex flex-col gap-1 text-xs font-semibold" style={{ color: "var(--muted)" }}>
-          Son prix (€)
+          Prix indicatif (€, facultatif)
           <input
             type="text"
             inputMode="decimal"

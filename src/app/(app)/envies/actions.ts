@@ -28,11 +28,12 @@ const AddWishSchema = z.object({
     .transform((v) => (v ? Number(v) : null))
     .pipe(z.number().int().positive().nullable()),
   target_price: priceField,
+  priority: z.enum(["high", "low"]).optional(),
 });
 
 export async function addWishlistItem(formData: FormData): Promise<ActionResult> {
   const parsed = AddWishSchema.safeParse(
-    formValues(formData, ["manga_id", "volume_number", "target_price"])
+    formValues(formData, ["manga_id", "volume_number", "target_price", "priority"])
   );
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Données invalides." };
@@ -41,12 +42,46 @@ export async function addWishlistItem(formData: FormData): Promise<ActionResult>
   const { supabase, user } = await getAuthed();
   if (!user) return { success: false, error: "Non authentifié." };
 
-  const { error } = await supabase.from("wishlist_items").upsert(
-    { user_id: user.id, ...parsed.data },
-    { onConflict: "user_id,manga_id,volume_number" }
-  );
+  // Adding again without a price keeps the price already noted.
+  const row = { user_id: user.id, ...parsed.data };
+  const { error } =
+    parsed.data.target_price == null
+      ? await supabase.from("wishlist_items").upsert(row, { onConflict: "user_id,manga_id,volume_number", ignoreDuplicates: true })
+      : await supabase.from("wishlist_items").upsert(row, { onConflict: "user_id,manga_id,volume_number" });
 
   if (error) return { success: false, error: "Impossible d'ajouter cette envie. Réessaie." };
+  revalidateWishes(parsed.data.manga_id);
+  return { success: true };
+}
+
+function revalidateWishes(mangaId?: string) {
+  revalidatePath("/envies");
+  revalidatePath("/univers");
+  revalidatePath("/decouvrir");
+  revalidatePath("/bibliotheque");
+  if (mangaId) revalidatePath(`/bibliotheque/${mangaId}`);
+}
+
+// ─────────────────────────────────────────
+// setWishPriority — "prochain à acheter" or later.
+// ─────────────────────────────────────────
+
+const PrioritySchema = z.object({ id: z.string().uuid(), priority: z.enum(["high", "low"]) });
+
+export async function setWishPriority(formData: FormData): Promise<ActionResult> {
+  const parsed = PrioritySchema.safeParse(formValues(formData, ["id", "priority"]));
+  if (!parsed.success) return { success: false, error: "Données invalides." };
+  const { supabase, user } = await getAuthed();
+  if (!user) return { success: false, error: "Non authentifié." };
+  const { data, error } = await supabase
+    .from("wishlist_items")
+    .update({ priority: parsed.data.priority })
+    .eq("id", parsed.data.id)
+    .eq("user_id", user.id)
+    .select("manga_id");
+  if (error) return { success: false, error: "Pas enregistré. Vérifie ta connexion et réessaie." };
+  if (!data?.length) return { success: false, error: "Envie introuvable." };
+  revalidateWishes(data[0].manga_id);
   return { success: true };
 }
 
@@ -63,13 +98,16 @@ export async function removeWishlistItem(formData: FormData): Promise<ActionResu
   const { supabase, user } = await getAuthed();
   if (!user) return { success: false, error: "Non authentifié." };
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("wishlist_items")
     .delete()
     .eq("id", parsed.data.id)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("manga_id");
 
   if (error) return { success: false, error: "Erreur lors de la suppression." };
+  if (!data?.length) return { success: false, error: "Envie introuvable." };
+  revalidateWishes(data[0].manga_id);
   return { success: true };
 }
 

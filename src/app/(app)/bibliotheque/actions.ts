@@ -83,7 +83,8 @@ export async function upsertUserVolume(formData: FormData): Promise<ActionResult
       volume_number: d.volume_number,
       price_eur: d.price_eur,
       acquisition_type: d.acquisition_type,
-      acquired_at: d.acquired_at ?? todayIso(),
+      // Unknown unless the reader gives it : no date is made up.
+      acquired_at: d.acquired_at ?? null,
     });
     if (error?.code === "23505") {
       return { success: false, error: "Ce tome est déjà sur ton étagère. Ouvre sa fiche pour le modifier." };
@@ -438,6 +439,46 @@ export async function updatePrivateSeries(formData: FormData): Promise<ActionRes
   if (error) return { success: false, error: "Pas enregistré. Vérifie ta connexion et réessaie." };
   if (!data?.length) return { success: false, error: "Seules tes fiches personnelles peuvent être modifiées." };
 
+  revalidateSeries(manga_id);
+  return { success: true };
+}
+
+// ─────────────────────────────────────────
+// setReadingDate — correct when a read volume was finished (or forget it).
+// ─────────────────────────────────────────
+
+const ReadingDateSchema = z.object({
+  manga_id: z.string().uuid(),
+  volume_number: z.coerce.number().int().positive().max(500),
+  finished_on: z
+    .string()
+    .optional()
+    .transform((v) => v || null)
+    .pipe(
+      z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide.")
+        .refine((d) => d <= todayIso(), "La date ne peut pas être dans le futur.")
+        .nullable()
+    ),
+});
+
+export async function setReadingDate(formData: FormData): Promise<ActionResult> {
+  const parsed = ReadingDateSchema.safeParse(formValues(formData, ["manga_id", "volume_number", "finished_on"]));
+  if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Données invalides." };
+  const { supabase, user } = await getAuthed();
+  if (!user) return { success: false, error: "Non authentifié." };
+  const { manga_id, volume_number, finished_on } = parsed.data;
+  const { data, error } = await supabase
+    .from("user_readings")
+    .update({ finished_on })
+    .eq("user_id", user.id)
+    .eq("manga_id", manga_id)
+    .eq("volume_number", volume_number)
+    .eq("status", "read")
+    .select("volume_number");
+  if (error) return { success: false, error: "Pas enregistré. Vérifie ta connexion et réessaie." };
+  if (!data?.length) return { success: false, error: "Ce tome n'est pas noté comme lu." };
   revalidateSeries(manga_id);
   return { success: true };
 }

@@ -4,9 +4,9 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppIcon } from "@/components/app/app-icon";
-import { CurrentReading, Cover, ReadCount } from "@/components/collection/reader-home";
+import { CurrentReading, Cover } from "@/components/collection/reader-home";
 import { restoreSeries } from "@/app/(app)/bibliotheque/actions";
-import { nextToRead, readerCounts, type SeriesShelf } from "@/lib/collection/reading";
+import { nextToRead, type SeriesShelf } from "@/lib/collection/reading";
 import { titleKey } from "@/lib/manga-api/merge";
 
 export type ShelfCard = {
@@ -48,7 +48,6 @@ export function LibraryHome({ name, cards, archived, wishes, wishCount }: Props)
   const [filter, setFilter] = useState<Filter>("toutes");
   const [query, setQuery] = useState("");
   const shelves = cards.map((c) => c.shelf);
-  const { volumesRead, waitingAtHome } = readerCounts(shelves);
 
   const counts = useMemo(() => {
     const out: Record<Filter, number> = { toutes: cards.length, "a-lire": 0, "en-cours": 0, "tout-lu": 0, "sans-tomes": 0 };
@@ -82,10 +81,8 @@ export function LibraryHome({ name, cards, archived, wishes, wishCount }: Props)
 
       <section aria-labelledby="h-now" className="flex flex-col gap-3">
         <h2 id="h-now" className="sr-only">En ce moment</h2>
-        <div className="grid gap-4 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <CurrentReading shelves={shelves} />
-          <ReadCount volumesRead={volumesRead} waitingAtHome={waitingAtHome} shelves={shelves} />
-        </div>
+        {/* One next action, no statistics : counts live in Mon univers. */}
+        <CurrentReading shelves={shelves} />
       </section>
 
       <section aria-labelledby="h-series" className="flex flex-col gap-3">
@@ -111,7 +108,7 @@ export function LibraryHome({ name, cards, archived, wishes, wishCount }: Props)
                 type="button"
                 aria-pressed={on}
                 onClick={() => setFilter(f.key)}
-                className="min-h-10 rounded-full px-3.5 text-sm font-semibold"
+                className="min-h-11 rounded-full px-3.5 text-sm font-semibold"
                 style={
                   on
                     ? { background: "var(--foreground)", color: "var(--background)" }
@@ -294,7 +291,7 @@ function WishesTeaser({ wishes, count }: { wishes: WishPreview[]; count: number 
             <li key={`${w.manga_id}-${w.volume_number}`}>
               <Link
                 href={`/bibliotheque/${w.manga_id}`}
-                className="flex min-h-10 items-center rounded-full px-3 text-sm font-semibold"
+                className="flex min-h-11 items-center rounded-full px-3 text-sm font-semibold"
                 style={{ background: "rgba(248,192,74,0.1)", border: "1px solid rgba(248,192,74,0.35)" }}
               >
                 {w.title}
@@ -329,7 +326,7 @@ function ArchivedList({ archived }: { archived: ArchivedSeries[] }) {
 
   return (
     <details className="rounded-2xl p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-      <summary className="flex min-h-10 cursor-pointer items-center gap-2 text-sm font-semibold">
+      <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold">
         <AppIcon name="archive" size={18} /> Séries retirées · {archived.length}
       </summary>
       <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
@@ -347,7 +344,7 @@ function ArchivedList({ archived }: { archived: ArchivedSeries[] }) {
               onClick={() => restore(a.manga_id)}
               disabled={isPending}
               aria-label={`Remettre ${a.title} dans ma bibliothèque`}
-              className="min-h-10 rounded-xl px-3 text-sm font-semibold disabled:opacity-60"
+              className="min-h-11 rounded-xl px-3 text-sm font-semibold disabled:opacity-60"
               style={{ border: "1px solid var(--border)" }}
             >
               Remettre dans ma bibliothèque

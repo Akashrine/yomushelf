@@ -21,10 +21,12 @@ export const acquisitionTypeField = z
   .optional()
   .transform((v) => (v === "" || v === undefined ? null : v));
 
+// A known date, or "unknown" to forget one. Never in the future.
 export const isoDateField = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .optional();
+  .union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide."), z.literal("unknown")])
+  .optional()
+  .transform((v) => (v === "unknown" ? null : v))
+  .refine((v) => v == null || v <= new Date().toISOString().slice(0, 10), "La date ne peut pas être dans le futur.");
 
 // What the reader says about a volume while adding or editing it.
 //   unchanged     : leave the reading as it is

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getOwnedVolumes } from "@/lib/supabase/queries";
-import { lastKnownPrice, nextVolumeToBuy } from "@/lib/collection/value";
+import { lastKnownPrice, nextVolumeToBuy, todayIso } from "@/lib/collection/value";
+import { spendingOverview } from "@/lib/univers/stats";
 import { AppShell } from "@/components/app/app-shell";
 import { WishlistView, type WishItem, type WishSeries } from "@/components/envies/wishlist-view";
 
@@ -19,27 +20,32 @@ export default async function EnviesPage() {
     supabase.from("profiles").select("username, avatar_initials").eq("id", user.id).single(),
     supabase
       .from("wishlist_items")
-      .select("id, manga_id, volume_number, target_price, mangas ( title, cover_url, avg_price_eur )")
+      .select("id, manga_id, volume_number, target_price, priority, mangas ( title, cover_url )")
       .eq("user_id", user.id),
     supabase
       .from("user_collections")
-      .select("manga_id, mangas ( title, cover_url, avg_price_eur )")
+      .select("manga_id, mangas ( title, cover_url )")
       .eq("user_id", user.id)
       .is("archived_at", null),
     getOwnedVolumes(supabase, user.id),
   ]);
   if (wishesError || collectionError) throw new Error("Impossible de charger les envies.");
 
-  type MangaBits = { title: string; cover_url: string | null; avg_price_eur: number | string | null } | null;
+  // Estimates come from prices the reader really paid, never from a
+  // default : last price paid for the series, else their average price.
+  const average = spendingOverview(volumes, todayIso()).averagePaid;
+  type MangaBits = { title: string; cover_url: string | null } | null;
   const toSeries = (manga_id: string, m: MangaBits): WishSeries => {
     const own = volumes.filter((v) => v.manga_id === manga_id);
+    const seriesPaid = lastKnownPrice(own.filter((v) => v.acquisition_type === "bought"));
     return {
       manga_id,
       title: m?.title ?? "Série",
       cover_url: m?.cover_url ?? null,
       nextVolume: nextVolumeToBuy(own),
       lastPrice: lastKnownPrice(own),
-      estimate: lastKnownPrice(own) ?? (m?.avg_price_eur != null ? Number(m.avg_price_eur) : null),
+      estimate: seriesPaid ?? average,
+      estimateBasis: seriesPaid != null ? "series" : average != null ? "average" : null,
     };
   };
   // Shelf series (for the add form) plus series only wished (from Découvrir).
@@ -53,13 +59,14 @@ export default async function EnviesPage() {
     manga_id: w.manga_id,
     volume_number: w.volume_number,
     target_price: w.target_price == null ? null : Number(w.target_price),
+    priority: w.priority,
   }));
 
   return (
     <AppShell active="bibliotheque" avatarInitials={profile?.avatar_initials ?? undefined}>
       <h1 className="text-2xl font-bold sm:text-3xl">Mes envies</h1>
       <p className="mb-5 mt-1 text-sm" style={{ color: "var(--muted)" }}>
-        Les tomes que tu aimerais avoir. Les prix « ≈ » sont des estimations, pas des dépenses.
+        Les tomes que tu aimerais avoir. Un prix « ≈ » est une estimation tirée de ce que tu as payé : ce n&apos;est pas une dépense.
       </p>
       <WishlistView items={items} series={series} />
     </AppShell>
