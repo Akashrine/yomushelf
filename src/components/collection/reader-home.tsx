@@ -222,7 +222,7 @@ export function Cover({
     return (
       <span
         aria-hidden="true"
-        className="relative shrink-0 overflow-hidden rounded-lg"
+        className="relative block shrink-0 overflow-hidden rounded-lg"
         style={{ ...size, background: `url(${shelf.cover_url}) center/cover no-repeat, #1a1010`, boxShadow: "0 8px 20px rgba(0,0,0,0.45)" }}
       >
         {!small && !full && (
