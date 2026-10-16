@@ -91,6 +91,26 @@ export async function setWishPriority(formData: FormData): Promise<ActionResult>
 
 const WishIdSchema = z.object({ id: z.string().uuid() });
 
+// Undo of "Je le veux" in Découvrir : that action wishes volume 1 of the
+// series ; only that wish goes, other wishes of the series stay.
+export async function undoSeriesWish(formData: FormData): Promise<ActionResult> {
+  const parsed = z.object({ manga_id: z.string().uuid() }).safeParse(formValues(formData, ["manga_id"]));
+  if (!parsed.success) return { success: false, error: "Données invalides." };
+
+  const { supabase, user } = await getAuthed();
+  if (!user) return { success: false, error: "Non authentifié." };
+
+  const { error } = await supabase
+    .from("wishlist_items")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("manga_id", parsed.data.manga_id)
+    .eq("volume_number", 1);
+  if (error) return { success: false, error: "Erreur lors de la suppression." };
+  revalidateWishes(parsed.data.manga_id);
+  return { success: true };
+}
+
 export async function removeWishlistItem(formData: FormData): Promise<ActionResult> {
   const parsed = WishIdSchema.safeParse(formValues(formData, ["id"]));
   if (!parsed.success) return { success: false, error: "Données invalides." };

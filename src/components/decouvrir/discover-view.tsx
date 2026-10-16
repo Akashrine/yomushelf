@@ -20,6 +20,8 @@ import {
   type LengthFilter,
 } from "@/lib/discovery/suggest";
 import { TERRITORIES, type TerritoryKey } from "@/lib/discovery/territories";
+import type { DeckCard } from "@/lib/discovery/deck";
+import { SwipeDeck } from "./swipe-deck";
 
 export type DiscoverCard = { entry: CatalogueEntry; reason?: string; note?: string | null };
 export type Selection = { slug: string; title: string; description: string | null; items: DiscoverCard[] };
@@ -34,6 +36,7 @@ export type ContinueItem = {
 };
 
 type Props = {
+  deck: DeckCard[];
   continueItems: ContinueItem[];
   suggestions: DiscoverCard[];
   others: DiscoverCard[];
@@ -70,6 +73,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 type Toast = { ok: boolean; text: string; undo?: () => void };
 
 export function DiscoverView({
+  deck,
   continueItems,
   suggestions,
   others,
@@ -151,8 +155,12 @@ export function DiscoverView({
     <div className="flex flex-col gap-10">
       <header>
         <h1 className="text-2xl font-bold sm:text-3xl">Découvrir</h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>Quoi lire ensuite, et pourquoi.</p>
+        <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>Ça te tente&nbsp;? Touche « Je le veux&nbsp;! » ou glisse la carte.</p>
       </header>
+
+      <section aria-label="Une série à la fois" className="-mt-6 flex flex-col items-center">
+        <SwipeDeck deck={deck} />
+      </section>
 
       {continueItems.length > 0 && (
         <section aria-labelledby="h-reprendre" className="flex flex-col gap-3">
