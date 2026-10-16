@@ -6,6 +6,7 @@ import { loadDiscoveryContext, readerLibrary, withReaderSeries } from "@/lib/sup
 import { buildShelves, nextToRead, type Candidate } from "@/lib/collection/reading";
 import { contentAllowed, contentContext, otherUniverses, suggest } from "@/lib/discovery/suggest";
 import { TERRITORIES, type TerritoryKey } from "@/lib/discovery/territories";
+import { buildDeck } from "@/lib/discovery/deck";
 import { AppShell } from "@/components/app/app-shell";
 import { DiscoverView, type ContinueItem, type Selection } from "@/components/decouvrir/discover-view";
 
@@ -61,6 +62,14 @@ export default async function DecouvrirPage({ searchParams }: { searchParams: Pr
 
   const suggestions = suggest(library, known, excluded, { limit: 9, declared, scope }).map((s) => ({ entry: s.entry, reason: s.reason }));
   const others = otherUniverses(library, known, new Set([...excluded, ...suggestions.map((s) => s.entry.id)]), { declared, scope });
+  // The swipe deck : more personal suggestions, then other universes, then
+  // the most read series this reader may be proposed.
+  const deck = buildDeck(
+    [...suggest(library, known, excluded, { limit: 30, declared, scope }), ...others],
+    catalogue,
+    excluded,
+    ctx
+  );
 
   // Continue a series / read a volume already at home : from the reader's shelf.
   const continueItems: ContinueItem[] = buildShelves(series.filter((s) => !s.archived_at), volumes, readings)
@@ -98,6 +107,7 @@ export default async function DecouvrirPage({ searchParams }: { searchParams: Pr
     <AppShell active="decouvrir" avatarInitials={profile?.avatar_initials ?? undefined}>
       <DiscoverView
         continueItems={continueItems}
+        deck={deck}
         suggestions={suggestions}
         others={others}
         selections={selections}
