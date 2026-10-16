@@ -19,12 +19,13 @@ const LANDING_TITLES = [
 
 // Anonymous client without cookies : the page stays static (revalidated)
 // and only shared catalogue rows are readable under RLS.
+// Without Supabase settings (a preview build without its variables) the page
+// still builds, with an empty shelf, instead of failing the deployment.
 export async function getLandingCovers(): Promise<ShelfCover[]> {
-  const supabase = createClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: false } }
-  );
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return [];
+  const supabase = createClient<Database>(url, key, { auth: { persistSession: false } });
   const { data, error } = await supabase
     .from("mangas")
     .select("title, cover_url")
