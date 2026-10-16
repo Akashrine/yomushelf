@@ -61,7 +61,7 @@ export async function signUp(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
@@ -77,6 +77,8 @@ export async function signUp(
     return { error: "Erreur lors de l'inscription. Réessaie." };
   }
 
+  // No email confirmation required : the account is ready and signed in.
+  if (data.session) redirect("/bibliotheque");
   return { success: true };
 }
 

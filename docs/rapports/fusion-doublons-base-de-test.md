@@ -14,7 +14,7 @@ Date : 2026-10-16. Base : projet de test `fcpyhtfacqnzohwzyfcp`. **Aucune fusion
 
 | Série | Contradictions | Lignes identiques à combiner | Lignes à déplacer | Comptes concernés |
 |---|---|---|---|---|
-| One Piece | 0 | 28 (14 tomes + 13 lectures + 1 envie… valeurs identiques des deux côtés) | 37 | 1 (demo) |
+| One Piece | 0 | 28 (14 tomes, 12 lectures, 1 envie, 1 série en bibliothèque : valeurs identiques des deux côtés) | 37 | 1 (demo) |
 | Naruto | 0 | 1 (série présente des deux côtés dans la bibliothèque) | 0 | 1 (legacy) |
 | Fullmetal Alchemist | 0 | 0 | 0 | 0 |
 

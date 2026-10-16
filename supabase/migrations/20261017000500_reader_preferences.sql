@@ -20,12 +20,18 @@ create table if not exists public.discovery_dismissals (
 );
 alter table public.discovery_dismissals enable row level security;
 
-create policy "discovery_dismissals: read own" on public.discovery_dismissals
-  for select using (auth.uid() = user_id);
-create policy "discovery_dismissals: insert own" on public.discovery_dismissals
-  for insert with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id));
-create policy "discovery_dismissals: delete own" on public.discovery_dismissals
-  for delete using (auth.uid() = user_id);
+do $$ begin
+  create policy "discovery_dismissals: read own" on public.discovery_dismissals
+    for select using (auth.uid() = user_id);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "discovery_dismissals: insert own" on public.discovery_dismissals
+    for insert with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id));
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy "discovery_dismissals: delete own" on public.discovery_dismissals
+    for delete using (auth.uid() = user_id);
+exception when duplicate_object then null; end $$;
 revoke all on public.discovery_dismissals from anon;
 grant select, insert, delete on public.discovery_dismissals to authenticated;
 
@@ -42,4 +48,5 @@ do $$ begin
     and not (liked_genres && avoided_genres)
   );
 exception when duplicate_object then null; end $$;
-grant update (liked_genres, avoided_genres) on public.profiles to authenticated;
+-- profiles uses column-level grants : readers read and write only these new ones.
+grant select (liked_genres, avoided_genres), update (liked_genres, avoided_genres) on public.profiles to authenticated;
