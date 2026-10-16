@@ -243,10 +243,11 @@ type SeriesSource =
 // private series that only this reader can see.
 async function resolveSeries(supabase: Supabase, userId: string, src: SeriesSource): Promise<Resolved> {
   if (src.source === "db") {
-    const { data, error } = await supabase.from("mangas").select("id").eq("id", src.manga_id).maybeSingle();
+    const { data, error } = await supabase.from("mangas").select("id, merged_into").eq("id", src.manga_id).maybeSingle();
     if (error) return { ok: false, error: "Impossible de vérifier le catalogue. Réessaie." };
     if (!data) return { ok: false, error: "Série introuvable." };
-    return { ok: true, manga_id: data.id };
+    // A merged series lives on under the series it was merged into.
+    return { ok: true, manga_id: data.merged_into ?? data.id };
   }
 
   if (src.source === "private") {
@@ -285,6 +286,7 @@ async function resolveSeries(supabase: Supabase, userId: string, src: SeriesSour
     .from("mangas")
     .select("id")
     .contains("external_ids", key)
+    .is("merged_into", null)
     .limit(1)
     .maybeSingle();
   if (lookupError) return { ok: false, error: "Impossible de vérifier le catalogue. Réessaie." };

@@ -25,6 +25,27 @@
 alter table public.mangas
   add column if not exists merged_into uuid references public.mangas(id);
 
+-- No new reader row on a merged series : its rows were moved to the kept
+-- one, anything written after would be stranded.
+alter policy "user_collections: insert own" on public.user_collections
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id and m.merged_into is null));
+alter policy "user_collections: update own" on public.user_collections
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id and m.merged_into is null));
+alter policy "user_volumes: insert own" on public.user_volumes
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id and m.merged_into is null));
+alter policy "user_volumes: update own" on public.user_volumes
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id and m.merged_into is null));
+alter policy "user_readings: insert own" on public.user_readings
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id and m.merged_into is null));
+alter policy "user_readings: update own" on public.user_readings
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id and m.merged_into is null));
+alter policy "wishlist_items: insert own" on public.wishlist_items
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id and m.merged_into is null));
+alter policy "wishlist_items: update own" on public.wishlist_items
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id and m.merged_into is null));
+alter policy "discovery_dismissals: insert own" on public.discovery_dismissals
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id and m.merged_into is null));
+
 -- Search never offers a merged series (same body as 20261017000000,
 -- plus the merged_into filter).
 create or replace function public.search_mangas(p_query text, p_limit integer default 20)
@@ -79,23 +100,37 @@ security invoker
 set search_path = public
 as $$
   with shared as (
-    select m.id, m.title, m.created_at, m.curated, m.is_top_50_fr,
+    select m.id, m.title, m.aliases, m.created_at, m.curated, m.is_top_50_fr,
            public.normalize_search(m.title) as k
     from public.mangas m
     where m.created_by is null and m.merged_into is null
   ),
+  -- Every name a series is known by : its title and its aliases.
+  names as (
+    select s.id, s.k as n from shared s where s.k <> ''
+    union
+    select s.id, public.normalize_search(a) from shared s, unnest(coalesce(s.aliases, '{}')) a
+    where public.normalize_search(a) <> ''
+  ),
+  pairs as (
+    -- a row whose title is a name of another row
+    select distinct a.id as x, b.id as y
+    from shared a join names b on b.n = a.k and b.id <> a.id
+  ),
   ranked as (
-    select s.*, row_number() over (
-      partition by s.k order by s.curated desc, s.is_top_50_fr desc, s.created_at, s.id
-    ) as rn
-    from shared s
-    where s.k <> ''
+    select p.x, p.y,
+      -- keep : the editorial row, then the top 50, then the oldest
+      case when (ka.curated, ka.is_top_50_fr, kb.created_at, kb.id) > (kb.curated, kb.is_top_50_fr, ka.created_at, ka.id)
+           then p.x else p.y end as keep_id,
+      case when (ka.curated, ka.is_top_50_fr, kb.created_at, kb.id) > (kb.curated, kb.is_top_50_fr, ka.created_at, ka.id)
+           then p.y else p.x end as drop_id
+    from pairs p join shared ka on ka.id = p.x join shared kb on kb.id = p.y
   )
-  select k.id, k.title, d.id, d.title
-  from ranked k
-  join ranked d on d.k = k.k and d.rn > 1
-  where k.rn = 1
-  order by k.title, d.title;
+  select distinct r.keep_id, k.title, r.drop_id, d.title
+  from ranked r join shared k on k.id = r.keep_id join shared d on d.id = r.drop_id
+  -- a row only drops into an editorial or older row, never the other way
+  where not exists (select 1 from ranked r2 where r2.drop_id = r.keep_id)
+  order by 2, 4;
 $$;
 
 create or replace function public.catalogue_merge(p_keep uuid, p_drop uuid, p_apply boolean default false)
@@ -111,8 +146,10 @@ declare
   conflicts integer;
   r record;
 begin
-  select * into k from public.mangas m where m.id = p_keep;
-  select * into d from public.mangas m where m.id = p_drop;
+  -- Row locks : no concurrent merge, cron update or deletion of these two
+  -- series while the report is built and applied.
+  select * into k from public.mangas m where m.id = p_keep for update;
+  select * into d from public.mangas m where m.id = p_drop for update;
   if k.id is null or d.id is null then raise exception 'unknown series'; end if;
   if p_keep = p_drop then raise exception 'keep and drop are the same series'; end if;
   if d.merged_into = p_keep then
@@ -189,11 +226,14 @@ begin
 
   -- ── Series on the shelf ──
   insert into merge_report
-  select case when a.liked is not null and b.liked is not null and a.liked <> b.liked then 'conflict' else 'combine' end,
+  select case when (a.liked is not null and b.liked is not null and a.liked <> b.liked)
+                or (a.status <> b.status and a.status <> 'not_started' and b.status <> 'not_started')
+              then 'conflict' else 'combine' end,
          a.user_id, null,
-         format('série dans la bibliothèque des deux côtés : %s / %s, « j''ai aimé » %s / %s',
+         format('série dans la bibliothèque des deux côtés : %s / %s, statut %s / %s, « j''ai aimé » %s / %s',
                 case when a.archived_at is null then 'active' else 'retirée' end,
                 case when b.archived_at is null then 'active' else 'retirée' end,
+                a.status, b.status,
                 coalesce(a.liked::text, '?'), coalesce(b.liked::text, '?'))
   from public.user_collections a
   join public.user_collections b on b.user_id = a.user_id and b.manga_id = p_drop
@@ -245,11 +285,17 @@ begin
     end if;
 
     -- 1. Shelf rows first : volumes and readings reference them.
-    insert into public.user_collections (user_id, manga_id, first_added_at, archived_at, liked)
-    select b.user_id, p_keep, b.first_added_at, b.archived_at, b.liked
+    -- Mark the dropped series first : from now on readers cannot attach new
+    -- rows to it (policies check merged_into), so nothing is lost below.
+    update public.mangas set merged_into = p_keep where id = p_drop;
+
+    insert into public.user_collections (user_id, manga_id, first_added_at, archived_at, liked, status)
+    select b.user_id, p_keep, b.first_added_at, b.archived_at, b.liked, b.status
     from public.user_collections b
     where b.manga_id = p_drop
     on conflict (user_id, manga_id) do update set
+      -- a known status wins over "not started" ; two known statuses were a contradiction
+      status = case when public.user_collections.status = 'not_started' then excluded.status else public.user_collections.status end,
       first_added_at = least(public.user_collections.first_added_at, excluded.first_added_at),
       -- active on either side means active
       archived_at = case when public.user_collections.archived_at is null or excluded.archived_at is null then null
@@ -291,6 +337,10 @@ begin
       and exists (select 1 from public.wishlist_items a where a.manga_id = p_keep and a.user_id = b.user_id
                   and a.volume_number is not distinct from b.volume_number);
     update public.wishlist_items set manga_id = p_keep where manga_id = p_drop;
+    -- A wish for a volume the reader now owns on the kept series is fulfilled.
+    delete from public.wishlist_items w
+    where w.manga_id = p_keep and w.volume_number is not null
+      and exists (select 1 from public.user_volumes v where v.user_id = w.user_id and v.manga_id = p_keep and v.volume_number = w.volume_number);
 
     -- 5. Set-aside suggestions.
     insert into public.discovery_dismissals (user_id, manga_id, created_at)
@@ -301,15 +351,23 @@ begin
     -- 6. The old shelf rows are now empty.
     delete from public.user_collections where manga_id = p_drop;
 
-    -- 7. Catalogue volumes and editorial items.
+    -- 7. Catalogue volumes and editorial items. The dropped volume's values
+    -- are kept aside first : its ISBN is unique, it must leave that row
+    -- before it can fill the kept one.
+    create temp table merge_volumes on commit drop as
+      select b.volume_number, b.edition, b.isbn_13, b.release_date_fr, b.price_eur, b.cover_url
+      from public.volumes b
+      where b.manga_id = p_drop
+        and exists (select 1 from public.volumes a where a.manga_id = p_keep and a.volume_number = b.volume_number and a.edition = b.edition);
+    update public.volumes b set isbn_13 = null
+    where b.manga_id = p_drop and (b.volume_number, b.edition) in (select volume_number, edition from merge_volumes);
     update public.volumes a set
       isbn_13 = coalesce(a.isbn_13, b.isbn_13),
       release_date_fr = coalesce(a.release_date_fr, b.release_date_fr),
       price_eur = coalesce(a.price_eur, b.price_eur),
       cover_url = coalesce(a.cover_url, b.cover_url)
-    from public.volumes b
-    where a.manga_id = p_keep and b.manga_id = p_drop and b.volume_number = a.volume_number and b.edition = a.edition
-      and (a.isbn_13 is not null or b.isbn_13 is null);
+    from merge_volumes b
+    where a.manga_id = p_keep and b.volume_number = a.volume_number and b.edition = a.edition;
     delete from public.volumes b
     where b.manga_id = p_drop
       and exists (select 1 from public.volumes a where a.manga_id = p_keep and a.volume_number = b.volume_number and a.edition = b.edition);
@@ -330,7 +388,11 @@ begin
       aliases = array(select distinct a from unnest(coalesce(m.aliases, '{}') || lower(d.title) || coalesce(d.aliases, '{}')) a
                       where a <> lower(m.title))
     where m.id = p_keep;
-    update public.mangas set merged_into = p_keep, curated = false where id = p_drop;
+    -- The dropped row keeps nothing that could make it found again : its
+    -- external ids moved to the kept row above.
+    update public.mangas set merged_into = p_keep, curated = false, is_top_50_fr = false, top_50_rank = null,
+      external_ids = '{}'::jsonb
+    where id = p_drop;
 
     -- 9. Recompute the legacy summary of every reader concerned.
     for r in select distinct uc.user_id from public.user_collections uc where uc.manga_id = p_keep loop

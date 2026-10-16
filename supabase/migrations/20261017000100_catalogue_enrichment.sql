@@ -29,6 +29,14 @@ alter table public.mangas
     check (audience_age_source in ('cnlj', 'estimate')),
   add column if not exists curated boolean not null default false;
 
+-- Series this migration creates (and only those) : the rollback deletes
+-- exactly these, never a series that existed before. Service role only.
+create table if not exists public.catalogue_enrichment_inserted (
+  manga_id uuid primary key references public.mangas(id) on delete cascade
+);
+alter table public.catalogue_enrichment_inserted enable row level security;
+revoke all on public.catalogue_enrichment_inserted from anon, authenticated;
+
 -- Finds the shared, non top-50 series already known under one of these
 -- titles (accents, case and punctuation ignored). Only distinctive
 -- original or English titles are listed : a generic word like "kirby" or
@@ -710,10 +718,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Détective Conan','meitantei conan','case closed','detective conan']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Détective Conan', 'Gōshō Aoyama', 'Kana', 107, 'ongoing'::public.manga_status,
   array['mystere','aventure','comedie']::text[], 'shonen', 10, 'Rajeuni par un poison, le lycéen détective Shinichi enquête sous l''apparence d''un enfant nommé Conan.', array['detective conan','case closed','meitantei conan','conan','detectiv conan']::text[], false
-where pg_temp.catalogue_match(array['Détective Conan','meitantei conan','case closed','detective conan']) is null;
+where pg_temp.catalogue_match(array['Détective Conan','meitantei conan','case closed','detective conan']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Doraemon : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -728,10 +740,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Doraemon']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Doraemon', 'Fujiko F. Fujio', 'Kana', 45, 'completed'::public.manga_status,
   array['comedie','science-fiction','tranche-de-vie']::text[], 'kodomo', 6, 'Doraemon, chat robot venu du futur, aide le maladroit Nobita grâce aux gadgets de sa poche magique.', array['doraemon le chat venu du futur','doraemon chat','doremon']::text[], false
-where pg_temp.catalogue_match(array['Doraemon']) is null;
+where pg_temp.catalogue_match(array['Doraemon']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Chi - Une vie de chat : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -746,10 +762,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Chi - Une vie de chat','chi''s sweet home','chi une vie de chat']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Chi - Une vie de chat', 'Kanata Konami', 'Glénat', 12, 'completed'::public.manga_status,
   array['comedie','tranche-de-vie']::text[], 'kodomo', 6, 'Chi, chaton perdu recueilli par une famille, découvre avec curiosité les joies et petits soucis du quotidien.', array['chi une vie de chat','chi''s sweet home','chi','chi vie de chat']::text[], false
-where pg_temp.catalogue_match(array['Chi - Une vie de chat','chi''s sweet home','chi une vie de chat']) is null;
+where pg_temp.catalogue_match(array['Chi - Une vie de chat','chi''s sweet home','chi une vie de chat']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Pokémon - La Grande Aventure : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -764,10 +784,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Pokémon - La Grande Aventure','pokemon adventures','pokemon special','pocket monsters special']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Pokémon - La Grande Aventure', 'Hidenori Kusaka, Mato, Satoshi Yamamoto', 'Kurokawa', null, 'ongoing'::public.manga_status,
   array['aventure','fantasy','action']::text[], 'kodomo', 8, 'De jeunes dresseurs parcourent les régions du monde Pokémon, entre captures, combats et menaces d''organisations.', array['pokemon la grande aventure','pokemon adventures','pokemon special','pokémon']::text[], false
-where pg_temp.catalogue_match(array['Pokémon - La Grande Aventure','pokemon adventures','pokemon special','pocket monsters special']) is null;
+where pg_temp.catalogue_match(array['Pokémon - La Grande Aventure','pokemon adventures','pokemon special','pocket monsters special']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Dragon Ball Super : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -782,10 +806,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Dragon Ball Super','dragonball super']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Dragon Ball Super', 'Akira Toriyama, Toyotarō', 'Glénat', 24, 'paused'::public.manga_status,
   array['action','aventure','science-fiction']::text[], 'shonen', 9, 'Après la défaite de Majin Boo, Goku et ses amis affrontent des dieux et des guerriers venus d''autres univers.', array['dbs','dragon ball super manga','db super','dragonball super']::text[], false
-where pg_temp.catalogue_match(array['Dragon Ball Super','dragonball super']) is null;
+where pg_temp.catalogue_match(array['Dragon Ball Super','dragonball super']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Yo-kai Watch : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -800,10 +828,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Yo-kai Watch','yokai watch','youkai watch']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Yo-kai Watch', 'Noriyuki Konishi', 'Crunchyroll (ex-Kazé)', null, 'completed'::public.manga_status,
   array['comedie','surnaturel']::text[], 'kodomo', 6, 'Grâce à une montre spéciale, Nathan voit les Yo-kai, esprits farceurs responsables des petits tracas du quotidien.', array['yokai watch','yo kai watch','youkai watch']::text[], false
-where pg_temp.catalogue_match(array['Yo-kai Watch','yokai watch','youkai watch']) is null;
+where pg_temp.catalogue_match(array['Yo-kai Watch','yokai watch','youkai watch']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Super Mario Manga Adventures : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -818,10 +850,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Super Mario Manga Adventures']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Super Mario Manga Adventures', 'Yukio Sawada', 'Soleil', 36, 'ongoing'::public.manga_status,
   array['aventure','comedie','fantasy']::text[], 'kodomo', 6, 'Mario, Luigi et leurs amis vivent des aventures loufoques inspirées des jeux vidéo Nintendo.', array['super mario','mario manga','super mario-kun','super mario adventures']::text[], false
-where pg_temp.catalogue_match(array['Super Mario Manga Adventures']) is null;
+where pg_temp.catalogue_match(array['Super Mario Manga Adventures']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Animal Crossing : New Horizons - Le Journal de l'île : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -836,10 +872,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Animal Crossing : New Horizons - Le Journal de l''île']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Animal Crossing : New Horizons - Le Journal de l''île', 'Rumba Kokonasu', 'Soleil', 12, 'ongoing'::public.manga_status,
   array['comedie','tranche-de-vie']::text[], 'kodomo', 6, 'Sur une île paisible, un habitant et ses voisins animaux enchaînent gags et petits projets du quotidien.', array['animal crossing','animal crossing new horizons','ac new horizons','journal de l''ile']::text[], false
-where pg_temp.catalogue_match(array['Animal Crossing : New Horizons - Le Journal de l''île']) is null;
+where pg_temp.catalogue_match(array['Animal Crossing : New Horizons - Le Journal de l''île']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Les Aventures de Kirby dans les étoiles : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -854,10 +894,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Les Aventures de Kirby dans les étoiles','hoshi no kirby']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Les Aventures de Kirby dans les étoiles', 'Hirokazu Hikawa', 'Soleil', 25, 'completed'::public.manga_status,
   array['comedie','aventure','fantasy']::text[], 'kodomo', 6, 'Kirby, petite boule rose gourmande, vit des aventures pleines de gags à Dream Land face au roi Dadidou.', array['kirby','kirby manga','hoshi no kirby','aventures de kirby']::text[], false
-where pg_temp.catalogue_match(array['Les Aventures de Kirby dans les étoiles','hoshi no kirby']) is null;
+where pg_temp.catalogue_match(array['Les Aventures de Kirby dans les étoiles','hoshi no kirby']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Splatoon : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -872,10 +916,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Splatoon']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Splatoon', 'Sankichi Hinodeya', 'Soleil', 16, 'completed'::public.manga_status,
   array['action','comedie','aventure']::text[], 'kodomo', 8, 'Des Inklings, mi-enfants mi-calmars, s''affrontent à coups d''encre dans des matchs colorés en équipe.', array['splatoon manga','splatoon 3','splatoon la contree clabousse']::text[], false
-where pg_temp.catalogue_match(array['Splatoon']) is null;
+where pg_temp.catalogue_match(array['Splatoon']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- The Legend of Zelda - Twilight Princess : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -890,10 +938,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['The Legend of Zelda - Twilight Princess']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'The Legend of Zelda - Twilight Princess', 'Akira Himekawa', 'Soleil', 11, 'completed'::public.manga_status,
   array['aventure','fantasy','action']::text[], 'shonen', 9, 'Le jeune Link est entraîné dans une lutte pour sauver le royaume d''Hyrule, envahi par le monde du crépuscule.', array['zelda','zelda twilight princess','legend of zelda','zelda tp']::text[], false
-where pg_temp.catalogue_match(array['The Legend of Zelda - Twilight Princess']) is null;
+where pg_temp.catalogue_match(array['The Legend of Zelda - Twilight Princess']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Beyblade X : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -908,10 +960,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Beyblade X']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Beyblade X', 'Homura Kawamoto, Hikaru Muno', 'Crunchyroll (ex-Kazé)', 7, 'ongoing'::public.manga_status,
   array['action','sport']::text[], 'kodomo', 8, 'Le jeune Kazami Bird se lance dans la compétition de Beyblade X pour devenir le meilleur blader.', array['beyblade','beyblade x manga','bayblade x']::text[], false
-where pg_temp.catalogue_match(array['Beyblade X']) is null;
+where pg_temp.catalogue_match(array['Beyblade X']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Dragon Quest - The Adventure of Daï : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -926,10 +982,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Dragon Quest - The Adventure of Daï','dai no daibouken','dragon quest dai no daibouken','dragon quest the adventure of dai']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Dragon Quest - The Adventure of Daï', 'Riku Sanjō, Kōji Inada', 'Delcourt/Tonkam', null, 'completed'::public.manga_status,
   array['aventure','fantasy','action']::text[], 'shonen', 10, 'Daï, apprenti héros élevé sur une île de monstres, part affronter le Seigneur du Mal qui menace le monde.', array['dragon quest dai','fly','la quete de dai','dai no daibouken','dragon quest daï']::text[], false
-where pg_temp.catalogue_match(array['Dragon Quest - The Adventure of Daï','dai no daibouken','dragon quest dai no daibouken','dragon quest the adventure of dai']) is null;
+where pg_temp.catalogue_match(array['Dragon Quest - The Adventure of Daï','dai no daibouken','dragon quest dai no daibouken','dragon quest the adventure of dai']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Shaman King : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -944,10 +1004,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Shaman King']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Shaman King', 'Hiroyuki Takei', 'Kana', 32, 'completed'::public.manga_status,
   array['action','surnaturel','aventure']::text[], 'shonen', 10, 'Yoh, shaman nonchalant, participe avec son esprit samouraï au tournoi qui désignera le Shaman King.', array['shaman kin','shaman king star edition','shamanking']::text[], false
-where pg_temp.catalogue_match(array['Shaman King']) is null;
+where pg_temp.catalogue_match(array['Shaman King']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Astro Boy : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -962,10 +1026,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Astro Boy','tetsuwan atom']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Astro Boy', 'Osamu Tezuka', 'Kana', null, 'completed'::public.manga_status,
   array['science-fiction','aventure','action']::text[], 'shonen', 8, 'Astro, robot-enfant au cœur humain et aux pouvoirs prodigieux, défend la paix entre humains et robots.', array['astro','astro le petit robot','tetsuwan atom','atom']::text[], false
-where pg_temp.catalogue_match(array['Astro Boy','tetsuwan atom']) is null;
+where pg_temp.catalogue_match(array['Astro Boy','tetsuwan atom']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Captain Tsubasa : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -980,10 +1048,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Captain Tsubasa']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Captain Tsubasa', 'Yōichi Takahashi', 'Glénat', 37, 'completed'::public.manga_status,
   array['sport','drame']::text[], 'shonen', 8, 'Tsubasa, prodige du ballon rond, vit pour le football et rêve de mener le Japon au sommet mondial.', array['olive et tom','captain tsubasa olive et tom','tsubasa','olive & tom']::text[], false
-where pg_temp.catalogue_match(array['Captain Tsubasa']) is null;
+where pg_temp.catalogue_match(array['Captain Tsubasa']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Dr Slump : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -998,10 +1070,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Dr Slump','dr. slump']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Dr Slump', 'Akira Toriyama', 'Glénat', 18, 'completed'::public.manga_status,
   array['comedie','science-fiction']::text[], 'shonen', 8, 'Au village Pingouin, l''inventeur Senbei crée Arale, une fillette robot surpuissante et complètement loufoque.', array['dr. slump','docteur slump','arale','dr slump arale']::text[], false
-where pg_temp.catalogue_match(array['Dr Slump','dr. slump']) is null;
+where pg_temp.catalogue_match(array['Dr Slump','dr. slump']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Gunnm : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1016,10 +1092,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Gunnm','battle angel alita']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Gunnm', 'Yukito Kishiro', 'Glénat', 9, 'completed'::public.manga_status,
   array['science-fiction','action','drame']::text[], 'seinen', 13, 'Dans une décharge, le docteur Ido répare une cyborg amnésique, Gally, qui se révèle une combattante redoutable.', array['battle angel alita','alita','gunm','gunnm alita']::text[], false
-where pg_temp.catalogue_match(array['Gunnm','battle angel alita']) is null;
+where pg_temp.catalogue_match(array['Gunnm','battle angel alita']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Les Carnets de l'apothicaire : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1034,10 +1114,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Les Carnets de l''apothicaire','the apothecary diaries','kusuriya no hitorigoto']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Les Carnets de l''apothicaire', 'Natsu Hyūga, Nekokurage, Itsuki Nanao', 'Ki-oon', 16, 'ongoing'::public.manga_status,
   array['mystere','historique','drame']::text[], 'seinen', 13, 'Enlevée et placée au palais impérial, la jeune apothicaire Mao Mao résout les mystères qui agitent le harem.', array['the apothecary diaries','kusuriya no hitorigoto','carnets de l''apothicaire','apothicaire','maomao']::text[], false
-where pg_temp.catalogue_match(array['Les Carnets de l''apothicaire','the apothecary diaries','kusuriya no hitorigoto']) is null;
+where pg_temp.catalogue_match(array['Les Carnets de l''apothicaire','the apothecary diaries','kusuriya no hitorigoto']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Yotsuba&! : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1052,10 +1136,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Yotsuba&!','yotsubato','yotsuba to']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Yotsuba&!', 'Kiyohiko Azuma', 'Kurokawa', 16, 'ongoing'::public.manga_status,
   array['comedie','tranche-de-vie']::text[], 'shonen', 9, 'Yotsuba, fillette espiègle et curieuse, découvre le monde avec émerveillement dans son nouveau quartier.', array['yotsuba','yotsuba to','yotsubato','yotsuba &!']::text[], false
-where pg_temp.catalogue_match(array['Yotsuba&!','yotsubato','yotsuba to']) is null;
+where pg_temp.catalogue_match(array['Yotsuba&!','yotsubato','yotsuba to']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Le Voyage de Chihiro : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1070,10 +1158,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Le Voyage de Chihiro','sen to chihiro no kamikakushi','spirited away']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Le Voyage de Chihiro', 'Hayao Miyazaki', 'Glénat', null, 'completed'::public.manga_status,
   array['fantasy','aventure']::text[], 'kodomo', 8, 'Égarée dans un monde d''esprits, la jeune Chihiro doit travailler dans un établissement de bains pour sauver ses parents.', array['chihiro','spirited away','sen to chihiro','voyage de chihiro']::text[], false
-where pg_temp.catalogue_match(array['Le Voyage de Chihiro','sen to chihiro no kamikakushi','spirited away']) is null;
+where pg_temp.catalogue_match(array['Le Voyage de Chihiro','sen to chihiro no kamikakushi','spirited away']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Fruits Basket : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1088,10 +1180,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Fruits Basket']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Fruits Basket', 'Natsuki Takaya', 'Delcourt/Tonkam', 23, 'completed'::public.manga_status,
   array['romance','comedie','drame','surnaturel']::text[], 'shojo', 12, 'Tohru, orpheline, vit chez les Sōma, une famille dont les membres se changent en animaux du zodiaque.', array['furuba','fruit basket','fruits basquet']::text[], false
-where pg_temp.catalogue_match(array['Fruits Basket']) is null;
+where pg_temp.catalogue_match(array['Fruits Basket']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Card Captor Sakura : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1106,10 +1202,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Card Captor Sakura','cardcaptor sakura']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Card Captor Sakura', 'CLAMP', 'Pika', 12, 'completed'::public.manga_status,
   array['fantasy','comedie','romance']::text[], 'shojo', 9, 'Sakura, écolière, doit retrouver les cartes magiques de Clow qu''elle a accidentellement dispersées.', array['cardcaptor sakura','sakura chasseuse de cartes','ccs','card captor']::text[], false
-where pg_temp.catalogue_match(array['Card Captor Sakura','cardcaptor sakura']) is null;
+where pg_temp.catalogue_match(array['Card Captor Sakura','cardcaptor sakura']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Sailor Moon : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1124,10 +1224,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Sailor Moon','bishoujo senshi sailor moon','pretty guardian sailor moon']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Sailor Moon', 'Naoko Takeuchi', 'Pika', 12, 'completed'::public.manga_status,
   array['fantasy','romance','action']::text[], 'shojo', 10, 'Usagi, collégienne maladroite, devient Sailor Moon et protège la Terre avec les autres guerrières Sailor.', array['pretty guardian sailor moon','sailormoon','bishoujo senshi sailor moon','sailor moon eternal']::text[], false
-where pg_temp.catalogue_match(array['Sailor Moon','bishoujo senshi sailor moon','pretty guardian sailor moon']) is null;
+where pg_temp.catalogue_match(array['Sailor Moon','bishoujo senshi sailor moon','pretty guardian sailor moon']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Divine Nanami : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1142,10 +1246,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Divine Nanami','kamisama hajimemashita','kamisama kiss']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Divine Nanami', 'Julietta Suzuki', 'Delcourt/Tonkam', 25, 'completed'::public.manga_status,
   array['romance','comedie','surnaturel']::text[], 'shojo', 12, 'Sans toit, Nanami devient par hasard la divinité d''un temple, servie par Tomoe, un renard démon peu aimable.', array['kamisama kiss','kamisama hajimemashita','kamisama']::text[], false
-where pg_temp.catalogue_match(array['Divine Nanami','kamisama hajimemashita','kamisama kiss']) is null;
+where pg_temp.catalogue_match(array['Divine Nanami','kamisama hajimemashita','kamisama kiss']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Blue Period : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1160,10 +1268,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Blue Period']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Blue Period', 'Tsubasa Yamaguchi', 'Pika', 18, 'ongoing'::public.manga_status,
   array['drame','tranche-de-vie']::text[], 'seinen', 13, 'Yatora, lycéen brillant mais blasé, se découvre une passion pour la peinture et vise les Beaux-Arts de Tokyo.', array['bluperiod','blue periode','blue period manga']::text[], false
-where pg_temp.catalogue_match(array['Blue Period']) is null;
+where pg_temp.catalogue_match(array['Blue Period']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Kiki la petite sorcière : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1178,10 +1290,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Kiki la petite sorcière','majo no takkyuubin','majo no takkyubin']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Kiki la petite sorcière', 'Hayao Miyazaki', 'Glénat', 1, 'completed'::public.manga_status,
   array['fantasy','tranche-de-vie']::text[], 'kodomo', 6, 'À 13 ans, la sorcière Kiki s''installe seule dans une ville portuaire et lance un service de livraison en balai.', array['kiki','kiki''s delivery service','majo no takkyubin','kiki la petite sorciere']::text[], false
-where pg_temp.catalogue_match(array['Kiki la petite sorcière','majo no takkyuubin','majo no takkyubin']) is null;
+where pg_temp.catalogue_match(array['Kiki la petite sorcière','majo no takkyuubin','majo no takkyubin']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Beastars : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1196,10 +1312,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Beastars']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Beastars', 'Paru Itagaki', 'Ki-oon', 22, 'completed'::public.manga_status,
   array['drame','mystere','romance','psychologique']::text[], 'shonen', 13, 'Dans un lycée d''animaux anthropomorphes, le loup Legoshi lutte contre ses instincts de prédateur.', array['beastar','beastars manga','beast stars']::text[], false
-where pg_temp.catalogue_match(array['Beastars']) is null;
+where pg_temp.catalogue_match(array['Beastars']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Tokyo Revengers : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1214,10 +1334,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Tokyo Revengers']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Tokyo Revengers', 'Ken Wakui', 'Glénat', 31, 'completed'::public.manga_status,
   array['action','drame','science-fiction']::text[], 'shonen', 14, 'Renvoyé douze ans en arrière, Takemichi infiltre un gang de délinquants pour sauver son ex-petite amie.', array['tokyo revenger','tokyo revengers manga','tokrev']::text[], false
-where pg_temp.catalogue_match(array['Tokyo Revengers']) is null;
+where pg_temp.catalogue_match(array['Tokyo Revengers']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Dorohedoro : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1232,10 +1356,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Dorohedoro']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Dorohedoro', 'Q Hayashida', 'Soleil', 23, 'completed'::public.manga_status,
   array['fantasy','horreur','action','comedie']::text[], 'seinen', 16, 'Caïman, homme à tête de reptile amnésique, traque les sorciers pour retrouver celui qui l''a transformé.', array['doro hedoro','dorohedro']::text[], false
-where pg_temp.catalogue_match(array['Dorohedoro']) is null;
+where pg_temp.catalogue_match(array['Dorohedoro']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Hirayasumi : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1250,10 +1378,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Hirayasumi']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Hirayasumi', 'Keigo Shinzō', 'Le Lézard Noir', 10, 'ongoing'::public.manga_status,
   array['tranche-de-vie','comedie','drame']::text[], 'seinen', 14, 'Hiroto, trentenaire sans ambition, hérite d''une maison à Tokyo et y accueille sa jeune cousine venue étudier.', array['hira yasumi','hirayasumi manga']::text[], false
-where pg_temp.catalogue_match(array['Hirayasumi']) is null;
+where pg_temp.catalogue_match(array['Hirayasumi']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- L'Ère des cristaux : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1268,10 +1400,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['L''Ère des cristaux','houseki no kuni','land of the lustrous']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'L''Ère des cristaux', 'Haruko Ichikawa', 'Glénat', 12, 'completed'::public.manga_status,
   array['fantasy','drame','science-fiction']::text[], 'seinen', 14, 'Sur une terre lointaine, des êtres de pierres précieuses luttent contre les Séléniens ; la fragile Phos cherche sa place.', array['houseki no kuni','land of the lustrous','le pays des cristaux','pays des cristaux','ere des cristaux']::text[], false
-where pg_temp.catalogue_match(array['L''Ère des cristaux','houseki no kuni','land of the lustrous']) is null;
+where pg_temp.catalogue_match(array['L''Ère des cristaux','houseki no kuni','land of the lustrous']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Look Back : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1286,10 +1422,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Look Back']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Look Back', 'Tatsuki Fujimoto', 'Crunchyroll (ex-Kazé)', 1, 'completed'::public.manga_status,
   array['drame','tranche-de-vie']::text[], 'shonen', 14, 'Deux collégiennes que tout oppose se lient par leur passion commune du dessin de manga.', array['lookback','look back fujimoto']::text[], false
-where pg_temp.catalogue_match(array['Look Back']) is null;
+where pg_temp.catalogue_match(array['Look Back']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Ranma ½ : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1304,10 +1444,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Ranma ½','ranma 1/2','ranma nibunnoichi']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Ranma ½', 'Rumiko Takahashi', 'Glénat', 38, 'completed'::public.manga_status,
   array['comedie','romance','action']::text[], 'shonen', 12, 'Ranma, adepte des arts martiaux, se transforme en fille au contact de l''eau froide, au grand dam de sa fiancée.', array['ranma','ranma 1/2','ranma un demi','ranma nibunnoichi']::text[], false
-where pg_temp.catalogue_match(array['Ranma ½','ranma 1/2','ranma nibunnoichi']) is null;
+where pg_temp.catalogue_match(array['Ranma ½','ranma 1/2','ranma nibunnoichi']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 -- Saint Seiya : enrich a former import under another title, or create it.
 with v(title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr) as (
@@ -1322,10 +1466,14 @@ update public.mangas m set
 from v
 where m.id = pg_temp.catalogue_match(array['Saint Seiya']);
 
+with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, audience_min_age, synopsis, aliases, is_top_50_fr)
 select 'Saint Seiya', 'Masami Kurumada', 'Kana', 28, 'completed'::public.manga_status,
   array['action','fantasy','aventure']::text[], 'shonen', 10, 'Seiya et les chevaliers de bronze protègent la déesse Athéna face aux forces qui menacent la Terre.', array['les chevaliers du zodiaque','saint seiya chevaliers du zodiaque','chevaliers du zodiaque','seiya']::text[], false
-where pg_temp.catalogue_match(array['Saint Seiya']) is null;
+where pg_temp.catalogue_match(array['Saint Seiya']) is null
+  returning id
+)
+insert into public.catalogue_enrichment_inserted (manga_id) select id from inserted on conflict do nothing;
 
 insert into public.editorial_selections (slug, title, description, position)
 values ('premiers-mangas', 'Pour un premier manga', 'Faciles à lire, drôles ou doux, parfaits pour commencer.', 0)

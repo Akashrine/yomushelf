@@ -13,3 +13,6 @@ grant execute on function public.get_public_profile(text) to anon, authenticated
 update public.profiles p set is_public = true
 from public.profile_visibility_backup b where b.user_id = p.id;
 drop table if exists public.profile_visibility_backup;
+
+-- Default execute right of every function (before 20261017000400).
+grant execute on function public.get_public_profile(text) to public;

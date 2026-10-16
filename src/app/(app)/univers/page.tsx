@@ -30,7 +30,7 @@ export default async function UniversPage() {
     getOwnedVolumes(supabase, user.id),
     getReadings(supabase, user.id),
     supabase.from("profiles").select("username, avatar_initials").eq("id", user.id).single(),
-    supabase.from("wishlist_items").select("manga_id, target_price").eq("user_id", user.id),
+    supabase.from("wishlist_items").select("manga_id, volume_number, target_price").eq("user_id", user.id),
     loadDiscoveryContext(supabase, user.id),
   ]);
   if (wishesResult.error) throw new Error("Impossible de charger tes envies.");
@@ -60,7 +60,7 @@ export default async function UniversPage() {
   const spend = spendingOverview(volumes, today);
   const wishes = wishlistEstimate(
     (wishesResult.data ?? []).map((w) =>
-      wishPrice(
+      w.volume_number == null ? ({ kind: "whole_series" } as const) : wishPrice(
         w.target_price == null ? null : Number(w.target_price),
         lastKnownPrice(volumes.filter((v) => v.manga_id === w.manga_id && v.acquisition_type === "bought")),
         spend.averagePaid
@@ -154,7 +154,17 @@ export default async function UniversPage() {
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Stat value={formatEur(spend.paid)} label="payés" hint={plural(spend.paidCount, "tome avec un prix", "tomes avec un prix")} />
             <Stat value={spend.averagePaid != null ? formatEur(spend.averagePaid) : "–"} label="en moyenne par tome" />
-            <Stat value={formatEur(spend.gifts)} label="de cadeaux" hint={`${plural(spend.giftsCount, "tome offert", "tomes offerts")}, pas une dépense`} />
+            <Stat
+              value={spend.giftsPricedCount ? formatEur(spend.gifts) : "–"}
+              label={spend.giftsPricedCount ? "de cadeaux (valeur notée)" : "cadeaux"}
+              hint={
+                spend.giftsCount === 0
+                  ? "Aucun tome offert"
+                  : spend.giftsPricedCount === spend.giftsCount
+                    ? `${plural(spend.giftsCount, "tome offert", "tomes offerts")}, pas une dépense`
+                    : `Valeur notée pour ${spend.giftsPricedCount} sur ${plural(spend.giftsCount, "tome offert", "tomes offerts")}, pas une dépense`
+              }
+            />
             <Stat
               value={`${spend.paidCount} / ${spend.boughtCount}`}
               label="tomes achetés avec un prix"
@@ -197,6 +207,7 @@ export default async function UniversPage() {
                   wishes.knownCount ? `${formatEur(wishes.known)} de prix indicatifs que tu as notés` : null,
                   wishes.estimatedCount ? `${formatEur(wishes.estimated)} estimés d'après les prix que tu as payés` : null,
                   wishes.unknownCount ? `${plural(wishes.unknownCount, "prix inconnu, non compté", "prix inconnus, non comptés")}` : null,
+                  wishes.wholeSeriesCount ? `${plural(wishes.wholeSeriesCount, "série entière, non chiffrée", "séries entières, non chiffrées")}` : null,
                 ]
                   .filter(Boolean)
                   .join(" · ")}

@@ -51,9 +51,6 @@ function WrappedSlides({
   const [index, setIndex] = useState(0);
   const touchStartX = useRef<number | null>(null);
 
-  const avgPerVolume = data.total_volumes_added > 0
-    ? (data.total_budget_spent / data.total_volumes_added).toFixed(2)
-    : null;
 
   const cards = [
     <WrappedCardOpener key="opener" year={year} username={username} avatarInitials={avatarInitials} />,
@@ -66,13 +63,8 @@ function WrappedSlides({
         : `en ${year}`}
       accent
     />,
-    <WrappedCardStat
-      key="budget"
-      value={data.total_budget_spent.toFixed(0)}
-      unit="€"
-      label="dépensés en mangas"
-      sub={avgPerVolume ? `soit ${avgPerVolume} € / tome en moyenne` : undefined}
-    />,
+    // No spending card : this yearly figure multiplied volumes by a default
+    // price. Real spending (prices actually paid) lives in Mon univers.
     ...(data.top_3_series.length > 0
       ? [<WrappedCardTopSeries key="top" series={data.top_3_series} />]
       : []),

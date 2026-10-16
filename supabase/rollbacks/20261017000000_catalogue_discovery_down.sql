@@ -34,3 +34,7 @@ alter table public.mangas
 
 drop function if exists public.normalize_search(text);
 drop function if exists public.f_unaccent(text);
+
+-- Back to the table-wide grants Supabase gives by default (before 20261017000000).
+revoke insert (title, author, total_volumes, status), update (title, author, total_volumes, status) on public.mangas from authenticated;
+grant all on public.mangas to anon, authenticated;

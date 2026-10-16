@@ -46,4 +46,24 @@ as $$
   limit least(greatest(p_limit, 1), 50);
 $$;
 
+-- Policies as left by 20261017000300 / 20261017000500.
+alter policy "user_collections: insert own" on public.user_collections
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id));
+alter policy "user_collections: update own" on public.user_collections
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id));
+alter policy "user_volumes: insert own" on public.user_volumes
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id));
+alter policy "user_volumes: update own" on public.user_volumes
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id));
+alter policy "user_readings: insert own" on public.user_readings
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id));
+alter policy "user_readings: update own" on public.user_readings
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id));
+alter policy "wishlist_items: insert own" on public.wishlist_items
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id));
+alter policy "wishlist_items: update own" on public.wishlist_items
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id));
+alter policy "discovery_dismissals: insert own" on public.discovery_dismissals
+  with check (auth.uid() = user_id and exists (select 1 from public.mangas m where m.id = manga_id));
+
 alter table public.mangas drop column if exists merged_into;

@@ -173,7 +173,9 @@ where uv.read_status in ('reading', 'read');
 insert into public.user_readings (user_id, manga_id, volume_number, status, finished_on)
 select lp.user_id, lp.manga_id, n, 'read', null
 from legacy_pointers lp
-cross join lateral generate_series(1, lp.last_read_volume) as n
+-- capped at 500 : a legacy pointer holding a chapter number must not
+-- create thousands of readings
+cross join lateral generate_series(1, least(lp.last_read_volume, 500)) as n
 on conflict (user_id, manga_id, volume_number) do nothing;
 
 drop table legacy_pointers;

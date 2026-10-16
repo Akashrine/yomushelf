@@ -104,6 +104,20 @@ describe("spending coverage", () => {
   });
 });
 
+describe("gifts and whole-series wishes", () => {
+  it("never shows a partial gift value as the whole, nor unknown as zero", () => {
+    const s = spendingOverview(
+      [vol({ acquisition_type: "gift", price_eur: 7 }), vol({ volume_number: 2, acquisition_type: "gift", price_eur: null })],
+      "2026-10-15"
+    );
+    expect(s).toMatchObject({ gifts: 7, giftsCount: 2, giftsPricedCount: 1, paid: 0 });
+  });
+  it("counts a whole-series wish apart, never priced as one volume", () => {
+    const w = wishlistEstimate([{ kind: "whole_series" }, wishPrice(null, 7, null)]);
+    expect(w).toMatchObject({ count: 2, total: 7, wholeSeriesCount: 1, estimatedCount: 1 });
+  });
+});
+
 describe("waitingAtHome", () => {
   it("lists series with unread volumes at home, borrowed included", () => {
     const shelf = (manga_id: string, owned: number[], read: number[]) => ({

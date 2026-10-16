@@ -113,3 +113,6 @@ as $$
   where uv.user_id = p_user_id
     and p_user_id = (select auth.uid());
 $$;
+
+-- Grant added by the forward migration.
+revoke select (sharing_locked) on public.profiles from authenticated;

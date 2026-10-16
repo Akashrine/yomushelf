@@ -108,6 +108,7 @@ export function spendingOverview(volumes: OwnedVolume[], today: string) {
   let undatedPaid = 0;
   let gifts = 0;
   let giftsCount = 0;
+  let giftsPricedCount = 0;
   let unpricedBought = 0;
   let unknownOrigin = 0;
   let borrowed = 0;
@@ -123,7 +124,10 @@ export function spendingOverview(volumes: OwnedVolume[], today: string) {
     }
     if (v.acquisition_type === "gift") {
       giftsCount++;
-      if (v.price_eur != null) gifts += Number(v.price_eur);
+      if (v.price_eur != null) {
+        gifts += Number(v.price_eur);
+        giftsPricedCount++;
+      }
       continue;
     }
     // bought
@@ -148,8 +152,9 @@ export function spendingOverview(volumes: OwnedVolume[], today: string) {
     averagePaid: paidCount ? round2(paid / paidCount) : null,
     undatedPaid: round2(undatedPaid),
     months: months.map((key) => ({ key, amount: round2(byMonth.get(key) ?? 0) })),
-    gifts: round2(gifts),
+    gifts: round2(gifts), // shop value of the gifts whose price is known, never an expense
     giftsCount,
+    giftsPricedCount,
     // Coverage : bought volumes with a typed price, out of all bought volumes.
     boughtCount: paidCount + unpricedBought,
     unpricedBought,
@@ -168,6 +173,7 @@ export function spendingOverview(volumes: OwnedVolume[], today: string) {
 //   average    : estimated from the reader's average paid price
 //   unknown    : no basis at all
 export type WishPrice =
+  | { kind: "whole_series" } // a wish for a whole series : not priced
   | { kind: "indicative"; amount: number }
   | { kind: "series" | "average"; amount: number }
   | { kind: "unknown" };
@@ -185,8 +191,11 @@ export function wishlistEstimate(prices: WishPrice[]) {
   let estimated = 0;
   let estimatedCount = 0;
   let unknownCount = 0;
+  let wholeSeriesCount = 0;
   for (const p of prices) {
-    if (p.kind === "indicative") {
+    if (p.kind === "whole_series") {
+      wholeSeriesCount++;
+    } else if (p.kind === "indicative") {
       known += p.amount;
       knownCount++;
     } else if (p.kind === "unknown") {
@@ -204,5 +213,6 @@ export function wishlistEstimate(prices: WishPrice[]) {
     estimated: round2(estimated),
     estimatedCount,
     unknownCount,
+    wholeSeriesCount,
   };
 }

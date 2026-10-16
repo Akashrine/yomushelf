@@ -201,11 +201,13 @@ export function WishlistView({ items, series }: Props) {
                   >
                     {item.target_price != null
                       ? formatEur(item.target_price)
-                      : s?.estimate != null
-                        ? `≈ ${formatEur(s.estimate)}`
-                        : "prix inconnu"}
+                      : item.volume_number == null
+                        ? "série entière, non chiffrée"
+                        : s?.estimate != null
+                          ? `≈ ${formatEur(s.estimate)}`
+                          : "prix inconnu"}
                   </span>
-                  {item.target_price == null && s?.estimate != null && (
+                  {item.target_price == null && item.volume_number != null && s?.estimate != null && (
                     <span className="text-xs" style={{ color: "var(--muted)" }}>
                       {s.estimateBasis === "series" ? "d'après ton dernier prix payé pour cette série" : "d'après ton prix moyen payé"}
                     </span>
