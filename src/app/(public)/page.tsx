@@ -11,12 +11,16 @@ const TITLE = "Yomushelf : ses mangas, et où il en est";
 const DESCRIPTION =
   "La collection de mangas de ton enfant avec les vraies couvertures, et sa lecture tome par tome. Gratuit, sans pub, sans profil public.";
 
+// A page-level openGraph replaces the root one, file-based image included :
+// the generated image (src/app/opengraph-image.tsx) is named explicitly.
+const OG_IMAGE = { url: "https://www.yomushelf.com/opengraph-image", width: 1200, height: 630, alt: TITLE };
+
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   alternates: { canonical: "https://www.yomushelf.com" },
-  openGraph: { title: TITLE, description: DESCRIPTION, url: "https://www.yomushelf.com", locale: "fr_FR", type: "website" },
-  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
+  openGraph: { title: TITLE, description: DESCRIPTION, url: "https://www.yomushelf.com", locale: "fr_FR", type: "website", images: [OG_IMAGE] },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION, images: [OG_IMAGE] },
 };
 
 function SignupButton() {
