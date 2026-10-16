@@ -9,6 +9,7 @@ import {
   acquisitionTypeField,
   formValues,
   priceField,
+  volumeNumberField,
 } from "@/lib/collection/schema";
 import { getReadingState, setReadingState } from "@/lib/collection/readings-db";
 
@@ -57,7 +58,7 @@ async function applyReadingChoice(
 
 const UpsertVolumeSchema = VolumeDetailsSchema.extend({
   manga_id: z.string().uuid(),
-  volume_number: z.coerce.number().int().positive(),
+  volume_number: z.coerce.number().pipe(volumeNumberField),
   mode: z.enum(["add", "edit"]).default("add"),
 });
 
@@ -129,7 +130,7 @@ export async function upsertUserVolume(formData: FormData): Promise<ActionResult
 
 const VolumeRefSchema = z.object({
   manga_id: z.string().uuid(),
-  volume_number: z.coerce.number().int().positive(),
+  volume_number: z.coerce.number().pipe(volumeNumberField),
 });
 
 export async function removeUserVolume(formData: FormData): Promise<ActionResult> {
@@ -159,8 +160,8 @@ export async function removeUserVolume(formData: FormData): Promise<ActionResult
 const AddVolumeRangeSchema = z
   .object({
     manga_id: z.string().uuid(),
-    from: z.coerce.number().int().positive(),
-    to: z.coerce.number().int().positive(),
+    from: z.coerce.number().pipe(volumeNumberField),
+    to: z.coerce.number().pipe(volumeNumberField),
     price_eur: priceField,
     acquisition_type: acquisitionTypeField,
   })

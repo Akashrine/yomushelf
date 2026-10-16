@@ -22,6 +22,23 @@ export async function getUserCollection(
   return (result as { data: CollectionRow | null }).data;
 }
 
+// PostgREST silently stops at max_rows (1000) : a collector with more owned
+// or read volumes would lose the highest ones from shelves and stats. Reads
+// page by page ; the order must be stable (volume, then series) so no row is
+// skipped or repeated. Returns null on error.
+const PAGE_SIZE = 1000;
+async function fetchAllPages<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>
+): Promise<T[] | null> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1);
+    if (error || !data) return null;
+    rows.push(...data);
+    if (data.length < PAGE_SIZE) return rows;
+  }
+}
+
 export const OWNED_VOLUME_COLUMNS =
   "manga_id, volume_number, price_eur, acquisition_type, acquired_at";
 
@@ -36,14 +53,18 @@ export async function getOwnedVolumes(
   userId: string,
   mangaId?: string
 ): Promise<OwnedVolumeRow[]> {
-  let query = supabase
-    .from("user_volumes")
-    .select(OWNED_VOLUME_COLUMNS)
-    .eq("user_id", userId)
-    .order("volume_number");
-  if (mangaId) query = query.eq("manga_id", mangaId);
-  const { data, error } = await query;
-  if (error) throw new Error("Impossible de charger les tomes.");
+  const data = await fetchAllPages((from, to) => {
+    let query = supabase
+      .from("user_volumes")
+      .select(OWNED_VOLUME_COLUMNS)
+      .eq("user_id", userId)
+      .order("volume_number")
+      .order("manga_id")
+      .range(from, to);
+    if (mangaId) query = query.eq("manga_id", mangaId);
+    return query;
+  });
+  if (!data) throw new Error("Impossible de charger les tomes.");
   // numeric columns come back as strings from PostgREST
   return (data ?? []).map((v) => ({
     ...v,
@@ -62,15 +83,19 @@ export async function getReadings(
   userId: string,
   mangaId?: string
 ): Promise<ReadingRow[]> {
-  let query = supabase
-    .from("user_readings")
-    .select("manga_id, volume_number, status, finished_on")
-    .eq("user_id", userId)
-    .order("volume_number");
-  if (mangaId) query = query.eq("manga_id", mangaId);
-  const { data, error } = await query;
-  if (error) throw new Error("Impossible de charger les lectures.");
-  return data ?? [];
+  const data = await fetchAllPages((from, to) => {
+    let query = supabase
+      .from("user_readings")
+      .select("manga_id, volume_number, status, finished_on")
+      .eq("user_id", userId)
+      .order("volume_number")
+      .order("manga_id")
+      .range(from, to);
+    if (mangaId) query = query.eq("manga_id", mangaId);
+    return query;
+  });
+  if (!data) throw new Error("Impossible de charger les lectures.");
+  return data;
 }
 
 export type SeriesMetaRow = {

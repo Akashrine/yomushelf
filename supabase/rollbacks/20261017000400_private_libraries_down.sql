@@ -1,5 +1,7 @@
 -- Rollback of 20261017000400_private_libraries.sql
--- Restores the public read paths and the profiles that were public before.
+-- Restores the schema only. Profiles stay private : a rollback run for an
+-- unrelated reason must never make a child's library readable again. A
+-- reader who wants a public profile turns it back on themselves.
 alter table public.profiles drop constraint if exists profiles_private;
 grant update (is_public) on public.profiles to authenticated;
 
@@ -10,8 +12,6 @@ create policy "wrapped_snapshots: read public profile" on public.wrapped_snapsho
 
 grant execute on function public.get_public_profile(text) to anon, authenticated;
 
-update public.profiles p set is_public = true
-from public.profile_visibility_backup b where b.user_id = p.id;
 drop table if exists public.profile_visibility_backup;
 
 -- Default execute right of every function (before 20261017000400).

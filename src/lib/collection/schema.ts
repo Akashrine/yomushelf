@@ -14,6 +14,15 @@ export const priceField = z
     return Math.round(n * 100) / 100;
   });
 
+// Same bound as the volume_number check in the database : a typo like
+// "2000000000" must not reach a series page that draws one tile per volume.
+export const MAX_VOLUME = 500;
+export const volumeNumberField = z
+  .number({ error: "Numéro de tome invalide." })
+  .int("Numéro de tome invalide.")
+  .positive("Numéro de tome invalide.")
+  .max(MAX_VOLUME, `${MAX_VOLUME} tomes maximum.`);
+
 // "" = not specified (null in the database). "other" is never offered in the
 // UI but older rows keep it, so an untouched form sends it back unchanged.
 export const acquisitionTypeField = z

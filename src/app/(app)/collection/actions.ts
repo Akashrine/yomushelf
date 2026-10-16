@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { todayIso } from "@/lib/collection/value";
+import { volumeNumberField } from "@/lib/collection/schema";
 import {
   countVolumesRead,
   getReadingState,
@@ -23,7 +24,7 @@ export type ReadingResult =
 
 const RefSchema = z.object({
   manga_id: z.string().uuid(),
-  volume_number: z.number().int().positive(),
+  volume_number: volumeNumberField,
 });
 
 const SaveSchema = RefSchema.extend({
