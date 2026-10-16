@@ -8,7 +8,7 @@ import type { Reading } from "@/lib/collection/reading";
 type Supabase = SupabaseClient<Database>;
 
 const CATALOGUE_SELECT =
-  "id, title, author, genres, demographic, audience_min_age, audience_age_source, audience_age_scope, audience_age_volumes, total_volumes, status, top_50_rank, cover_url";
+  "id, title, author, genres, demographic, audience_min_age, audience_age_source, audience_age_scope, audience_age_volumes, audience_age_year, total_volumes, status, top_50_rank, cover_url";
 
 export type DiscoveryContext = {
   catalogue: CatalogueEntry[]; // curated shared series only

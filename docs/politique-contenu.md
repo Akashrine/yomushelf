@@ -16,7 +16,7 @@ C'est un choix de produit, pas une mesure de sécurité. Code : `malImportRefusa
 
 Une œuvre coréenne, chinoise ou japonaise est traitée de la même façon. Solo Leveling et Omniscient Reader's Viewpoint restent au catalogue. Leur présence dans les suggestions suit les mêmes règles de contenu que les autres séries (section 4).
 
-À arbitrer : `CLAUDE.md` contient encore la règle « Ne pas construire : support manhwa, manhua ». Elle contredit cette décision, et je n'ai pas modifié `CLAUDE.md`.
+`CLAUDE.md` a été mis à jour en conséquence : seul l'anime reste hors périmètre.
 
 ## 3. Protection du catalogue commun
 
@@ -44,7 +44,7 @@ Chaque âge vérifié garde l'adresse de sa source (`audience_age_ref`). Points 
 ### Résultat pour les 28 séries marquées CNLJ auparavant
 
 - **26 vérifiées pour la série entière.** Plusieurs âges diffèrent de l'ancienne donnée, car l'édition 2026 a relevé : My Hero Academia 11 au lieu de 9, Fairy Tail 11 au lieu de 8, Yotsuba&! 9 au lieu de 8, L'Atelier des sorciers 11 au lieu de 9.
-- **Blue Lock** (11 ans, éditions 2022 à 2024) et **Boruto** (9 ans, édition 2022) ne figurent plus dans la sélection 2026. Ils sont gardés avec l'adresse de l'édition qui les cite. **À trancher** : les retirer si seule la sélection en cours doit compter.
+- **Blue Lock** (« Blue lock », sous « À partir de 11 ans », éditions 2022, 2023 et 2024) et **Boruto** (« Boruto : Naruto next generations », sous « À partir de 9 ans », édition 2022 seulement) ne figurent plus dans la sélection 2026. Leur référence est gardée : vérifiée dans le PDF, datée, et associée à la bonne œuvre. L'absence de la sélection 2026 ne vaut pas retrait. L'âge s'affiche avec l'année de la sélection, par exemple « dès 11 ans (sélection CNLJ 2024) ».
 - **Fire Force** : seulement des critiques de tomes (11 ou 13 ans selon le tome), donc âge **inconnu** pour la série.
 - **Gunnm** : l'entrée CNLJ porte sur *Gunnm : Mars Chronicle*, pas sur la série originale, donc âge **inconnu**.
 - Des critiques de tomes contredisent parfois l'âge de la série : L'Attaque des Titans 15 ans pour certains tomes contre 14 pour la série, Beastars 15 contre 13, Spy x Family 11 contre 12. On garde l'âge de la sélection, qui couvre la série.
@@ -57,7 +57,7 @@ Chaque âge vérifié garde l'adresse de sa source (`audience_age_ref`). Points 
 
 | Règle | Effet |
 |---|---|
-| Âge affiché | « conseillé dès N ans (CNLJ) » seulement pour une recommandation de la série. « avis CNLJ sur le tome … » pour une critique de tomes. Sinon « âge non vérifié ». |
+| Âge affiché | « dès N ans (sélection CNLJ AAAA) » pour une série présente dans une sélection, avec l'année de l'édition. « avis CNLJ sur le tome … » pour une critique de tomes. Sinon « âge non vérifié ». Une sélection est une indication datée, pas une classification officielle ni une garantie. |
 | Filtre « Âge conseillé (avis CNLJ) » | ne retient que les séries avec un âge vérifié pour la série entière |
 | Plafond de prudence des suggestions | si le lecteur a lu des séries à âge vérifié : au plus 2 ans au-dessus du plus élevé. Sinon, pas de plafond. |
 | Âge inconnu | proposable, avec la mention « âge non vérifié » |

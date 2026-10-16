@@ -82,6 +82,7 @@ export type Database = {
           audience_age_scope: "series" | "volume" | null;
           audience_age_volumes: number[] | null;
           audience_age_ref: string | null;
+          audience_age_year: number | null;
           curated: boolean;
           merged_into: string | null;
           synopsis: string | null;
@@ -111,6 +112,7 @@ export type Database = {
           audience_age_scope?: "series" | "volume" | null;
           audience_age_volumes?: number[] | null;
           audience_age_ref?: string | null;
+          audience_age_year?: number | null;
           curated?: boolean;
           merged_into?: string | null;
           synopsis?: string | null;
@@ -139,6 +141,7 @@ export type Database = {
           audience_age_scope?: "series" | "volume" | null;
           audience_age_volumes?: number[] | null;
           audience_age_ref?: string | null;
+          audience_age_year?: number | null;
           curated?: boolean;
           merged_into?: string | null;
           synopsis?: string | null;

@@ -31,6 +31,7 @@ type Manga = {
   audience_age_source: "cnlj" | "estimate" | null;
   audience_age_scope: "series" | "volume" | null;
   audience_age_volumes: number[] | null;
+  audience_age_year: number | null;
   synopsis: string | null;
   is_private: boolean;
 };

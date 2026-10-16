@@ -84,6 +84,17 @@ Dix vérifications :
 - un visiteur ou un lecteur connecté ne peut ni déposer, ni remplacer, ni supprimer, ni lister ;
 - un SVG et un fichier de 3 Mo sont refusés par le bucket lui-même.
 
+## 3 bis 2. Gel des écritures (bascule de production)
+
+Contre la vraie API Supabase locale, base gelée par `ops/freeze.sql` :
+
+```bash
+API=… ANON=… SERVICE=… READER_EMAIL=<lecteur existant> READER_PASSWORD=… ALLOWED_EMAIL=<adresse de contrôle> \
+bash supabase/tests/freeze_test.sh old   # ou new après les migrations
+```
+
+Le test vérifie que chaque refus porte le code `P0001`, c'est-à-dire qu'il vient bien du gel. Le contrôle Auth sous maintenance et gel se lance avec `EMAIL=<adresse autorisée> BYPASS=<jeton> node e2e/emails-local.mjs`.
+
 ## 3 ter. Répétition de la bascule de production
 
 Voir `docs/publication.md`, section « Répétition effectuée ». Outils :

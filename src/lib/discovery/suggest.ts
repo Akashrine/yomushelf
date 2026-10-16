@@ -71,6 +71,7 @@ export type CatalogueEntry = {
   audience_age_source?: "cnlj" | "estimate" | null;
   audience_age_scope?: "series" | "volume" | null; // what the CNLJ recommendation covers
   audience_age_volumes?: number[] | null; // the volumes, when scope = volume
+  audience_age_year?: number | null; // year of the CNLJ selection or review
   total_volumes: number | null;
   status: "ongoing" | "completed" | "paused";
   top_50_rank: number | null;
@@ -163,7 +164,13 @@ export function verifiedAge(c: CatalogueEntry): number | null {
 // What to say about a series' age, from verified information only.
 export function ageLabel(c: CatalogueEntry): string {
   if (c.audience_age_source === "cnlj" && c.audience_min_age != null) {
-    if (c.audience_age_scope === "series") return `conseillé dès ${c.audience_min_age} ans (CNLJ)`;
+    // Dated : an earlier selection is never presented as the current one,
+    // and a selection is an indication, not an official rating.
+    if (c.audience_age_scope === "series") {
+      return c.audience_age_year
+        ? `dès ${c.audience_min_age} ans (sélection CNLJ ${c.audience_age_year})`
+        : `dès ${c.audience_min_age} ans (sélection CNLJ)`;
+    }
     const v = c.audience_age_volumes ?? [];
     if (c.audience_age_scope === "volume" && v.length) {
       // a review of some volumes, not a recommendation for the series

@@ -33,6 +33,7 @@ alter table public.mangas
   add column if not exists audience_age_scope text check (audience_age_scope in ('series', 'volume')),
   add column if not exists audience_age_volumes integer[],
   add column if not exists audience_age_ref text, -- source URL
+  add column if not exists audience_age_year smallint, -- edition / review year of the source
   -- set by catalogue_merge (20261017000600) ; created here so that running
   -- this migration again never touches a merged series
   add column if not exists merged_into uuid references public.mangas(id);
@@ -1815,7 +1816,7 @@ where created_by is null and merged_into is null and title in ('20th Century Boy
 -- scope 'series' : the selection lists the whole series under an age heading.
 -- scope 'volume' : only some volumes were reviewed ; never used for the series.
 update public.mangas set audience_min_age = null, audience_age_source = null,
-  audience_age_scope = null, audience_age_volumes = null, audience_age_ref = null
+  audience_age_scope = null, audience_age_volumes = null, audience_age_ref = null, audience_age_year = null
 where created_by is null and merged_into is null and curated;
 update public.mangas set audience_min_age = 9, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'One Piece';
 update public.mangas set audience_min_age = 9, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Naruto';
@@ -1849,3 +1850,8 @@ update public.mangas set audience_min_age = 15, audience_age_source = 'cnlj', au
 -- Selection notes carried estimated ages in an earlier version : no age is
 -- ever stated without a verified source.
 update public.editorial_selection_items set note = null where note ~ '^dès [0-9]+ ans$';
+
+-- Year of each source, shown with the age : a reference from an earlier
+-- selection stays dated, never presented as the current selection.
+update public.mangas set audience_age_year = (regexp_match(audience_age_ref, 'mangamania-(\d{4})'))[1]::smallint
+where audience_age_source = 'cnlj' and audience_age_ref ~ 'mangamania-\d{4}';

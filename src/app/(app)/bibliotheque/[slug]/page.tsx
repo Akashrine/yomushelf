@@ -21,7 +21,7 @@ export default async function SeriePage({
   // RLS : another reader's private series is simply not found.
   const { data: manga, error: mangaError } = await supabase
     .from("mangas")
-    .select("id, title, author, publisher_fr, total_volumes, status, cover_url, genres, demographic, audience_min_age, audience_age_source, audience_age_scope, audience_age_volumes, synopsis, created_by, merged_into")
+    .select("id, title, author, publisher_fr, total_volumes, status, cover_url, genres, demographic, audience_min_age, audience_age_source, audience_age_scope, audience_age_volumes, audience_age_year, synopsis, created_by, merged_into")
     .eq("id", slug)
     .maybeSingle();
 
@@ -60,6 +60,7 @@ export default async function SeriePage({
           audience_age_source: manga.audience_age_source,
           audience_age_scope: manga.audience_age_scope,
           audience_age_volumes: manga.audience_age_volumes,
+          audience_age_year: manga.audience_age_year,
           synopsis: manga.synopsis,
           is_private: manga.created_by != null,
         }}
