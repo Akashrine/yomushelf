@@ -23,11 +23,18 @@ insert into public.wishlist_items (user_id, manga_id, volume_number, target_pric
   (:'a', :'k', 3, 7.00, 'low'),
   (:'a', :'d', 3, null, 'low');
 update public.user_collections set liked = true where user_id = :'a' and manga_id = :'k';
+-- A wishes volume 2 on the dropped series, which A also owns there (review M1)
+insert into public.wishlist_items (user_id, manga_id, volume_number) values (:'a', :'d', 2)
+  on conflict do nothing;
+-- Catalogue volume 1 : no ISBN on the kept series, one on the dropped (review C2)
+insert into public.volumes (manga_id, volume_number, isbn_13) values (:'k', 1, null), (:'d', 1, '9999999999991');
 
 -- Reader B only has the drop series.
 insert into public.user_volumes (user_id, manga_id, volume_number, price_eur, acquisition_type) values (:'b', :'d', 1, 9.00, 'gift');
 insert into public.user_readings (user_id, manga_id, volume_number, status) values (:'b', :'d', 1, 'read');
 insert into public.wishlist_items (user_id, manga_id, volume_number) values (:'b', :'d', 2);
+-- B finished the series, marked on the dropped one only (review C1)
+update public.user_collections set status = 'completed' where user_id = :'b' and manga_id = :'d';
 
 select count(*) as b_rows_before from (
   select id from public.user_volumes where user_id = :'b' union all
@@ -48,7 +55,7 @@ select 'T3 dry run changes nothing' as test,
 
 -- Apply is refused while the contradiction stands. The DO blocks below
 -- raise (and stop the script) if a check fails.
-select set_config('test.k', :'k', true), set_config('test.d', :'d', true) \gset
+select set_config('test.k', :'k', true), set_config('test.d', :'d', true), set_config('test.b', :'b', true) \gset
 do $$
 declare blocked boolean := false;
 begin
@@ -103,6 +110,28 @@ select 'T19 search no longer offers the dropped series' as test,
   not exists (select 1 from public.search_mangas('serie test fusion', 20) s where s.id = :'d') as ok;
 select 'T20 legacy summary recomputed for A' as test, owned_volumes = array[1,2,4] as ok
   from public.user_collections where user_id = :'a' and manga_id = :'k';
+
+select 'T22 B status carried over (completed)' as test, status = 'completed' as ok
+  from public.user_collections where user_id = :'b' and manga_id = :'k';
+select 'T23 ISBN of the dropped catalogue volume kept' as test, isbn_13 = '9999999999991' as ok
+  from public.volumes where manga_id = :'k' and volume_number = 1;
+select 'T24 wish for a volume now owned is fulfilled' as test,
+  not exists (select 1 from public.wishlist_items where user_id = :'a' and manga_id = :'k' and volume_number = 2) as ok;
+
+-- No new reader row on the merged series (review I2) : the DO block raises if allowed
+do $$
+declare refused boolean := false;
+begin
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', current_setting('test.b'), 'role', 'authenticated')::text, true);
+  begin
+    insert into public.user_volumes (user_id, manga_id, volume_number) values (current_setting('test.b')::uuid, current_setting('test.d')::uuid, 7);
+  exception when others then refused := true;
+  end;
+  reset role;
+  if not refused then raise exception 'T25 FAILED : a reader could add a volume to a merged series'; end if;
+end $$;
+select 'T25 readers cannot add rows to a merged series' as test, true as ok;
 
 -- Readers cannot run it
 do $$

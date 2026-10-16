@@ -32,7 +32,10 @@ alter table public.mangas
   -- volumes (a recommendation on a volume is not one for the series)
   add column if not exists audience_age_scope text check (audience_age_scope in ('series', 'volume')),
   add column if not exists audience_age_volumes integer[],
-  add column if not exists audience_age_ref text; -- source URL
+  add column if not exists audience_age_ref text, -- source URL
+  -- set by catalogue_merge (20261017000600) ; created here so that running
+  -- this migration again never touches a merged series
+  add column if not exists merged_into uuid references public.mangas(id);
 
 -- Series this migration creates (and only those) : the rollback deletes
 -- exactly these, never a series that existed before. Service role only.
@@ -53,7 +56,7 @@ language sql
 stable
 as $$
   select m.id from public.mangas m
-  where m.created_by is null
+  where m.created_by is null and m.merged_into is null
     and not m.is_top_50_fr
     and public.normalize_search(m.title) in (select public.normalize_search(k) from unnest(p_keys) k)
   order by m.created_at, m.id
@@ -1487,7 +1490,7 @@ on conflict (slug) do update set title = excluded.title, description = excluded.
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 0, 'dès 6 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Chi - Une vie de chat') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Chi - Une vie de chat') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'premiers-mangas'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1495,7 +1498,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 1, 'dès 9 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Yotsuba&!') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Yotsuba&!') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'premiers-mangas'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1503,7 +1506,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 2, 'dès 6 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Les Aventures de Kirby dans les étoiles') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Les Aventures de Kirby dans les étoiles') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'premiers-mangas'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1511,7 +1514,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 3, 'dès 6 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Doraemon') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Doraemon') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'premiers-mangas'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1519,7 +1522,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 4, 'dès 6 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Animal Crossing : New Horizons - Le Journal de l''île') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Animal Crossing : New Horizons - Le Journal de l''île') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'premiers-mangas'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1527,7 +1530,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 5, 'dès 8 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Pokémon - La Grande Aventure') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Pokémon - La Grande Aventure') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'premiers-mangas'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1539,7 +1542,7 @@ on conflict (slug) do update set title = excluded.title, description = excluded.
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 0, 'dès 9 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('One Piece') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('One Piece') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'grandes-aventures'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1547,7 +1550,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 1, 'dès 10 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Dragon Quest - The Adventure of Daï') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Dragon Quest - The Adventure of Daï') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'grandes-aventures'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1555,7 +1558,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 2, 'dès 11 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('L''Atelier des sorciers') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('L''Atelier des sorciers') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'grandes-aventures'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1563,7 +1566,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 3, 'dès 11 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Dr. Stone') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Dr. Stone') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'grandes-aventures'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1571,7 +1574,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 4, 'dès 9 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Naruto') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Naruto') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'grandes-aventures'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1579,7 +1582,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 5, 'dès 12 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Fullmetal Alchemist') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Fullmetal Alchemist') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'grandes-aventures'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1591,7 +1594,7 @@ on conflict (slug) do update set title = excluded.title, description = excluded.
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 0, 'dès 10 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Nausicaä de la vallée du vent') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Nausicaä de la vallée du vent') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'courtes'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1599,7 +1602,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 1, 'dès 14 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Pluto') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Pluto') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'courtes'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1607,7 +1610,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 2, 'dès 6 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Chi - Une vie de chat') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Chi - Une vie de chat') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'courtes'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1615,7 +1618,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 3, 'dès 9 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('The Legend of Zelda - Twilight Princess') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('The Legend of Zelda - Twilight Princess') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'courtes'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1623,7 +1626,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 4, 'dès 13 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Gunnm') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Gunnm') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'courtes'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1631,7 +1634,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 5, 'dès 9 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Card Captor Sakura') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Card Captor Sakura') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'courtes'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1639,7 +1642,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 6, 'dès 10 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Sailor Moon') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Sailor Moon') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'courtes'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1647,7 +1650,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 7, 'dès 6 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Kiki la petite sorcière') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Kiki la petite sorcière') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'courtes'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1659,7 +1662,7 @@ on conflict (slug) do update set title = excluded.title, description = excluded.
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 0, 'dès 11 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Haikyū!! Les As du volley') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Haikyū!! Les As du volley') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'sport'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1667,7 +1670,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 1, 'dès 10 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Slam Dunk') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Slam Dunk') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'sport'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1675,7 +1678,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 2, 'dès 8 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Captain Tsubasa') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Captain Tsubasa') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'sport'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1683,7 +1686,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 3, 'dès 11 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Blue Lock') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Blue Lock') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'sport'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1691,7 +1694,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 4, 'dès 12 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Ao Ashi') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Ao Ashi') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'sport'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1703,7 +1706,7 @@ on conflict (slug) do update set title = excluded.title, description = excluded.
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 0, 'dès 12 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Spy x Family') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Spy x Family') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'pour-rire'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1711,7 +1714,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 1, 'dès 10 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Mashle') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Mashle') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'pour-rire'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1719,7 +1722,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 2, 'dès 8 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Dr Slump') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Dr Slump') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'pour-rire'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1727,7 +1730,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 3, 'dès 6 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Yo-kai Watch') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Yo-kai Watch') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'pour-rire'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1735,7 +1738,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 4, 'dès 12 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Sakamoto Days') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Sakamoto Days') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'pour-rire'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1743,7 +1746,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 5, 'dès 13 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Kaguya-sama : Love is War') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Kaguya-sama : Love is War') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'pour-rire'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1755,7 +1758,7 @@ on conflict (slug) do update set title = excluded.title, description = excluded.
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 0, 'dès 10 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Détective Conan') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Détective Conan') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'enquetes'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1763,7 +1766,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 1, 'dès 13 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Les Carnets de l''apothicaire') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Les Carnets de l''apothicaire') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'enquetes'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1771,7 +1774,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 2, 'dès 12 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('The Promised Neverland') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('The Promised Neverland') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'enquetes'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1779,7 +1782,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 3, 'dès 14 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Death Note') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Death Note') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'enquetes'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1787,7 +1790,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 4, 'dès 14 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('Monster') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('Monster') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'enquetes'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1795,7 +1798,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 insert into public.editorial_selection_items (selection_id, manga_id, position, note)
 select s.id, m.id, 5, 'dès 14 ans'
 from public.editorial_selections s, lateral (
-  select id from public.mangas where created_by is null and lower(title) = lower('20th Century Boys') order by is_top_50_fr desc, created_at limit 1
+  select id from public.mangas where created_by is null and merged_into is null and lower(title) = lower('20th Century Boys') order by is_top_50_fr desc, created_at limit 1
 ) m
 where s.slug = 'enquetes'
 on conflict (selection_id, manga_id) do update set position = excluded.position, note = excluded.note;
@@ -1803,7 +1806,7 @@ on conflict (selection_id, manga_id) do update set position = excluded.position,
 
 -- Editorial flag for the series above.
 update public.mangas set curated = true
-where created_by is null and title in ('20th Century Boys', 'Animal Crossing : New Horizons - Le Journal de l''île', 'Ao Ashi', 'Assassination Classroom', 'Astro Boy', 'Beastars', 'Berserk', 'Beyblade X', 'Black Clover', 'Bleach', 'Blue Lock', 'Blue Period', 'Boruto - Naruto Next Generations', 'Captain Tsubasa', 'Card Captor Sakura', 'Chainsaw Man', 'Chi - Une vie de chat', 'Dandadan', 'Death Note', 'Demon Slayer', 'Divine Nanami', 'Doraemon', 'Dorohedoro', 'Dr Slump', 'Dr. Stone', 'Dragon Ball', 'Dragon Ball Super', 'Dragon Quest - The Adventure of Daï', 'Détective Conan', 'Fairy Tail', 'Fire Force', 'Food Wars!', 'Frieren', 'Fruits Basket', 'Fullmetal Alchemist', 'Gloutons & Dragons', 'Gunnm', 'Haikyū!! Les As du volley', 'Hell''s Paradise', 'Hirayasumi', 'Hunter x Hunter', 'Jujutsu Kaisen', 'Kaguya-sama : Love is War', 'Kaiju n°8', 'Kiki la petite sorcière', 'Kingdom', 'L''Atelier des sorciers', 'L''Attaque des Titans', 'L''Ère des cristaux', 'Le Voyage de Chihiro', 'Les Aventures de Kirby dans les étoiles', 'Les Carnets de l''apothicaire', 'Look Back', 'Mashle', 'Monster', 'My Hero Academia', 'Naruto', 'Nausicaä de la vallée du vent', 'Omniscient Reader''s Viewpoint', 'One Piece', 'Oshi no Ko', 'Pluto', 'Pokémon - La Grande Aventure', 'Ranma ½', 'Sailor Moon', 'Saint Seiya', 'Sakamoto Days', 'Shaman King', 'Slam Dunk', 'Solo Leveling', 'Splatoon', 'Spy x Family', 'Super Mario Manga Adventures', 'Sword Art Online', 'The Legend of Zelda - Twilight Princess', 'The Promised Neverland', 'Toilet-bound Hanako-kun', 'Tokyo Ghoul', 'Tokyo Revengers', 'Undead Unluck', 'Vagabond', 'Vinland Saga', 'Wind Breaker', 'Yo-kai Watch', 'Yotsuba&!');
+where created_by is null and merged_into is null and title in ('20th Century Boys', 'Animal Crossing : New Horizons - Le Journal de l''île', 'Ao Ashi', 'Assassination Classroom', 'Astro Boy', 'Beastars', 'Berserk', 'Beyblade X', 'Black Clover', 'Bleach', 'Blue Lock', 'Blue Period', 'Boruto - Naruto Next Generations', 'Captain Tsubasa', 'Card Captor Sakura', 'Chainsaw Man', 'Chi - Une vie de chat', 'Dandadan', 'Death Note', 'Demon Slayer', 'Divine Nanami', 'Doraemon', 'Dorohedoro', 'Dr Slump', 'Dr. Stone', 'Dragon Ball', 'Dragon Ball Super', 'Dragon Quest - The Adventure of Daï', 'Détective Conan', 'Fairy Tail', 'Fire Force', 'Food Wars!', 'Frieren', 'Fruits Basket', 'Fullmetal Alchemist', 'Gloutons & Dragons', 'Gunnm', 'Haikyū!! Les As du volley', 'Hell''s Paradise', 'Hirayasumi', 'Hunter x Hunter', 'Jujutsu Kaisen', 'Kaguya-sama : Love is War', 'Kaiju n°8', 'Kiki la petite sorcière', 'Kingdom', 'L''Atelier des sorciers', 'L''Attaque des Titans', 'L''Ère des cristaux', 'Le Voyage de Chihiro', 'Les Aventures de Kirby dans les étoiles', 'Les Carnets de l''apothicaire', 'Look Back', 'Mashle', 'Monster', 'My Hero Academia', 'Naruto', 'Nausicaä de la vallée du vent', 'Omniscient Reader''s Viewpoint', 'One Piece', 'Oshi no Ko', 'Pluto', 'Pokémon - La Grande Aventure', 'Ranma ½', 'Sailor Moon', 'Saint Seiya', 'Sakamoto Days', 'Shaman King', 'Slam Dunk', 'Solo Leveling', 'Splatoon', 'Spy x Family', 'Super Mario Manga Adventures', 'Sword Art Online', 'The Legend of Zelda - Twilight Princess', 'The Promised Neverland', 'Toilet-bound Hanako-kun', 'Tokyo Ghoul', 'Tokyo Revengers', 'Undead Unluck', 'Vagabond', 'Vinland Saga', 'Wind Breaker', 'Yo-kai Watch', 'Yotsuba&!');
 
 -- Ages : ONLY recommendations of the CNLJ (Centre national de la littérature
 -- pour la jeunesse, BnF), checked one by one on 2026-10-16 in the "Manga mania !"
@@ -1813,32 +1816,32 @@ where created_by is null and title in ('20th Century Boys', 'Animal Crossing : N
 -- scope 'volume' : only some volumes were reviewed ; never used for the series.
 update public.mangas set audience_min_age = null, audience_age_source = null,
   audience_age_scope = null, audience_age_volumes = null, audience_age_ref = null
-where created_by is null and curated;
-update public.mangas set audience_min_age = 9, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'One Piece';
-update public.mangas set audience_min_age = 9, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Naruto';
-update public.mangas set audience_min_age = 9, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Dragon Ball';
-update public.mangas set audience_min_age = 14, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'L''Attaque des Titans';
-update public.mangas set audience_min_age = 12, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Demon Slayer';
-update public.mangas set audience_min_age = 11, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Jujutsu Kaisen';
-update public.mangas set audience_min_age = 11, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'My Hero Academia';
-update public.mangas set audience_min_age = 12, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Spy x Family';
-update public.mangas set audience_min_age = 11, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/cnlj-mangamania-2024.pdf' where created_by is null and title = 'Blue Lock';
-update public.mangas set audience_min_age = 13, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Frieren';
-update public.mangas set audience_min_age = 11, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Fairy Tail';
-update public.mangas set audience_min_age = 13, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Vinland Saga';
-update public.mangas set audience_min_age = 14, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Kingdom';
-update public.mangas set audience_min_age = 11, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Dr. Stone';
-update public.mangas set audience_min_age = 12, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'The Promised Neverland';
-update public.mangas set audience_min_age = 11, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Haikyū!! Les As du volley';
-update public.mangas set audience_min_age = 13, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Kaguya-sama : Love is War';
-update public.mangas set audience_min_age = 11, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Toilet-bound Hanako-kun';
-update public.mangas set audience_min_age = 11, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'L''Atelier des sorciers';
-update public.mangas set audience_min_age = 9, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/cnlj-mangamania-2022.pdf' where created_by is null and title = 'Boruto - Naruto Next Generations';
-update public.mangas set audience_min_age = 13, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Assassination Classroom';
-update public.mangas set audience_min_age = 6, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Chi - Une vie de chat';
-update public.mangas set audience_min_age = 13, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Les Carnets de l''apothicaire';
-update public.mangas set audience_min_age = 9, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Yotsuba&!';
-update public.mangas set audience_min_age = 13, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Blue Period';
-update public.mangas set audience_min_age = 13, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and title = 'Beastars';
-update public.mangas set audience_min_age = 13, audience_age_source = 'cnlj', audience_age_scope = 'volume', audience_age_volumes = array[1,2,3,4]::integer[], audience_age_ref = 'https://catalogue.bnf.fr/ark:/12148/cb467357159' where created_by is null and title = 'Solo Leveling';
-update public.mangas set audience_min_age = 15, audience_age_source = 'cnlj', audience_age_scope = 'volume', audience_age_volumes = array[1,3]::integer[], audience_age_ref = 'https://catalogue.bnf.fr/ark:/12148/cb47401740j' where created_by is null and title = 'Omniscient Reader''s Viewpoint';
+where created_by is null and merged_into is null and curated;
+update public.mangas set audience_min_age = 9, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'One Piece';
+update public.mangas set audience_min_age = 9, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Naruto';
+update public.mangas set audience_min_age = 9, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Dragon Ball';
+update public.mangas set audience_min_age = 14, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'L''Attaque des Titans';
+update public.mangas set audience_min_age = 12, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Demon Slayer';
+update public.mangas set audience_min_age = 11, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Jujutsu Kaisen';
+update public.mangas set audience_min_age = 11, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'My Hero Academia';
+update public.mangas set audience_min_age = 12, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Spy x Family';
+update public.mangas set audience_min_age = 11, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/cnlj-mangamania-2024.pdf' where created_by is null and merged_into is null and title = 'Blue Lock';
+update public.mangas set audience_min_age = 13, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Frieren';
+update public.mangas set audience_min_age = 11, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Fairy Tail';
+update public.mangas set audience_min_age = 13, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Vinland Saga';
+update public.mangas set audience_min_age = 14, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Kingdom';
+update public.mangas set audience_min_age = 11, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Dr. Stone';
+update public.mangas set audience_min_age = 12, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'The Promised Neverland';
+update public.mangas set audience_min_age = 11, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Haikyū!! Les As du volley';
+update public.mangas set audience_min_age = 13, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Kaguya-sama : Love is War';
+update public.mangas set audience_min_age = 11, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Toilet-bound Hanako-kun';
+update public.mangas set audience_min_age = 11, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'L''Atelier des sorciers';
+update public.mangas set audience_min_age = 9, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/cnlj-mangamania-2022.pdf' where created_by is null and merged_into is null and title = 'Boruto - Naruto Next Generations';
+update public.mangas set audience_min_age = 13, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Assassination Classroom';
+update public.mangas set audience_min_age = 6, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Chi - Une vie de chat';
+update public.mangas set audience_min_age = 13, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Les Carnets de l''apothicaire';
+update public.mangas set audience_min_age = 9, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Yotsuba&!';
+update public.mangas set audience_min_age = 13, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Blue Period';
+update public.mangas set audience_min_age = 13, audience_age_source = 'cnlj', audience_age_scope = 'series', audience_age_ref = 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf' where created_by is null and merged_into is null and title = 'Beastars';
+update public.mangas set audience_min_age = 13, audience_age_source = 'cnlj', audience_age_scope = 'volume', audience_age_volumes = array[1,2,3,4]::integer[], audience_age_ref = 'https://catalogue.bnf.fr/ark:/12148/cb467357159' where created_by is null and merged_into is null and title = 'Solo Leveling';
+update public.mangas set audience_min_age = 15, audience_age_source = 'cnlj', audience_age_scope = 'volume', audience_age_volumes = array[1,3]::integer[], audience_age_ref = 'https://catalogue.bnf.fr/ark:/12148/cb47401740j' where created_by is null and merged_into is null and title = 'Omniscient Reader''s Viewpoint';
