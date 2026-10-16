@@ -133,6 +133,15 @@ begin
 end $$;
 select 'T25 readers cannot add rows to a merged series' as test, true as ok;
 
+-- A sequel known by an alias is a candidate, but never merged without
+-- confirming it is the same work (review I2).
+insert into public.mangas (title, status, curated, aliases) values ('Saga Test', 'ongoing', true, array['saga test re']) returning id as sk \gset
+insert into public.mangas (title, status) values ('Saga Test:re', 'ongoing') returning id as sd \gset
+select 'T26 sequel paired only as "autre nom"' as test,
+  exists (select 1 from public.catalogue_duplicate_candidates() c where c.keep_id = :'sk' and c.drop_id = :'sd' and c.match = 'autre nom') as ok;
+select 'T27 different titles : merge blocked until confirmed' as test,
+  exists (select 1 from public.catalogue_merge(:'sk', :'sd') r where r.kind = 'conflict' and r.detail like 'titres différents%') as ok;
+
 -- Readers cannot run it
 do $$
 declare denied boolean := false;

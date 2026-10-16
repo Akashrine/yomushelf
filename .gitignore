@@ -43,3 +43,9 @@ next-env.d.ts
 # claude / design context (local only)
 CLAUDE.md
 DESIGN.md
+
+# Database backups made by ops/backup.sh : never in the repository
+/*.dump
+/*.fingerprint
+/*.timestamp
+/*.after-restore

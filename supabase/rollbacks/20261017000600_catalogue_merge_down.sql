@@ -2,6 +2,7 @@
 -- Removes the merge tools and restores the previous search. A merge already
 -- applied is NOT undone : rows moved to the kept series stay there, and the
 -- merged series reappear in search (empty) once merged_into is dropped.
+drop function if exists public.catalogue_merge(uuid, uuid, boolean, boolean);
 drop function if exists public.catalogue_merge(uuid, uuid, boolean);
 drop function if exists public.catalogue_duplicate_candidates();
 

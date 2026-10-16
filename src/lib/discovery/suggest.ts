@@ -179,7 +179,8 @@ export function ageLabel(c: CatalogueEntry): string {
 const ADULT_TARGET = new Set(["seinen", "josei"]);
 
 export function readsAdultTarget(library: ReaderSeries[], catalogue: Map<string, CatalogueEntry>): boolean {
-  return library.some((s) => (s.read > 0 || s.liked === true) && ADULT_TARGET.has(catalogue.get(s.manga_id)?.demographic ?? ""));
+  // a series the reader said is not for them never widens what is proposed
+  return library.some((s) => s.liked !== false && (s.read > 0 || s.liked === true) && ADULT_TARGET.has(catalogue.get(s.manga_id)?.demographic ?? ""));
 }
 
 // Prudence : with verified ages among the series read, suggestions stay at
@@ -187,7 +188,7 @@ export function readsAdultTarget(library: ReaderSeries[], catalogue: Map<string,
 export function comfortAge(library: ReaderSeries[], catalogue: Map<string, CatalogueEntry>): number | null {
   let max: number | null = null;
   for (const s of library) {
-    if (s.read === 0) continue;
+    if (s.read === 0 || s.liked === false) continue;
     const entry = catalogue.get(s.manga_id);
     const age = entry ? verifiedAge(entry) : null;
     if (age != null && (max == null || age > max)) max = age;

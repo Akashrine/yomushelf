@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOwnedVolumes, getReadings, getSeriesMeta } from "@/lib/supabase/queries";
 import { loadDiscoveryContext, readerLibrary, withReaderSeries } from "@/lib/supabase/discovery-data";
 import { buildShelves, nextToRead, type Candidate } from "@/lib/collection/reading";
-import { otherUniverses, suggest } from "@/lib/discovery/suggest";
+import { contentAllowed, contentContext, otherUniverses, suggest } from "@/lib/discovery/suggest";
 import { TERRITORIES, type TerritoryKey } from "@/lib/discovery/territories";
 import { AppShell } from "@/components/app/app-shell";
 import { DiscoverView, type ContinueItem, type Selection } from "@/components/decouvrir/discover-view";
@@ -50,10 +50,12 @@ export default async function DecouvrirPage({ searchParams }: { searchParams: Pr
 
   const { catalogue, dismissed, wished, declared, scope } = discovery;
   const byId = new Map(catalogue.map((c) => [c.id, c]));
-  const known = [...withReaderSeries(catalogue, series).values()];
+  const knownMap = withReaderSeries(catalogue, series);
+  const known = [...knownMap.values()];
 
   // Taste comes from every series the reader has, archived ones included.
   const library = readerLibrary(series, volumes, readings);
+  const ctx = contentContext(library, knownMap, declared, scope);
   const onShelf = series.filter((s) => !s.archived_at).map((s) => s.manga_id);
   const excluded = new Set([...series.map((s) => s.manga_id), ...wished, ...dismissed]);
 
@@ -82,9 +84,10 @@ export default async function DecouvrirPage({ searchParams }: { searchParams: Pr
       description: s.description,
       items: [...(s.editorial_selection_items ?? [])]
         .sort((a, b) => a.position - b.position)
+        // Selections are proposals too : same content rules as suggestions.
         .flatMap((i) => {
           const entry = byId.get(i.manga_id);
-          return entry ? [{ entry, note: i.note }] : [];
+          return entry && contentAllowed(entry, ctx) ? [{ entry, note: i.note }] : [];
         }),
     }))
     .filter((s) => s.items.length > 0);

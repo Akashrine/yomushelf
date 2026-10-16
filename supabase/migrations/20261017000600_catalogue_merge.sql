@@ -92,8 +92,16 @@ $$;
 
 -- Pairs of shared, unmerged series with the same normalised title.
 -- keep : the editorial row if any, else the oldest.
+-- Signatures changed during review : drop the earlier versions first.
+drop function if exists public.catalogue_duplicate_candidates();
+drop function if exists public.catalogue_merge(uuid, uuid, boolean);
+
+-- match : "titre identique", or "autre nom" (a title equal to another
+-- row's alias). An "autre nom" pair can be a sequel or a spin-off (Tokyo
+-- Ghoul / Tokyo Ghoul:re) : catalogue_merge refuses it unless the same
+-- work is confirmed.
 create or replace function public.catalogue_duplicate_candidates()
-returns table (keep_id uuid, keep_title text, drop_id uuid, drop_title text)
+returns table (keep_id uuid, keep_title text, drop_id uuid, drop_title text, match text)
 language sql
 stable
 security invoker
@@ -126,14 +134,20 @@ as $$
            then p.y else p.x end as drop_id
     from pairs p join shared ka on ka.id = p.x join shared kb on kb.id = p.y
   )
-  select distinct r.keep_id, k.title, r.drop_id, d.title
+  select distinct r.keep_id, k.title, r.drop_id, d.title,
+    case when k.k = d.k then 'titre identique' else 'autre nom' end
   from ranked r join shared k on k.id = r.keep_id join shared d on d.id = r.drop_id
   -- a row only drops into an editorial or older row, never the other way
   where not exists (select 1 from ranked r2 where r2.drop_id = r.keep_id)
   order by 2, 4;
 $$;
 
-create or replace function public.catalogue_merge(p_keep uuid, p_drop uuid, p_apply boolean default false)
+create or replace function public.catalogue_merge(
+  p_keep uuid,
+  p_drop uuid,
+  p_apply boolean default false,
+  p_same_work boolean default false -- required when the two titles differ
+)
 returns table (kind text, user_id uuid, volume_number integer, detail text)
 language plpgsql
 security invoker
@@ -257,6 +271,16 @@ begin
   from public.volumes a
   join public.volumes b on b.manga_id = p_drop and b.volume_number = a.volume_number and b.edition = a.edition
   where a.manga_id = p_keep;
+
+  -- ── Same work ? Different titles may be a sequel or a spin-off ──
+  if public.normalize_search(k.title) <> public.normalize_search(d.title) and not p_same_work then
+    insert into merge_report values ('conflict', null, null,
+      format('titres différents (« %s » / « %s ») : vérifie que c''est la même œuvre, puis relance avec p_same_work => true', k.title, d.title));
+  end if;
+  if k.total_volumes is not null and d.total_volumes is not null and k.total_volumes <> d.total_volumes then
+    insert into merge_report values ('info', null, null,
+      format('nombre de tomes différent : %s / %s (la fiche conservée garde le sien)', k.total_volumes, d.total_volumes));
+  end if;
 
   -- ── Catalogue metadata ──
   if (k.external_ids ? 'mal_id') and (d.external_ids ? 'mal_id') and k.external_ids->'mal_id' <> d.external_ids->'mal_id' then
@@ -408,7 +432,7 @@ begin
 end;
 $$;
 
-revoke all on function public.catalogue_merge(uuid, uuid, boolean) from public, anon, authenticated;
+revoke all on function public.catalogue_merge(uuid, uuid, boolean, boolean) from public, anon, authenticated;
 revoke all on function public.catalogue_duplicate_candidates() from public, anon, authenticated;
-grant execute on function public.catalogue_merge(uuid, uuid, boolean) to service_role;
+grant execute on function public.catalogue_merge(uuid, uuid, boolean, boolean) to service_role;
 grant execute on function public.catalogue_duplicate_candidates() to service_role;

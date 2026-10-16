@@ -1,82 +1,81 @@
 # Politique de contenu du catalogue
 
-Trois questions distinctes, chacune avec sa propre raison. Aucune ne garantit qu'une série convient à un enfant.
+Trois sujets distincts : le type d'œuvre, l'origine et l'adéquation au lecteur. **Aucune règle ne garantit qu'une série convient à un enfant.** Une absence de signal adulte n'est jamais présentée comme une garantie.
 
 ## 1. Type d'œuvre (périmètre produit)
 
-Yomushelf suit des **mangas papier**. Sont exclus de l'import automatique depuis MyAnimeList :
+Yomushelf suit des bandes dessinées qui se lisent comme des mangas : manga, one-shot, manhwa, manhua.
 
-- romans et light novels (`novel`, `light_novel`) : ce ne sont pas des mangas ;
-- doujinshi (`doujinshi`) : œuvres autoéditées, absentes des librairies françaises.
+Sont exclus de l'import automatique depuis MyAnimeList :
+- les romans et light novels ;
+- les doujinshi (autoédition).
 
-C'est un choix de produit, pas une mesure de sécurité.
+C'est un choix de produit, pas une mesure de sécurité. Code : `malImportRefusal()` → `"type"` ([src/lib/manga-api/mal.ts](../src/lib/manga-api/mal.ts)).
 
-Code : `malImportRefusal()` → `"type"` ([src/lib/manga-api/mal.ts](../src/lib/manga-api/mal.ts)).
+## 2. Origine : jamais un motif d'exclusion
 
-## 2. Origine (périmètre de cette version)
+Une œuvre coréenne, chinoise ou japonaise est traitée de la même façon. Solo Leveling et Omniscient Reader's Viewpoint restent au catalogue. Leur présence dans les suggestions suit les mêmes règles de contenu que les autres séries (section 4).
 
-L'import automatique accepte les mangas japonais (`manga`, `one_shot`). Les bandes dessinées coréennes, chinoises et autres (`manhwa`, `manhua`, `oel`) en sont exclues pour cette version. Cela suit la règle produit du dépôt (CLAUDE.md : « Ne pas construire : support manhwa, manhua »).
+À arbitrer : `CLAUDE.md` contient encore la règle « Ne pas construire : support manhwa, manhua ». Elle contredit cette décision, et je n'ai pas modifié `CLAUDE.md`.
 
-Ce n'est **pas** une mesure de sécurité, et l'origine ne dit rien de l'adéquation du contenu.
+## 3. Protection du catalogue commun
 
-- N'importe quel lecteur peut créer une **fiche personnelle** pour une œuvre non importée.
-- Le catalogue éditorial contient déjà deux séries coréennes, Solo Leveling et Omniscient Reader's Viewpoint, publiées en France dans des collections manga. Les garder ou non est une décision produit en attente.
+Une série importée par un lecteur rejoint le catalogue **partagé**. Pour qu'aucun lecteur n'y fasse entrer de contenu sexuel :
+- seul le drapeau MyAnimeList `nsfw = "white"` est accepté ;
+- `"gray"`, `"black"` ou un drapeau absent sont refusés, et le lecteur peut créer une fiche personnelle, visible par lui seul ;
+- une série importée reçoit **aucun âge**, n'est pas éditoriale et n'apparaît jamais dans Découvrir.
 
-Code : `malImportRefusal()` → `"origin"`.
+Une fiche venue d'un ISBN ne crée jamais de série partagée.
 
-## 3. Signal de contenu (protection du catalogue commun)
+## 4. Âge et adéquation : seulement des informations vérifiées
 
-Un lecteur qui importe une série l'ajoute au catalogue **partagé** par tous. Pour éviter qu'un lecteur y fasse entrer du contenu sexuel :
+### Sources (vérifiées le 2026-10-16)
 
-- **accepté** : le drapeau MyAnimeList `nsfw = "white"` (aucun contenu sexuel signalé) ;
-- **refusé** : `"gray"`, `"black"`, ou drapeau absent.
+| Source | Ce qu'elle couvre | Utilisation |
+|---|---|---|
+| **CNLJ « Manga mania ! »** (sélection annuelle du Centre national de la littérature pour la jeunesse, BnF, rédigée par La Revue des livres pour enfants) : éditions 2026 ([PDF](https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf)), 2024 et 2022 | la **série entière**, classée sous « À partir de N ans » | âge vérifié de la série (`audience_age_scope = 'series'`) |
+| **Catalogue BnF, critiques CNLJ de tomes** | **certains tomes**, avec une appréciation (Bravo !, Intéressant, Pourquoi pas ?…) | affiché « avis CNLJ sur les tomes … ». **Jamais étendu à la série**, jamais utilisé par les règles automatiques. |
+| Estimations de la première recherche (57 séries) | rien de vérifié | **supprimées des données** (âge remis à inconnu) |
 
-Le message de refus propose de créer une fiche personnelle, visible par ce lecteur seul. La recherche n'affiche déjà pas ces entrées. Le refus côté serveur couvre le cas d'un identifiant envoyé directement.
+Chaque âge vérifié garde l'adresse de sa source (`audience_age_ref`). Points vérifiés à la main dans le PDF 2026, par un contrôle indépendant de celui de l'agent :
+- Spy x Family sous 12 ans, Frieren sous 13, Chi sous 6, Kingdom sous 14 ;
+- Fire Force et Blue Lock absents de l'édition 2026.
 
-**L'absence de signal adulte ne veut pas dire « convient à un enfant ».** Une série importée reçoit donc **aucun âge**, n'est pas marquée éditoriale, et **n'apparaît jamais dans Découvrir**.
+### Résultat pour les 28 séries marquées CNLJ auparavant
 
-Code : `malImportRefusal()` → `"content"` et `resolveSeries()` ([src/app/(app)/ajouter/actions.ts](../src/app/(app)/ajouter/actions.ts)).
+- **26 vérifiées pour la série entière.** Plusieurs âges diffèrent de l'ancienne donnée, car l'édition 2026 a relevé : My Hero Academia 11 au lieu de 9, Fairy Tail 11 au lieu de 8, Yotsuba&! 9 au lieu de 8, L'Atelier des sorciers 11 au lieu de 9.
+- **Blue Lock** (11 ans, éditions 2022 à 2024) et **Boruto** (9 ans, édition 2022) ne figurent plus dans la sélection 2026. Ils sont gardés avec l'adresse de l'édition qui les cite. **À trancher** : les retirer si seule la sélection en cours doit compter.
+- **Fire Force** : seulement des critiques de tomes (11 ou 13 ans selon le tome), donc âge **inconnu** pour la série.
+- **Gunnm** : l'entrée CNLJ porte sur *Gunnm : Mars Chronicle*, pas sur la série originale, donc âge **inconnu**.
+- Des critiques de tomes contredisent parfois l'âge de la série : L'Attaque des Titans 15 ans pour certains tomes contre 14 pour la série, Beastars 15 contre 13, Spy x Family 11 contre 12. On garde l'âge de la sélection, qui couvre la série.
+- **Hors des 28** :
+  - Solo Leveling : critiques des tomes 1 à 4, dès 13 ans, « Pourquoi pas ? » puis « Bravo ! » ;
+  - Omniscient Reader's Viewpoint : tomes 1 et 3, dès 15 ans, « Pourquoi pas ? ».
+  - Les deux sont affichés comme avis sur des tomes.
 
-Les fiches issues d'un ISBN (Google Books) ne créent jamais de série partagée. Elles servent seulement à reconnaître une série déjà au catalogue.
+### Règles de décision (code : `verifiedAge`, `contentAllowed`, `ageLabel` dans [src/lib/discovery/suggest.ts](../src/lib/discovery/suggest.ts))
 
-## Âge : sources, champs, règles
-
-### Champs (table `mangas`)
-
-| Champ | Contenu |
+| Règle | Effet |
 |---|---|
-| `audience_min_age` | âge minimum indiqué, ou `null` (inconnu) |
-| `audience_age_source` | `cnlj` ou `estimate`, `null` si pas d'âge |
-| `curated` | `true` pour les fiches écrites par le travail éditorial (migration d'enrichissement), `false` pour les imports de lecteurs |
+| Âge affiché | « conseillé dès N ans (CNLJ) » seulement pour une recommandation de la série. « avis CNLJ sur le tome … » pour une critique de tomes. Sinon « âge non vérifié ». |
+| Filtre « Âge conseillé (avis CNLJ) » | ne retient que les séries avec un âge vérifié pour la série entière |
+| Plafond de prudence des suggestions | si le lecteur a lu des séries à âge vérifié : au plus 2 ans au-dessus du plus élevé. Sinon, pas de plafond. |
+| Âge inconnu | proposable, avec la mention « âge non vérifié » |
+| Magazines pour jeunes adultes (seinen, josei) sans âge vérifié | proposés seulement à un lecteur qui lit ou a aimé une série de ce public. Donnée descriptive du catalogue, pas une classification. |
+| Genres évités par le lecteur | jamais proposés |
+| Mode « Seulement des séries recommandées pour la jeunesse » (réglage du lecteur dans « Mes goûts ») | seules les séries avec un âge CNLJ vérifié pour la série entière sont proposées |
 
-Les lecteurs ne peuvent écrire aucun de ces champs : les droits par colonne de la migration du catalogue ne les autorisent pas.
+Ces règles s'appliquent aux suggestions, à « Explorer un univers différent » et aux découvertes de la carte des goûts. La navigation dans le catalogue avec filtres reste ouverte.
 
-### Sources
+### Effet concret sur le catalogue éditorial (85 séries)
 
-- **`cnlj`** (28 séries) : âge indiqué par la sélection « Manga mania ! » du CNLJ (Centre national de la littérature pour la jeunesse, BnF), relevé lors de la recherche du 2026-10-15. **À revérifier une par une avant publication** (voir la liste ci-dessous).
-- **`estimate`** (57 séries) : estimation faite pendant cette même recherche. **Ce n'est pas une classification**.
+| Ensemble | Séries |
+|---|---|
+| Âge CNLJ vérifié pour la série entière | 26 : 6 dès 9 ans au plus, 14 dès 11 ans au plus, 24 dès 13 ans au plus |
+| Avis CNLJ sur des tomes seulement | 2 |
+| Âge non vérifié | 57 |
+| Proposables en mode « tout le catalogue » à un lecteur qui ne lit pas de seinen ni de josei | 71 |
+| Retenues pour ce lecteur (seinen ou josei sans âge vérifié) | 14 |
+| Proposables en mode « jeunesse » | 26, moins celles au-dessus du plafond de prudence |
 
-### Règles de décision
-
-| Situation | Affichage | Découvrir | Suggestions | Filtre « Âge conseillé » |
-|---|---|---|---|---|
-| `cnlj` | « conseillé dès N ans (CNLJ) » | oui (si éditoriale) | oui, si sous le plafond de prudence | compté |
-| `estimate` | **aucun âge affiché** | oui (si éditoriale) | oui, si sous le plafond de prudence | **exclue** quand le filtre est actif |
-| inconnu (`null`) | « » (rien) | **non** | **jamais** | exclue |
-
-**Plafond de prudence des suggestions.**
-
-- Les suggestions restent au plus 2 ans au-dessus de l'âge le plus élevé parmi les séries que le lecteur lit déjà (`comfortAge`).
-- Les estimations y participent : elles ne peuvent que rendre les suggestions **plus** prudentes. Elles ne servent jamais à affirmer qu'une série convient.
-- Sans aucune série lue avec un âge connu, il n'y a pas de plafond. Les séries sans âge restent exclues.
-
-**Filtre « Âge conseillé (avis CNLJ) »** :
-
-- Il ne retient que les séries ayant un avis CNLJ.
-- L'interface précise : « C'est une indication, pas une garantie. »
-
-Aucun écran n'emploie « âge vérifié » ou une formule de garantie.
-
-## Séries `cnlj` à revérifier
-
-One Piece, Naruto, Dragon Ball, L'Attaque des Titans, Demon Slayer, Jujutsu Kaisen, My Hero Academia, Spy x Family, Blue Lock, Frieren, Fairy Tail, Vinland Saga, Kingdom, Dr. Stone, The Promised Neverland, Haikyū!!, Kaguya-sama, Toilet-bound Hanako-kun, L'Atelier des sorciers, et les autres fiches marquées `cnlj` dans `supabase/migrations/20261017000100_catalogue_enrichment.sql` (requête : `select title, audience_min_age from mangas where audience_age_source = 'cnlj' order by title`).
+L'application reste utile, mais **la prudence repose sur des données limitées**. Les âges vérifiés couvrent 26 séries sur 85. Le public visé (shōnen, seinen…) vient de la première recherche et n'a pas été revérifié série par série.

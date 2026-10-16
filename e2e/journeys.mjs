@@ -233,7 +233,8 @@ await step("Ajout de tomes épars, puis « J'ai un nouveau tome » propose le pr
   await page.getByRole("button", { name: "Ajouter le tome 3" }).click();
   await page.getByText("Tome 3 ajouté à ton étagère !").waitFor({ timeout: 60000 });
   const tile3 = page.getByRole("button", { name: /^Tome 3, .*(?<!pas )chez toi$/ });
-  const shown = await tile3.waitFor({ timeout: 15000 }).then(() => true, () => false);
+  // The grid comes from the server refresh after the save : slower on a remote database.
+  const shown = await tile3.waitFor({ timeout: 30000 }).then(() => true, () => false);
   check("Possession sans lecture : le tome 3 apparaît chez toi, non lu", shown);
 });
 

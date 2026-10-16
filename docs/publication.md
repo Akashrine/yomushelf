@@ -16,16 +16,19 @@ Rendre les migrations compatibles avec l'ancien code demanderait une synchronisa
 - aucun profil public ;
 - dernière écriture le 2026-09-03.
 
-**Retenu : une maintenance explicite de quelques minutes.** Aucune écriture n'est possible du début à la fin.
+**Retenu : une maintenance explicite de quelques minutes.** Elle coupe toute écriture **par l'application** du début à la fin.
+
+Limite connue : l'API Supabase (PostgREST, Auth) reste joignable directement avec la clé publique pendant la fenêtre. Quelqu'un pourrait créer un compte, ou écrire avec son propre jeton, sans passer par l'application. Avec un seul compte en production, le risque est accepté. `ops/restore.sh` liste et traite les comptes créés après la sauvegarde.
 
 ### Mode maintenance (dans le nouveau code)
 
-`MAINTENANCE_MODE=1` répond 503 à chaque page, action serveur et route API, **avant tout accès à la base**. C'est vérifié en répétition sur les pages, les actions serveur, la connexion, l'API et le cron.
+`MAINTENANCE_MODE=1` répond 503 à chaque page, action serveur et route API, **avant tout accès à la base**. C'est vérifié en répétition sur les pages, les actions serveur, la connexion, l'API et le cron. Cela inclut les chemins dynamiques terminés par une extension d'image (`/bibliotheque/x.png`). Seuls les fichiers statiques passent : `/_next/static`, `/icons/` et les fichiers à la racine.
 
 Le propriétaire garde l'accès avec `MAINTENANCE_BYPASS_TOKEN` (16 caractères ou plus) :
 - ouvrir `/?maintenance=<jeton>` une fois ;
 - un cookie garde l'accès 4 heures pour ce navigateur ;
-- un mauvais jeton est refusé.
+- un mauvais jeton est refusé ;
+- le jeton passe dans une URL et apparaît donc dans les journaux Vercel et l'historique du navigateur : **le changer après la fenêtre**.
 
 ## État vérifié de la production (lecture seule)
 
@@ -92,7 +95,10 @@ Variables à préparer :
 1. rejoue les fichiers d'annulation dans l'ordre inverse, ce qui remet le schéma d'origine ;
 2. recharge en une transaction les lignes des anciennes tables depuis la sauvegarde, ce qui annule les conversions à perte ;
 3. nettoie l'historique des migrations ;
-4. compare l'empreinte des données à celle de la sauvegarde, et échoue s'il reste un écart.
+4. recrée un profil minimal pour les comptes créés après la sauvegarde et les liste (leurs données postérieures sont perdues) ;
+5. compare l'empreinte des données à celle de la sauvegarde, et échoue s'il reste un écart.
+
+Chaque annulation retire sa ligne de l'historique dans la même transaction. Après un échec partiel, le script se relance sans rejouer ce qui est déjà annulé.
 
 ## Répétition effectuée (base locale, 2026-10-16)
 
@@ -105,9 +111,20 @@ Variables à préparer :
 | Échec simulé : ancien code sur base migrée | s'affiche, mais écrit dans le vide et le profil échoue : à proscrire |
 | Retour arrière : annulations en ordre inverse, puis rechargement des données | 2 s. Schéma identique à l'original (comparaison `pg_dump -s`). Données identiques ligne à ligne sur les 9 tables (empreintes égales). Historique revenu à 7 migrations. |
 | Ancien code après retour arrière | 9 séries, 112 tomes, 33 lus, budget 844 € : identique au départ |
-| Chemin qui réussit (nouveau code, maintenance retirée) | voir le compte rendu de la PR |
+| `ops/backup.sh` puis `ops/restore.sh`, avec deux comptes créés après la sauvegarde | « Données identiques à la sauvegarde (profils : 1 + 2 recréés) ». Une seconde exécution ne rejoue aucune annulation, et l'historique reste à 7. |
+| Chemin qui réussit : 11 migrations définitives sur une base au format production remise à neuf, serveurs d'application arrêtés | 2 s. 112 tomes, 33 lectures et 9 séries convertis ; ages : 26 séries vérifiées, 2 avis sur tomes |
+| Nouveau code, maintenance retirée | compte au format ancien : bibliothèque convertie, « Tu peux lire Bleach tome 10 », 0 erreur JavaScript ; parcours navigateur 25/25 |
+| Import nocturne sur cette base | sans secret 401 ; `GET` → « désactivé » ; simulation : 188 séries examinées, 39 doublons écartés, 20 prévues (limite), **aucune écriture** (nombre de fiches et dernière date de mise à jour inchangés) |
+
+Note de durée : une passe avec les serveurs d'application locaux encore connectés a pris 3 min 43 s, par attente de verrous ; la même passe serveurs arrêtés prend 2 s. En production, la maintenance coupe le trafic applicatif avant les migrations.
 
 La répétition a aussi corrigé trois écarts des fichiers d'annulation, trouvés par la comparaison de schéma : droits sur `mangas`, droit de lecture sur `profiles.sharing_locked`, droit d'exécution de `get_public_profile`.
+
+## E-mails de compte en français [accord séparé, configuration hors code]
+
+Les modèles par défaut de Supabase (en anglais) envoient un lien PKCE qui ne fonctionne que dans le navigateur qui l'a demandé : ouvert ailleurs, le compte est confirmé mais l'écran parle d'un lien invalide (constaté avec un vrai e-mail sur le projet de test). Les modèles `supabase/templates/confirmation.html` et `recovery.html` (français, lien `token_hash` vérifié par `/auth/confirm`, valable depuis n'importe quel appareil) sont actifs en local et testés (`e2e/emails-local.mjs`, 5/5). À reporter dans le tableau de bord du projet de test puis de production (Authentication → Emails → Templates, sujets dans `supabase/config.toml`), et ajouter `https://<domaine>/auth/confirm` aux URL de redirection autorisées. Sans ce report, le code accepte encore les liens par défaut (même navigateur seulement).
+
+**Ordre impératif** : changer les modèles **après** le déploiement du nouveau code. Avec l'ancien code, le lien produit serait cassé (`/auth/callback&token_hash=…`). URL de redirection à autoriser : `https://<domaine>/auth/confirm**`.
 
 ## Doublons de production [accord séparé]
 
@@ -117,7 +134,9 @@ Après réouverture, lancer seulement la simulation :
 select c.keep_title, r.* from catalogue_duplicate_candidates() c, lateral catalogue_merge(c.keep_id, c.drop_id) r;
 ```
 
-Lire le rapport, puis appliquer paire par paire après accord.
+Lire le rapport, puis appliquer paire par paire après accord, de préférence pendant une maintenance.
+
+Une paire « autre nom » (titre égal à un autre nom de la fiche conservée) peut être une suite ou un dérivé, par exemple Tokyo Ghoul et Tokyo Ghoul:re. La fusion reste **bloquée** tant qu'on n'a pas vérifié que c'est la même œuvre, puis relancé avec `p_same_work => true`.
 
 ## Import nocturne [accord séparé]
 

@@ -40,6 +40,9 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.json|icons|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Static files only : Next assets, /icons/ and single-segment root files
+    // (public/*.svg). A dynamic path ending in ".png" (/bibliotheque/x.png)
+    // must still go through maintenance and the session refresh.
+    "/((?!_next/static|_next/image|favicon.ico|manifest.json|icons/|[^/]+\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

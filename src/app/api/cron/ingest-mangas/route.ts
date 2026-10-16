@@ -11,9 +11,15 @@ import type { Database } from "@/lib/types/database";
 // call may add ?mode=dry_run to see the plan without writing anything.
 export const maxDuration = 300; // 5 min
 
+// A missing or invalid value falls back to 20 ; never more than 100.
+function limit(raw: string | undefined): number {
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 0 ? Math.min(n, 100) : 20;
+}
+
 const LIMITS = {
-  maxWrites: Number(process.env.CRON_INGEST_MAX_WRITES ?? 20),
-  maxCovers: Number(process.env.CRON_INGEST_MAX_COVERS ?? 20),
+  maxWrites: limit(process.env.CRON_INGEST_MAX_WRITES),
+  maxCovers: limit(process.env.CRON_INGEST_MAX_COVERS),
   deadlineMs: 240_000,
 };
 

@@ -7,6 +7,9 @@
 set -euo pipefail
 NAME=${1:?backup name}
 C=${PG_CONTAINER:-supabase_db_Yomushelf-v2}
+# Backup time, as seen by the database : accounts created after it are
+# handled by ops/restore.sh.
+docker exec "$C" psql "$DB_URL" -At -c "select now()" > "./$NAME.timestamp"
 docker exec "$C" pg_dump -Fc --schema=public --schema=supabase_migrations -f "/tmp/$NAME.dump" "$DB_URL"
 docker cp "$C:/tmp/$NAME.dump" "./$NAME.dump"
 docker cp ops/fingerprint.sql "$C:/tmp/fingerprint.sql"
