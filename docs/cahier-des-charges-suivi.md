@@ -127,16 +127,22 @@ Voir `docs/tests.md` (procédures) et le compte rendu final (résultats).
 - Google OAuth et e-mails réels ;
 - indisponibilité réelle de MyAnimeList côté navigateur (couverte côté serveur et par tests unitaires).
 
-## Résultats obtenus le 2026-10-16 (commit 603dd44)
+## Résultats obtenus le 2026-10-16 (commit 7ad6699)
 
 | Contrôle | Résultat |
 |---|---|
-| Typage (`tsc`), lint | OK. Restent 2 avertissements, présents avant ce travail |
-| Tests unitaires (`vitest`) | 135 / 135 |
-| Tests SQL | `private_libraries_test.sql` OK ; `catalogue_merge_test.sql` 21 / 21 |
-| Parcours navigateur, base locale, mobile, avec création de compte | 26 / 26 |
-| Parcours navigateur, base locale, ordinateur | 25 / 25 |
-| Parcours navigateur, base de test, compilation de production, mobile | 25 / 25 |
-| Lighthouse mobile, compilation de production (bibliothèque, Découvrir, Mon univers, Ajouter) | performance 94 à 96, accessibilité 100, bonnes pratiques 96 |
+| Typage, lint | OK |
+| Tests unitaires | 149 / 149 |
+| Tests SQL | `catalogue_merge_test.sql` 27 / 27 ; `private_libraries_test.sql` OK |
+| Test d'accès au stockage | `cover_storage_test.sh` 10 / 10 |
+| E-mails réels (projet de test, vraie boîte) | inscription confirmée, mot de passe changé |
+| E-mails, modèles français (local, Mailpit) | `emails-local.mjs` 5 / 5, liens ouverts sur un autre navigateur |
+| Répétition de la bascule (base au format production) | maintenance OK ; 11 migrations en 2 s ; retour arrière vérifié (schéma et données identiques) ; nouveau code OK |
+| Parcours navigateur, base de test, compilation de production | 25 / 25 en mobile, 25 / 25 sur ordinateur |
+| Parcours navigateur, base de répétition migrée | 25 / 25 |
+| Lighthouse mobile (4 écrans) | performance 94 à 96, accessibilité 100, bonnes pratiques 96 |
 
-La seule erreur de console relevée par Lighthouse est `/_vercel/insights/script.js` en 404. Ce script n'existe que sur Vercel.
+**Non testé** :
+- téléphone réel (tous les essais « mobile » sont faits dans Chromium avec un écran de 390×844) ;
+- connexion Google (pas de fournisseur Google sur le projet de test) ;
+- e-mails de production.
