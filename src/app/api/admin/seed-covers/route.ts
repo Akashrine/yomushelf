@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAuthorizedCron } from "@/lib/server/cron-auth";
 import { createClient } from "@supabase/supabase-js";
 import { searchMangaMAL } from "@/lib/manga-api/mal";
 import { cacheCoverToStorage } from "@/lib/manga-api/storage";
 
 export async function POST(request: NextRequest) {
-  const auth = request.headers.get("authorization");
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCron(request.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { searchMangaMAL } from "@/lib/manga-api/mal";
 import { mergeSearchResults, type SearchHit } from "@/lib/manga-api/merge";
+import { consumeImportQuota } from "@/lib/rate-limit/import-quota";
 
 const SearchSchema = z.object({
   q: z.string().min(1).max(100).trim(),
@@ -75,6 +76,10 @@ export async function GET(request: NextRequest) {
         .in("id", localHits.map((h) => h.id as string));
       const aliases = new Map((aliasRows ?? []).map((r) => [r.id, r.aliases ?? []]));
       for (const h of localHits) h.alt_titles = aliases.get(h.id as string) ?? [];
+    }
+    if (!(await consumeImportQuota(user.id, "remote_search"))) {
+      // Over the limit : local results only, said honestly in the UI.
+      return NextResponse.json({ results: localHits, remote_unavailable: true });
     }
     try {
       remote = (await searchMangaMAL(q, limit)).map((r) => ({

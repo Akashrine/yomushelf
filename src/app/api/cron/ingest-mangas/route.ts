@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAuthorizedCron } from "@/lib/server/cron-auth";
 import { createClient } from "@supabase/supabase-js";
 import { getMangaRankingMAL } from "@/lib/manga-api/mal";
 import { cacheCoverToStorage } from "@/lib/manga-api/storage";
+import { titleKey } from "@/lib/manga-api/merge";
 import type { Database } from "@/lib/types/database";
 
 // Vercel Cron — runs nightly at 03:00 UTC (see vercel.json)
 export const maxDuration = 300; // 5 min
 
 export async function POST(request: NextRequest) {
-  const secret = request.headers.get("authorization");
-  if (secret !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCron(request.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -31,9 +32,44 @@ export async function POST(request: NextRequest) {
         // Skip if already exists and was updated recently (24h)
         const { data: existing } = await supabase
           .from("mangas")
-          .select("id, updated_at, cover_url")
+          .select("id, updated_at, cover_url, curated, title, aliases")
           .contains("external_ids", { mal_id: malId })
-          .single();
+          .is("created_by", null)
+          .limit(1)
+          .maybeSingle();
+
+        // Editorial rows keep their French title and data : at most the
+        // missing cover is filled in.
+        if (existing?.curated) {
+          if (!existing.cover_url && manga.cover_url) {
+            const cover = await cacheCoverToStorage(manga.cover_url, existing.id);
+            if (cover) await supabase.from("mangas").update({ cover_url: cover }).eq("id", existing.id);
+          }
+          continue;
+        }
+
+        // Not known by its MyAnimeList id : never insert a second copy of a
+        // series already in the catalogue under the same title or alias.
+        if (!existing) {
+          const keys = [manga.title, manga.title_fr].filter((t): t is string => Boolean(t)).map(titleKey);
+          const { data: sameTitle } = await supabase
+            .from("mangas")
+            .select("id, title, aliases")
+            .is("created_by", null)
+            .is("merged_into", null)
+            .ilike("title", manga.title.replace(/[%_]/g, "").slice(0, 3) + "%")
+            .limit(50);
+          const { data: byAlias } = await supabase
+            .from("mangas")
+            .select("id, title, aliases")
+            .is("created_by", null)
+            .is("merged_into", null)
+            .overlaps("aliases", [manga.title.toLowerCase(), ...(manga.title_fr ? [manga.title_fr.toLowerCase()] : [])]);
+          const known = [...(sameTitle ?? []), ...(byAlias ?? [])].some((r) =>
+            [r.title, ...(r.aliases ?? [])].some((t) => keys.includes(titleKey(t)))
+          );
+          if (known) continue;
+        }
 
         if (existing) {
           const updatedAt = new Date(existing.updated_at);
