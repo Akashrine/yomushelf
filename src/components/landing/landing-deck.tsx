@@ -7,9 +7,9 @@ import type { DeckCard } from "@/lib/discovery/deck";
 
 // The app's own Découvrir deck, playable without an account : nothing is
 // saved ; at the end, the wishes picked here invite to sign up.
-// Covers go through the Next image optimizer (WebP, 640 px) : the original
+// Covers go through the Next image optimizer (WebP, 640 px, default quality 75) : the original
 // JPEG of the first card weighed 190 KB on the landing's first load.
-const optimized = (url: string | null) => (url ? `/_next/image?url=${encodeURIComponent(url)}&w=640&q=70` : null);
+const optimized = (url: string | null) => (url ? `/_next/image?url=${encodeURIComponent(url)}&w=640&q=75` : null);
 
 export function LandingDeck({ deck }: { deck: DeckCard[] }) {
   const [round, setRound] = useState(0);
