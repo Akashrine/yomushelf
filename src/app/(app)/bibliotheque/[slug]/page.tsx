@@ -30,13 +30,15 @@ export default async function SeriePage({
   // An old link to a series merged into another one.
   if (manga.merged_into) redirect(`/bibliotheque/${manga.merged_into}`);
 
-  const [volumes, readings, { data: wishes, error: wishesError }, { data: collection, error: collectionError }, { data: profile }] =
+  const [volumes, readings, { data: wishes, error: wishesError }, { data: collection, error: collectionError }, { data: profile }, { data: catalogueVolumes }] =
     await Promise.all([
       getOwnedVolumes(supabase, user.id, manga.id),
       getReadings(supabase, user.id, manga.id),
       supabase.from("wishlist_items").select("volume_number").eq("user_id", user.id).eq("manga_id", manga.id),
       supabase.from("user_collections").select("archived_at, liked").eq("user_id", user.id).eq("manga_id", manga.id).maybeSingle(),
       supabase.from("profiles").select("avatar_initials").eq("id", user.id).single(),
+      // French-edition covers per volume (filled nightly) ; none is fine
+      supabase.from("volumes").select("volume_number, cover_url").eq("manga_id", manga.id).not("cover_url", "is", null),
     ]);
   if (wishesError) throw new Error("Impossible de charger les envies.");
   if (collectionError) throw new Error("Impossible de charger cette série.");
@@ -69,6 +71,7 @@ export default async function SeriePage({
         readings={readings}
         wishedVolumes={(wishes ?? []).flatMap((w) => (w.volume_number == null ? [] : [w.volume_number]))}
         liked={collection?.liked ?? null}
+        volumeCovers={Object.fromEntries((catalogueVolumes ?? []).map((v) => [v.volume_number, v.cover_url as string]))}
       />
     </AppShell>
   );

@@ -1,9 +1,15 @@
 {
-  "regions": ["cdg1"],
+  "regions": [
+    "cdg1"
+  ],
   "crons": [
     {
       "path": "/api/cron/ingest-mangas",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/volume-covers",
+      "schedule": "0 4 * * *"
     }
   ]
 }
