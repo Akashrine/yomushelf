@@ -13,9 +13,7 @@ const geistSans = Geist({
 export const viewport: Viewport = {
   themeColor: "#0e0b0b",
   width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  initialScale: 1, // zoom stays allowed (WCAG 1.4.4) ; inputs are 16px so iOS does not auto-zoom
 };
 
 export const metadata: Metadata = {

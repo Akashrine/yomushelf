@@ -21,11 +21,11 @@ export default function ConfidentialitePage() {
           <section>
             <h2 className="text-base font-semibold mb-3" style={{ color: "var(--foreground)" }}>Données collectées</h2>
             <p>
-              Lors de l'inscription sur la liste d'attente, Yomushelf collecte uniquement votre adresse email.
-              Aucune autre donnée personnelle n'est demandée à ce stade.
+              Lors de l&apos;inscription sur la liste d&apos;attente, Yomushelf collecte uniquement votre adresse email.
+              Aucune autre donnée personnelle n&apos;est demandée à ce stade.
             </p>
             <p className="mt-2">
-              Lors de la création d'un compte (après lancement), sont également collectés : nom d'utilisateur,
+              Lors de la création d&apos;un compte (après lancement), sont également collectés : nom d&apos;utilisateur,
               données de collection manga (titres, tomes, statut de lecture). Ces données sont fournies volontairement.
             </p>
           </section>
@@ -33,7 +33,7 @@ export default function ConfidentialitePage() {
           <section>
             <h2 className="text-base font-semibold mb-3" style={{ color: "var(--foreground)" }}>Finalité du traitement</h2>
             <ul className="flex flex-col gap-1.5 list-disc list-inside">
-              <li>Vous informer de l'ouverture de Yomushelf au public</li>
+              <li>Vous informer de l&apos;ouverture de Yomushelf au public</li>
               <li>Gérer votre compte et votre collection (après lancement)</li>
               <li>Améliorer le service (analytics anonymes)</li>
             </ul>
@@ -45,7 +45,7 @@ export default function ConfidentialitePage() {
           <section>
             <h2 className="text-base font-semibold mb-3" style={{ color: "var(--foreground)" }}>Durée de conservation</h2>
             <p>
-              Les adresses email de la liste d'attente sont conservées jusqu'au lancement de l'application,
+              Les adresses email de la liste d&apos;attente sont conservées jusqu&apos;au lancement de l&apos;application,
               puis supprimées dans les 30 jours suivants, sauf si vous avez créé un compte.
             </p>
             <p className="mt-2">
@@ -57,7 +57,7 @@ export default function ConfidentialitePage() {
           <section>
             <h2 className="text-base font-semibold mb-3" style={{ color: "var(--foreground)" }}>Hébergement des données</h2>
             <p>
-              Les données sont stockées sur des serveurs Supabase situés dans l'Union Européenne (région Irlande),
+              Les données sont stockées sur des serveurs Supabase situés dans l&apos;Union Européenne (région Irlande),
               conformément au RGPD.
             </p>
           </section>
@@ -68,7 +68,7 @@ export default function ConfidentialitePage() {
             <ul className="flex flex-col gap-1.5 list-disc list-inside mt-2">
               <li><strong style={{ color: "var(--foreground)" }}>Accès</strong> : obtenir une copie de vos données</li>
               <li><strong style={{ color: "var(--foreground)" }}>Rectification</strong> : corriger des données inexactes</li>
-              <li><strong style={{ color: "var(--foreground)" }}>Suppression</strong> : demander l'effacement de vos données</li>
+              <li><strong style={{ color: "var(--foreground)" }}>Suppression</strong> : demander l&apos;effacement de vos données</li>
               <li><strong style={{ color: "var(--foreground)" }}>Opposition</strong> : vous opposer au traitement de vos données</li>
             </ul>
             <p className="mt-3">
@@ -81,8 +81,8 @@ export default function ConfidentialitePage() {
           <section>
             <h2 className="text-base font-semibold mb-3" style={{ color: "var(--foreground)" }}>Cookies et analytics</h2>
             <p>
-              Yomushelf utilise des outils d'analyse anonymes (Vercel Analytics) pour mesurer le trafic.
-              Ces outils ne déposent pas de cookies de tracking et ne permettent pas d'identifier personnellement
+              Yomushelf utilise des outils d&apos;analyse anonymes (Vercel Analytics) pour mesurer le trafic.
+              Ces outils ne déposent pas de cookies de tracking et ne permettent pas d&apos;identifier personnellement
               les visiteurs.
             </p>
           </section>

@@ -16,7 +16,7 @@ export async function lookupByIsbn(
   const url = `${GB_BASE}?q=isbn:${clean}&maxResults=1`;
 
   const res = await fetch(url, { next: { revalidate: 86400 } });
-  if (!res.ok) return null;
+  if (!res.ok) throw new Error("Google Books unavailable");
 
   const data = (await res.json()) as {
     totalItems: number;
@@ -49,7 +49,7 @@ export async function lookupByIsbn(
     total_volumes: null, // Google Books doesn't know manga series length
     status: "ongoing",
     avg_price_eur: 7.5,
-    genre_primary: "Shōnen",
+    genre_primary: null, // unknown : never guessed
     cover_url,
     external_ids: { isbn_13: isbn13 },
   };

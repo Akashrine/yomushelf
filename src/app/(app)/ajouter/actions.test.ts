@@ -9,6 +9,8 @@ const state = vi.hoisted(() => ({
   quota: true,
   inserted: [] as Record<string, unknown>[],
   upserts: [] as Record<string, unknown>[],
+  lookupError: null as { code: string } | null,
+  saveError: null as { code: string } | null,
 }));
 
 function query(table: string) {
@@ -18,24 +20,32 @@ function query(table: string) {
     select: () => q,
     eq: () => ((filter = filter ?? "eq"), q),
     contains: () => ((filter = "contains"), q),
+    is: () => q,
     limit: () => q,
     maybeSingle: async () => ({
       data: table === "mangas" ? (filter === "contains" ? state.existingByExternal : state.existingById) : null,
-      error: null,
+      error: state.lookupError,
     }),
     upsert: async (row: Record<string, unknown>) => {
       state.upserts.push(row);
-      return { error: null };
+      return { error: state.saveError };
     },
     insert: async () => ({ error: null }),
+    // ensureOnShelf : update(...).eq(...).eq(...).not(...) brings an archived series back
+    update: () => q,
+    not: async () => ({ error: null }),
   });
   return q;
 }
+
+vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: state.user } }) },
     from: (table: string) => query(table),
+    // Catalogue search used to recognise a series from a bookstore record
+    rpc: async () => ({ data: [], error: null }),
   }),
 }));
 
@@ -95,6 +105,8 @@ beforeEach(() => {
   state.existingById = null;
   state.inserted = [];
   state.upserts = [];
+  state.lookupError = null;
+  state.saveError = null;
   getMangaByIdMAL.mockReset().mockResolvedValue(MAL_META);
   lookupByIsbn.mockReset().mockResolvedValue(null);
   cacheCoverToStorage.mockReset().mockResolvedValue("https://storage.example/covers/x.jpg");
@@ -102,6 +114,18 @@ beforeEach(() => {
 });
 
 describe("addMangaFromExternalSource", () => {
+  it("does not import a duplicate when the catalogue lookup fails", async () => {
+    state.lookupError = { code: "08006" };
+    expect((await addMangaFromExternalSource(form({ source: "mal", mal_id: "13" }))).success).toBe(false);
+    expect(getMangaByIdMAL).not.toHaveBeenCalled();
+    expect(state.inserted).toHaveLength(0);
+  });
+
+  it("does not announce success when adding the series to the collection fails", async () => {
+    state.existingById = { id: "33333333-3333-4333-a333-333333333333" };
+    state.saveError = { code: "42501" };
+    expect((await addMangaFromExternalSource(form({ source: "db", manga_id: state.existingById.id }))).success).toBe(false);
+  });
   it("refuses a visitor who is not signed in, before any lookup or write", async () => {
     state.user = null;
     const res = await addMangaFromExternalSource(form({ source: "mal", mal_id: "13" }));
@@ -178,6 +202,16 @@ describe("addMangaFromExternalSource", () => {
 });
 
 describe("lookupIsbn", () => {
+  it("does not treat a failed local lookup as an unknown ISBN", async () => {
+    state.lookupError = { code: "08006" };
+    expect((await lookupIsbn(form({ isbn: "9782723488525" }))).success).toBe(false);
+    expect(lookupByIsbn).not.toHaveBeenCalled();
+  });
+
+  it("returns a readable error when the provider throws", async () => {
+    lookupByIsbn.mockRejectedValue(new Error("network"));
+    expect(await lookupIsbn(form({ isbn: "9782723488525" }))).toEqual({ success: false, error: "Le catalogue en ligne ne répond pas. Réessaie plus tard." });
+  });
   it("refuses a visitor who is not signed in", async () => {
     state.user = null;
     expect(await lookupIsbn(form({ isbn: "9782723488525" }))).toEqual({ success: false, error: "Non authentifié." });
@@ -194,5 +228,21 @@ describe("lookupIsbn", () => {
 
   it("rejects something that is not an ISBN", async () => {
     expect(await lookupIsbn(form({ isbn: "https://evil.example" }))).toEqual({ success: false, error: "ISBN invalide." });
+  });
+
+  it("refuses an entry the shared catalogue does not accept and points to a private entry", async () => {
+    getMangaByIdMAL.mockResolvedValue({ refused: "content" });
+    const res = await addMangaFromExternalSource(form({ source: "mal", mal_id: "42" }));
+    expect(res.success).toBe(false);
+    expect(res.success === false && res.error).toMatch(/fiche personnelle/);
+    expect(state.inserted).toHaveLength(0);
+    expect(cacheCoverToStorage).not.toHaveBeenCalled();
+  });
+
+  it("never creates a shared series from a bookstore record it cannot match", async () => {
+    lookupByIsbn.mockResolvedValue({ ...MAL_META, source: "google_books", title: "Série inconnue - Tome 3", external_ids: { isbn_13: "9782344000000" } });
+    const res = await addMangaFromExternalSource(form({ source: "google_books", isbn: "9782344000000" }));
+    expect(res.success).toBe(false);
+    expect(state.inserted).toHaveLength(0);
   });
 });

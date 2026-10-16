@@ -34,27 +34,27 @@ export default function MentionsLegalesPage() {
               <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "var(--accent)" }}>vercel.com</a>
             </p>
             <p className="mt-2">
-              La base de données est hébergée par Supabase sur des serveurs situés dans l'Union Européenne (région Irlande).
+              La base de données est hébergée par Supabase sur des serveurs situés dans l&apos;Union Européenne (région Irlande).
             </p>
           </section>
 
           <section>
             <h2 className="text-base font-semibold mb-3" style={{ color: "var(--foreground)" }}>Propriété intellectuelle</h2>
             <p>
-              L'ensemble du contenu de ce site (textes, interface, logo) est la propriété de Yomushelf.
+              L&apos;ensemble du contenu de ce site (textes, interface, logo) est la propriété de Yomushelf.
               Toute reproduction, même partielle, est interdite sans autorisation préalable.
             </p>
             <p className="mt-2">
               Les noms et couvertures de mangas mentionnés appartiennent à leurs éditeurs et auteurs respectifs.
-              Yomushelf n'est affilié à aucun éditeur manga.
+              Yomushelf n&apos;est affilié à aucun éditeur manga.
             </p>
           </section>
 
           <section>
             <h2 className="text-base font-semibold mb-3" style={{ color: "var(--foreground)" }}>Responsabilité</h2>
             <p>
-              Yomushelf s'efforce de fournir des informations exactes. Toutefois, aucune garantie n'est donnée
-              quant à l'exactitude ou l'exhaustivité des données (prix, nombre de tomes, dates de sortie).
+              Yomushelf s&apos;efforce de fournir des informations exactes. Toutefois, aucune garantie n&apos;est donnée
+              quant à l&apos;exactitude ou l&apos;exhaustivité des données (prix, nombre de tomes, dates de sortie).
             </p>
           </section>
 

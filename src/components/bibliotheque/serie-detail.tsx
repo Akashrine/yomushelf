@@ -1,14 +1,21 @@
 "use client";
 
-import { useState, useTransition, useOptimistic } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  toggleVolume,
-  updateReadingProgress,
-  updateStatus,
-  addVolumeRange,
-} from "@/app/(app)/bibliotheque/actions";
+import { AppIcon } from "@/components/app/app-icon";
+import { Cover } from "@/components/collection/reader-home";
+import { VolumeSheet, type VolumeSavedEvent } from "@/components/collection/volume-sheet";
+import { ReadingToast } from "@/components/collection/reading-toast";
+import { useReadingAction, type ReadingIntent } from "@/components/collection/use-reading-action";
+import { archiveSeries, deleteSeriesPermanently, restoreSeries, setSeriesLiked, updatePrivateSeries } from "@/app/(app)/bibliotheque/actions";
+import { ReadUpTo } from "@/components/collection/read-up-to";
+import { addSeriesToLibrary } from "@/app/(app)/ajouter/actions";
+import { addWishlistItem } from "@/app/(app)/envies/actions";
+import { lastKnownPrice, nextVolumeToBuy, type OwnedVolume } from "@/lib/collection/value";
+import { buildShelves, nextToRead, type Reading } from "@/lib/collection/reading";
+import { DEMOGRAPHIC_LABELS, GENRE_LABELS, ageLabel } from "@/lib/discovery/suggest";
+import type { Demographic } from "@/lib/types/database";
 
 type Manga = {
   id: string;
@@ -17,395 +24,798 @@ type Manga = {
   publisher_fr: string | null;
   total_volumes: number | null;
   status: "ongoing" | "completed" | "paused";
-  avg_price_eur: number;
-  genre_primary: string | null;
   cover_url: string | null;
-  top_50_rank: number | null;
+  genres: string[];
+  demographic: Demographic | null;
+  audience_min_age: number | null;
+  audience_age_source: "cnlj" | "estimate" | null;
+  audience_age_scope: "series" | "volume" | null;
+  audience_age_volumes: number[] | null;
+  audience_age_year: number | null;
+  synopsis: string | null;
+  is_private: boolean;
 };
 
-type Collection = {
-  id: string;
-  owned_volumes: number[];
-  last_read_volume: number | null;
-  status: "not_started" | "reading" | "caught_up" | "completed" | "dropped";
-  updated_at: string;
-} | null;
+export type ShelfPresence = "on_shelf" | "archived" | "absent";
 
-type Props = { manga: Manga; collection: Collection };
-
-const READING_STATUS_LABELS = {
-  not_started: "Non commencé",
-  reading: "En cours",
-  caught_up: "À jour",
-  completed: "Terminé",
-  dropped: "Abandonné",
-} as const;
+type Props = {
+  manga: Manga;
+  presence: ShelfPresence;
+  volumes: OwnedVolume[];
+  readings: Reading[];
+  wishedVolumes: number[];
+  liked: boolean | null;
+};
 
 const MANGA_STATUS_LABELS = {
-  ongoing: "En cours de publication",
-  completed: "Terminée",
+  ongoing: "En cours de parution",
+  completed: "Série terminée",
   paused: "En pause",
 } as const;
 
-export function SerieDetail({ manga, collection }: Props) {
+const NETWORK_ERROR = "Impossible de confirmer l'enregistrement. Vérifie ta connexion puis réessaie.";
+
+// First volume missing after the lowest one at home : what "J'ai un
+// nouveau tome" proposes. Never assumes the earlier volumes are owned.
+export function firstMissingVolume(owned: number[]): number {
+  if (owned.length === 0) return 1;
+  const set = new Set(owned);
+  let n = Math.min(...owned);
+  while (set.has(n)) n++;
+  return n;
+}
+
+export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes, liked }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [lastRead, setLastRead] = useState(collection?.last_read_volume ?? 0);
-  const [rangeFrom, setRangeFrom] = useState("1");
-  const [rangeTo, setRangeTo] = useState("");
+  const [openVolume, setOpenVolume] = useState<number | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const reading = useReadingAction();
+
+  const shelf = buildShelves(
+    [{ manga_id: manga.id, title: manga.title, slug: manga.id, cover_url: manga.cover_url, total_volumes: manga.total_volumes }],
+    volumes,
+    readings
+  )[0];
+  const owned = new Map(volumes.map((v) => [v.volume_number, v]));
+  const readingByNumber = new Map(readings.map((r) => [r.volume_number, r]));
+  const candidate = nextToRead(shelf);
+  const highlighted = candidate?.kind === "next" ? candidate.volume : null;
 
   const totalVolumes = manga.total_volumes ?? 0;
+  const highest = Math.max(0, ...shelf.owned, ...shelf.read, ...shelf.reading, ...wishedVolumes);
+  const gridCount = totalVolumes > 0 ? Math.max(totalVolumes, highest) : Math.max(highest + 1, 12);
+  const toBuy = nextVolumeToBuy(volumes);
+  const toBuyIsPublished = totalVolumes === 0 || toBuy <= totalVolumes;
+  const toBuyWished = wishedVolumes.includes(toBuy);
+  const priceHint = lastKnownPrice(volumes);
 
-  type OptimisticUpdate = number | { range: number[] };
-  const [optimisticOwned, addOptimistic] = useOptimistic(
-    collection?.owned_volumes ?? ([] as number[]),
-    (state: number[], update: OptimisticUpdate) => {
-      if (typeof update === "object") {
-        return [...new Set([...state, ...update.range])].sort((a, b) => a - b);
+  const closeSheet = useCallback(() => setOpenVolume(null), []);
+
+  function act(intent: ReadingIntent, volume: number) {
+    reading.run(intent, { mangaId: manga.id, title: manga.title, volume }, () => setOpenVolume(null));
+  }
+
+  function handleSaved(event: VolumeSavedEvent) {
+    setOpenVolume(null);
+    setNotice(
+      event.kind === "added"
+        ? `Tome ${event.volume} ajouté à ton étagère !`
+        : event.kind === "removed"
+        ? `Tome ${event.volume} retiré de ton étagère`
+        : `Tome ${event.volume} enregistré`
+    );
+    router.refresh();
+  }
+
+  function run(action: () => Promise<{ success: boolean; error?: string }>, after: () => void) {
+    setError(null);
+    setNotice(null);
+    startTransition(async () => {
+      const result = await action().catch(() => ({ success: false as const, error: NETWORK_ERROR }));
+      if (!result.success) {
+        setError(result.error ?? "Pas enregistré. Réessaie.");
+        return;
       }
-      return state.includes(update)
-        ? state.filter((v) => v !== update)
-        : [...state, update].sort((a, b) => a - b);
-    }
-  );
-
-  const ownedCount = optimisticOwned.length;
-  const budget = (ownedCount * manga.avg_price_eur).toFixed(2);
-
-  const minOwned = optimisticOwned.length > 0 ? Math.min(...optimisticOwned) : 0;
-  const maxOwned = optimisticOwned.length > 0 ? Math.max(...optimisticOwned) : 0;
-  const gapCount =
-    optimisticOwned.length > 1
-      ? maxOwned - minOwned + 1 - optimisticOwned.length
-      : 0;
-
-  function getVolumeState(vol: number): "owned" | "gap" | "not_owned" {
-    if (optimisticOwned.includes(vol)) return "owned";
-    if (optimisticOwned.length > 0 && vol > minOwned && vol < maxOwned)
-      return "gap";
-    return "not_owned";
-  }
-
-  function handleToggle(vol: number) {
-    startTransition(async () => {
-      addOptimistic(vol);
-      const fd = new FormData();
-      fd.set("manga_id", manga.id);
-      fd.set("volume_number", String(vol));
-      await toggleVolume(fd);
+      after();
       router.refresh();
     });
   }
 
-  function handleBulkAdd() {
-    const from = parseInt(rangeFrom, 10);
-    const to = parseInt(rangeTo, 10);
-    if (isNaN(from) || isNaN(to) || from > to || from < 1) return;
-    const range = Array.from({ length: to - from + 1 }, (_, i) => from + i);
-    startTransition(async () => {
-      addOptimistic({ range });
-      const fd = new FormData();
-      fd.set("manga_id", manga.id);
-      fd.set("from", String(from));
-      fd.set("to", String(to));
-      await addVolumeRange(fd);
-      router.refresh();
-    });
+  const form = (fields: Record<string, string>) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+    return fd;
+  };
+
+  function handleWish(volume: number) {
+    // No price is invented : the wish keeps an unknown price until typed in.
+    run(() => addWishlistItem(form({ manga_id: manga.id, volume_number: String(volume) })), () =>
+      setNotice(`Tome ${volume} dans tes envies`)
+    );
   }
 
-  function handleLastReadChange(val: number) {
-    setLastRead(val);
-    startTransition(async () => {
-      const fd = new FormData();
-      fd.set("manga_id", manga.id);
-      fd.set("last_read_volume", String(val));
-      await updateReadingProgress(fd);
-      router.refresh();
-    });
+  function handleFollow() {
+    run(
+      () => addSeriesToLibrary({ series: { source: "db", manga_id: manga.id }, owned: { mode: "none" }, reading: { mode: "none" } }),
+      () => setNotice(`${manga.title} est dans ta bibliothèque. Indique les tomes que tu as.`)
+    );
   }
 
-  function handleStatusChange(val: string) {
-    startTransition(async () => {
-      const fd = new FormData();
-      fd.set("manga_id", manga.id);
-      fd.set("status", val);
-      await updateStatus(fd);
-      router.refresh();
-    });
-  }
-
-  const volumeCount = totalVolumes > 0 ? totalVolumes : Math.max(ownedCount, 20);
+  const openVolumeData = openVolume != null ? owned.get(openVolume) ?? null : null;
+  const openReading = openVolume != null ? readingByNumber.get(openVolume) ?? null : null;
+  const waiting = shelf.owned.filter((v) => !shelf.read.includes(v)).length;
+  const onShelf = presence === "on_shelf";
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--background)" }}>
-      {/* Back nav */}
-      <div
-        className="sticky top-0 z-10 px-4 sm:px-6 py-3 flex items-center gap-3"
-        style={{ background: "var(--background)", borderBottom: "1px solid var(--border)" }}
-      >
-        <Link
-          href="/bibliotheque"
-          className="text-sm flex items-center gap-1.5 transition-opacity hover:opacity-70"
-          style={{ color: "var(--muted)" }}
-        >
-          ← Bibliothèque
-        </Link>
-      </div>
+    <div className="flex flex-col gap-6">
+      <Link href="/bibliotheque" className="flex min-h-11 items-center gap-1.5 self-start text-sm" style={{ color: "var(--muted)" }}>
+        <AppIcon name="arrow-left" size={16} /> Ma bibliothèque
+      </Link>
 
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8">
-        {/* Hero */}
-        <div className="flex gap-5 mb-8">
-          {/* Cover */}
-          <div
-            className="shrink-0 rounded-xl overflow-hidden"
-            style={{
-              width: 100,
-              aspectRatio: "2/3",
-              background: manga.cover_url
-                ? `url(${manga.cover_url}) center/cover no-repeat, #1a1010`
-                : "linear-gradient(160deg,#1a1010 0%,#0e0b0b 100%)",
-            }}
-          />
-
-          {/* Meta */}
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold leading-tight mb-1">{manga.title}</h1>
-            {manga.author && (
-              <p className="text-sm mb-1" style={{ color: "var(--muted)" }}>{manga.author}</p>
-            )}
-            {manga.publisher_fr && (
-              <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>{manga.publisher_fr}</p>
-            )}
-
-            <div className="flex flex-wrap gap-2 mb-4">
-              <Badge>{MANGA_STATUS_LABELS[manga.status]}</Badge>
-              {manga.genre_primary && <Badge>{manga.genre_primary}</Badge>}
-              {manga.top_50_rank && <Badge>Top {manga.top_50_rank}</Badge>}
-            </div>
-
-            {/* Stats row */}
-            <div className="flex gap-5">
-              <MiniStat label="Possédés" value={`${ownedCount}${totalVolumes ? `/${totalVolumes}` : ""} t.`} />
-              <MiniStat label="Budget" value={`${budget} €`} />
-            </div>
-          </div>
+      {/* Hero */}
+      <div className="flex gap-4 sm:gap-6">
+        <div className="w-24 shrink-0 sm:w-32" style={{ aspectRatio: "2/3" }}>
+          <Cover shelf={{ manga_id: manga.id, title: manga.title, cover_url: manga.cover_url }} volume={Math.max(1, candidate ? (candidate.kind === "gap" ? candidate.available : candidate.volume) : 1)} full />
         </div>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-bold leading-tight sm:text-3xl">{manga.title}</h1>
+          {onShelf && (
+            <p className="mt-1 text-base font-semibold">
+              {shelf.read.length} lu{shelf.read.length > 1 ? "s" : ""} · {shelf.owned.length} chez toi
+            </p>
+          )}
+          {manga.author && <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>{manga.author}</p>}
+          <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+            {[
+              MANGA_STATUS_LABELS[manga.status],
+              totalVolumes > 0 ? `${totalVolumes} tomes parus` : null,
+              manga.is_private ? null : ageLabel({ ...manga, author: null, top_50_rank: null, demographic: manga.demographic }),
+              manga.publisher_fr,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+          {(manga.genres.length > 0 || manga.demographic || manga.is_private) && (
+            <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Genres">
+              {manga.is_private && <Chip>Ajoutée par toi</Chip>}
+              {manga.demographic && <Chip>{DEMOGRAPHIC_LABELS[manga.demographic]}</Chip>}
+              {manga.genres.map((g) => (
+                <Chip key={g}>{GENRE_LABELS[g] ?? g}</Chip>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+      {manga.synopsis && <p className="max-w-[65ch] text-sm leading-relaxed" style={{ color: "var(--muted)" }}>{manga.synopsis}</p>}
 
-        {/* Status + Reading progress */}
-        <Section title="Progression">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <label className="text-xs mb-1.5 block" style={{ color: "var(--muted)" }}>
-                Statut de lecture
-              </label>
-              <select
-                defaultValue={collection?.status ?? "not_started"}
-                onChange={(e) => handleStatusChange(e.target.value)}
-                disabled={isPending}
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer disabled:opacity-60"
-                style={{
-                  background: "var(--surface)",
-                  border: "1px solid var(--border)",
-                  color: "var(--foreground)",
-                }}
-              >
-                {Object.entries(READING_STATUS_LABELS).map(([val, label]) => (
-                  <option key={val} value={val}>{label}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex-1">
-              <label className="text-xs mb-1.5 block" style={{ color: "var(--muted)" }}>
-                Dernier tome lu
-              </label>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => lastRead > 0 && handleLastReadChange(lastRead - 1)}
-                  disabled={isPending || lastRead === 0}
-                  className="w-8 h-8 rounded-lg text-sm font-bold transition-opacity disabled:opacity-30 flex items-center justify-center"
-                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-                >
-                  −
-                </button>
-                <span className="text-lg font-bold tabular-nums w-8 text-center">{lastRead}</span>
-                <button
-                  type="button"
-                  onClick={() => handleLastReadChange(lastRead + 1)}
-                  disabled={isPending || (totalVolumes > 0 && lastRead >= totalVolumes)}
-                  className="w-8 h-8 rounded-lg text-sm font-bold transition-opacity disabled:opacity-30 flex items-center justify-center"
-                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-                >
-                  +
-                </button>
-                {lastRead > 0 && (
-                  <span className="text-xs ml-1" style={{ color: "var(--muted)" }}>
-                    tome{lastRead > 1 ? "s" : ""}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </Section>
-
-        {/* Volume grid */}
-        <Section
-          title={`Tomes possédés — ${ownedCount}${totalVolumes ? `/${totalVolumes}` : ""}${gapCount > 0 ? ` · ${gapCount} manquant${gapCount > 1 ? "s" : ""}` : ""}`}
-        >
-          <div className="flex flex-wrap gap-2 mb-4">
-            {Array.from({ length: volumeCount }, (_, i) => i + 1).map((vol) => {
-              const state = getVolumeState(vol);
-              return (
-                <button
-                  key={vol}
-                  type="button"
-                  onClick={() => handleToggle(vol)}
-                  disabled={isPending}
-                  aria-pressed={state === "owned"}
-                  title={state === "gap" ? `Tome ${vol} — manquant` : undefined}
-                  className="w-9 h-9 rounded-lg text-xs font-semibold tabular-nums transition-all active:scale-90 disabled:opacity-60"
-                  style={
-                    state === "owned"
-                      ? { background: "var(--accent)", color: "white", border: "none" }
-                      : state === "gap"
-                      ? { background: "var(--surface)", color: "var(--accent)", border: "1px dashed var(--accent)", opacity: 0.7 }
-                      : { background: "var(--surface)", color: "var(--muted)", border: "1px solid var(--border)" }
-                  }
-                >
-                  {vol}
-                </button>
-              );
-            })}
-            {manga.status === "ongoing" && totalVolumes === 0 && (
+      {presence !== "absent" && (
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Ton avis sur cette série">
+          <span className="text-sm font-semibold">Ton avis :</span>
+          {([
+            { value: true, label: "J'ai aimé", done: `Noté : tu as aimé ${manga.title}.` },
+            { value: false, label: "Pas pour moi", done: `Noté : ${manga.title} n'est pas pour toi.` },
+          ] as const).map((o) => {
+            const on = liked === o.value;
+            return (
               <button
+                key={String(o.value)}
                 type="button"
-                onClick={() => handleToggle(volumeCount + 1)}
+                aria-pressed={on}
                 disabled={isPending}
-                className="w-9 h-9 rounded-lg text-xs transition-all"
-                style={{
-                  background: "var(--surface)",
-                  border: "1px dashed var(--border)",
-                  color: "var(--muted)",
-                }}
+                onClick={() =>
+                  run(() => setSeriesLiked(form({ manga_id: manga.id, liked: on ? "none" : String(o.value) })), () =>
+                    setNotice(on ? "Avis retiré." : o.done)
+                  )
+                }
+                className="flex min-h-11 items-center gap-1.5 rounded-full px-4 text-sm font-semibold disabled:opacity-60"
+                style={on ? { background: o.value ? "var(--read)" : "var(--surface-raised)", color: o.value ? "white" : "var(--foreground)", border: "1.5px solid transparent" } : { border: "1.5px solid var(--border)" }}
               >
-                +
+                {on && <AppIcon name="check" size={14} strokeWidth={3} />}
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {presence === "absent" && (
+        <section className="flex flex-col gap-3 rounded-3xl p-4 sm:p-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+          <p className="text-base font-bold">Pas encore dans ta bibliothèque</p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Link
+              href={`/ajouter?serie=${manga.id}`}
+              className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl px-4 text-base font-bold text-white"
+              style={{ background: "linear-gradient(135deg, var(--read), var(--read-deep))" }}
+            >
+              <AppIcon name="plus" size={18} strokeWidth={2.5} /> J&apos;ai des tomes
+            </Link>
+            <button type="button" onClick={handleFollow} disabled={isPending} className="min-h-12 flex-1 rounded-2xl px-4 text-base font-semibold disabled:opacity-60" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+              La suivre sans tome
+            </button>
+            {!wishedVolumes.includes(1) && (
+              <button type="button" onClick={() => handleWish(1)} disabled={isPending} className="flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-2xl px-4 text-base font-semibold disabled:opacity-60" style={{ background: "rgba(248,192,74,0.12)", color: "var(--gold)" }}>
+                <AppIcon name="star" size={16} /> Je veux le tome 1
               </button>
             )}
           </div>
+        </section>
+      )}
 
-          {/* Bulk range add */}
-          <div
-            className="flex flex-wrap items-center gap-2 pt-3"
-            style={{ borderTop: "1px solid var(--border)" }}
+      {presence === "archived" && (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl p-4 sm:p-5" style={{ background: "var(--surface)", border: "1px dashed var(--border)" }}>
+          <p className="text-sm">
+            <strong>Tu as retiré cette série de ta bibliothèque.</strong>{" "}
+            <span style={{ color: "var(--muted)" }}>Tes tomes et tes lectures sont gardés.</span>
+          </p>
+          <button
+            type="button"
+            onClick={() => run(() => restoreSeries(form({ manga_id: manga.id })), () => setNotice(`${manga.title} est de retour dans ta bibliothèque.`))}
+            disabled={isPending}
+            className="min-h-11 rounded-xl px-4 text-sm font-bold disabled:opacity-60"
+            style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
           >
-            <span className="text-xs" style={{ color: "var(--muted)" }}>
-              Ajouter du tome
-            </span>
-            <input
-              type="number"
-              min={1}
-              max={totalVolumes || undefined}
-              value={rangeFrom}
-              onChange={(e) => setRangeFrom(e.target.value)}
-              className="w-14 px-2 py-1 rounded-lg text-xs text-center tabular-nums outline-none"
-              style={{
-                background: "var(--background)",
-                border: "1px solid var(--border)",
-                color: "var(--foreground)",
-              }}
+            La remettre
+          </button>
+        </section>
+      )}
+
+      {onShelf && (
+        <>
+          <NextCard candidate={candidate} waiting={waiting} ownedCount={shelf.owned.length} readCount={shelf.read.length} pending={reading.isPending} onAct={act} />
+          <NewVolumeCard
+            mangaId={manga.id}
+            suggested={firstMissingVolume(shelf.owned)}
+            maxVolume={500}
+            ownedNumbers={shelf.owned}
+            pending={isPending}
+            run={run}
+            onDone={(n) => setNotice(`Tome ${n} ajouté à ton étagère !`)}
+          />
+          <section aria-labelledby="h-progress" className="flex flex-col gap-2 rounded-3xl p-4 sm:p-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+            <h2 id="h-progress" className="text-base font-bold">Où j&apos;en suis</h2>
+            <ReadUpTo series={[{ manga_id: manga.id, title: manga.title }]} suggested={Math.max(1, ...shelf.read)} compact />
+          </section>
+        </>
+      )}
+
+      {/* Volume grid */}
+      <section aria-labelledby="grid-title">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="grid-title" className="text-base font-bold">Tous les tomes</h2>
+          <p className="text-xs" style={{ color: "var(--muted)" }}>Touche un tome pour le lire, l&apos;ajouter ou le corriger.</p>
+        </div>
+        <div className="grid grid-cols-5 gap-2 min-[420px]:grid-cols-6 sm:grid-cols-8 lg:grid-cols-10">
+          {Array.from({ length: gridCount }, (_, i) => i + 1).map((n) => (
+            <VolumeTile
+              key={n}
+              number={n}
+              atHome={owned.has(n)}
+              borrowed={owned.get(n)?.acquisition_type === "borrowed"}
+              status={readingByNumber.get(n)?.status ?? null}
+              next={n === highlighted}
+              wished={wishedVolumes.includes(n)}
+              onOpen={() => setOpenVolume(n)}
             />
-            <span className="text-xs" style={{ color: "var(--muted)" }}>
-              au tome
-            </span>
-            <input
-              type="number"
-              min={1}
-              max={totalVolumes || undefined}
-              value={rangeTo}
-              placeholder={totalVolumes ? String(totalVolumes) : "N"}
-              onChange={(e) => setRangeTo(e.target.value)}
-              className="w-14 px-2 py-1 rounded-lg text-xs text-center tabular-nums outline-none"
-              style={{
-                background: "var(--background)",
-                border: "1px solid var(--border)",
-                color: "var(--foreground)",
-              }}
-            />
-            <button
-              type="button"
-              onClick={handleBulkAdd}
-              disabled={isPending || !rangeTo}
-              className="px-3 py-1 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-40"
-              style={{ background: "var(--accent)", color: "white" }}
-            >
-              Ajouter
+          ))}
+        </div>
+        <Legend />
+      </section>
+
+      {/* Feedback stays in view, wherever the button was. */}
+      <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-24 z-40 flex justify-center px-4 md:bottom-6">
+        {(error || notice) && (
+          <div
+            role={error ? "alert" : "status"}
+            className="pointer-events-auto flex max-w-md items-center gap-2 rounded-2xl py-1 pl-4 pr-1 text-sm font-semibold shadow-lg"
+            style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", color: error ? "var(--accent-hover)" : "var(--foreground)" }}
+          >
+            <span className="py-2">{error ?? notice}</span>
+            <button type="button" onClick={() => { setError(null); setNotice(null); }} aria-label="Fermer le message" className="flex h-11 w-11 shrink-0 items-center justify-center">
+              <AppIcon name="close" size={16} />
             </button>
           </div>
-        </Section>
-
-        {/* Budget detail */}
-        <Section title="Budget">
-          <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between text-sm">
-              <span style={{ color: "var(--muted)" }}>Prix moyen / tome</span>
-              <span className="font-medium">{manga.avg_price_eur.toFixed(2)} €</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span style={{ color: "var(--muted)" }}>Tomes possédés</span>
-              <span className="font-medium">{ownedCount}</span>
-            </div>
-            <div
-              className="flex justify-between text-sm font-semibold pt-2 mt-1"
-              style={{ borderTop: "1px solid var(--border)" }}
-            >
-              <span>Total estimé</span>
-              <span style={{ color: "var(--accent)" }}>{budget} €</span>
-            </div>
-            {totalVolumes > ownedCount && (
-              <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-                Compléter la collection : ~{((totalVolumes - ownedCount) * manga.avg_price_eur).toFixed(2)} € restants
-              </p>
-            )}
-          </div>
-        </Section>
+        )}
       </div>
+
+      {onShelf && (
+        <section className="flex flex-col gap-4 rounded-3xl p-4 sm:p-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+          {toBuyIsPublished && (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm">Le tome {toBuy} n&apos;est pas encore chez toi.</p>
+              {toBuyWished ? (
+                <Link href="/envies" className="flex min-h-11 items-center gap-1.5 text-sm font-semibold" style={{ color: "var(--gold)" }}>
+                  <AppIcon name="star" size={16} filled /> Dans tes envies
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleWish(toBuy)}
+                  disabled={isPending}
+                  className="flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-bold disabled:opacity-50"
+                  style={{ background: "rgba(248,192,74,0.14)", color: "var(--gold)" }}
+                >
+                  <AppIcon name="star" size={16} /> Je le veux
+                </button>
+              )}
+            </div>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4" style={{ borderColor: "var(--border)" }}>
+            <p className="text-sm">Plusieurs tomes d&apos;un coup ?</p>
+            <Link
+              href={`/ajouter?serie=${manga.id}`}
+              className="flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-bold"
+              style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+            >
+              <AppIcon name="plus" size={16} /> Ajouter des tomes
+            </Link>
+          </div>
+          {manga.is_private && (
+            <PrivateEntryForm manga={manga} pending={isPending} run={run} form={form} onDone={() => setNotice("Fiche enregistrée.")} />
+          )}
+          <SeriesOptions title={manga.title} mangaId={manga.id} pending={isPending} run={run} form={form} />
+        </section>
+      )}
+
+      {openVolume != null && (
+        <VolumeSheet
+          mangaId={manga.id}
+          seriesTitle={manga.title}
+          volumeNumber={openVolume}
+          existing={openVolumeData}
+          reading={openReading ? { status: openReading.status, finished_on: openReading.finished_on } : null}
+          suggestedPrice={priceHint}
+          readingPending={reading.isPending}
+          onReading={(intent) => act(intent, openVolume)}
+          onClose={closeSheet}
+          onSaved={handleSaved}
+        />
+      )}
+      <ReadingToast toast={reading.toast} onClose={reading.clearToast} />
     </div>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Chip({ children }: { children: React.ReactNode }) {
   return (
-    <section className="mb-8">
-      <h2 className="text-xs uppercase tracking-wider font-semibold mb-3" style={{ color: "var(--muted)" }}>
-        {title}
-      </h2>
-      <div
-        className="rounded-xl p-4"
-        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+    <li className="rounded-full px-2.5 py-0.5 text-xs font-semibold" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+      {children}
+    </li>
+  );
+}
+
+type Runner = (action: () => Promise<{ success: boolean; error?: string }>, after: () => void) => void;
+
+// The reader's own entry : title, author and number of volumes, nothing
+// guessed. Saved to this entry only, never to the shared catalogue.
+function PrivateEntryForm({
+  manga,
+  pending,
+  run,
+  form,
+  onDone,
+}: {
+  manga: Manga;
+  pending: boolean;
+  run: Runner;
+  form: (fields: Record<string, string>) => FormData;
+  onDone: () => void;
+}) {
+  const [title, setTitle] = useState(manga.title);
+  const [author, setAuthor] = useState(manga.author ?? "");
+  const [total, setTotal] = useState(manga.total_volumes ? String(manga.total_volumes) : "");
+  const input = "min-h-11 w-full rounded-xl px-3 text-base font-normal outline-none focus:ring-2";
+  const inputStyle = { background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" };
+  return (
+    <details className="border-t pt-4" style={{ borderColor: "var(--border)" }}>
+      <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold" style={{ color: "var(--muted)" }}>
+        Modifier ma fiche
+      </summary>
+      <form
+        className="mt-3 flex flex-col gap-3 sm:max-w-md"
+        onSubmit={(e) => {
+          e.preventDefault();
+          run(() => updatePrivateSeries(form({ manga_id: manga.id, title, author, total_volumes: total })), onDone);
+        }}
       >
-        {children}
+        <label className="flex flex-col gap-1 text-sm font-semibold">
+          Titre
+          <input value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={200} className={input} style={inputStyle} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-semibold">
+          Auteur (facultatif)
+          <input value={author} onChange={(e) => setAuthor(e.target.value)} maxLength={200} className={input} style={inputStyle} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-semibold">
+          Nombre de tomes parus (facultatif)
+          <input value={total} onChange={(e) => setTotal(e.target.value.replace(/\D/g, ""))} inputMode="numeric" className={input} style={inputStyle} />
+        </label>
+        <p className="text-xs" style={{ color: "var(--muted)" }}>Visible par toi seul. Rien n&apos;est ajouté au catalogue commun.</p>
+        <button type="submit" disabled={pending || !title.trim()} className="min-h-11 self-start rounded-xl px-4 text-sm font-bold disabled:opacity-60" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+          Enregistrer la fiche
+        </button>
+      </form>
+    </details>
+  );
+}
+
+// "J'ai un nouveau tome !" : the first missing volume, adjustable.
+function NewVolumeCard({
+  mangaId,
+  suggested,
+  maxVolume,
+  ownedNumbers,
+  pending,
+  run,
+  onDone,
+}: {
+  mangaId: string;
+  suggested: number;
+  maxVolume: number;
+  ownedNumbers: number[];
+  pending: boolean;
+  run: Runner;
+  onDone: (n: number) => void;
+}) {
+  const [n, setN] = useState(suggested);
+  const [alreadyRead, setAlreadyRead] = useState(false);
+  const alreadyHere = ownedNumbers.includes(n);
+  const clamp = (v: number) => Math.min(Math.max(1, v), maxVolume);
+
+  function add() {
+    run(
+      () =>
+        addSeriesToLibrary({
+          series: { source: "db", manga_id: mangaId },
+          owned: { mode: "list", volumes: [n] },
+          reading: alreadyRead ? { mode: "added" } : { mode: "none" },
+          arrived_now: true,
+        }),
+      () => {
+        onDone(n);
+        setAlreadyRead(false);
+        setN((v) => clamp(v + 1));
+      }
+    );
+  }
+
+  return (
+    <section aria-labelledby="new-volume" className="flex flex-col gap-3 rounded-3xl p-4 sm:p-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+      <h2 id="new-volume" className="text-base font-bold">J&apos;ai un nouveau tome !</h2>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2" role="group" aria-label="Numéro du tome">
+          <button type="button" onClick={() => setN((v) => clamp(v - 1))} aria-label="Tome précédent" className="h-12 w-12 rounded-xl text-2xl font-bold" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>−</button>
+          <label className="flex items-center gap-2">
+            <span className="text-sm">Tome</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={maxVolume}
+              value={n}
+              onChange={(e) => setN(clamp(Number(e.target.value) || 1))}
+              className="h-12 w-20 rounded-xl text-center text-2xl font-black tabular-nums outline-none focus:ring-2"
+              style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+            />
+          </label>
+          <button type="button" onClick={() => setN((v) => clamp(v + 1))} aria-label="Tome suivant" className="h-12 w-12 rounded-xl text-2xl font-bold" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>+</button>
+        </div>
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
+          <input type="checkbox" checked={alreadyRead} onChange={(e) => setAlreadyRead(e.target.checked)} className="h-5 w-5" />
+          Je l&apos;ai déjà lu
+        </label>
       </div>
+      {alreadyHere ? (
+        <p className="text-sm" style={{ color: "var(--muted)" }}>Le tome {n} est déjà chez toi : touche-le dans la grille pour le modifier.</p>
+      ) : (
+        <button
+          type="button"
+          onClick={add}
+          disabled={pending}
+          className="min-h-12 rounded-2xl px-4 text-base font-bold text-white disabled:opacity-60 sm:self-start"
+          style={{ background: "linear-gradient(135deg, var(--read), var(--read-deep))" }}
+        >
+          {pending ? "J'enregistre…" : `Ajouter le tome ${n}`}
+        </button>
+      )}
     </section>
   );
 }
 
-function Badge({ children }: { children: React.ReactNode }) {
+// Rare actions, out of the way : remove (reversible) or delete (not).
+function SeriesOptions({
+  title,
+  mangaId,
+  pending,
+  run,
+  form,
+}: {
+  title: string;
+  mangaId: string;
+  pending: boolean;
+  run: Runner;
+  form: (fields: Record<string, string>) => FormData;
+}) {
+  const router = useRouter();
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [typed, setTyped] = useState("");
+
   return (
-    <span
-      className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-      style={{ background: "var(--surface-raised)", color: "var(--muted)" }}
-    >
-      {children}
-    </span>
+    <details className="border-t pt-4" style={{ borderColor: "var(--border)" }}>
+      <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold" style={{ color: "var(--muted)" }}>
+        Plus d&apos;options
+      </summary>
+      <div className="mt-3 flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-semibold">Retirer de ma bibliothèque</p>
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            La série disparaît de ta bibliothèque. Tes tomes et tes lectures sont gardés : tu pourras la remettre.
+          </p>
+          {confirmArchive ? (
+            <div className="grid grid-cols-2 gap-2 sm:max-w-sm">
+              <button type="button" onClick={() => setConfirmArchive(false)} className="min-h-11 rounded-xl text-sm font-semibold" style={{ border: "1px solid var(--border)" }}>
+                Non
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => run(() => archiveSeries(form({ manga_id: mangaId })), () => router.push("/bibliotheque"))}
+                className="min-h-11 rounded-xl text-sm font-bold disabled:opacity-60"
+                style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+              >
+                Oui, la retirer
+              </button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => setConfirmArchive(true)} className="flex min-h-11 items-center gap-2 self-start rounded-xl px-3 text-sm font-semibold" style={{ border: "1px solid var(--border)" }}>
+              <AppIcon name="archive" size={16} /> Retirer de ma bibliothèque
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-semibold" style={{ color: "#ff9a8a" }}>Supprimer définitivement</p>
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            Efface la série, ses tomes, tes lectures et tes envies pour cette série. On ne peut pas revenir en arrière.
+          </p>
+          {deleting ? (
+            <div className="flex flex-col gap-2 sm:max-w-sm">
+              <label className="text-sm">
+                Écris <strong>{title}</strong> pour confirmer
+                <input
+                  value={typed}
+                  onChange={(e) => setTyped(e.target.value)}
+                  className="mt-1 min-h-11 w-full rounded-xl px-3 text-base outline-none focus:ring-2"
+                  style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+                  autoComplete="off"
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => { setDeleting(false); setTyped(""); }} className="min-h-11 rounded-xl text-sm font-semibold" style={{ border: "1px solid var(--border)" }}>
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  disabled={pending || typed.trim().toLowerCase() !== title.trim().toLowerCase()}
+                  onClick={() => run(() => deleteSeriesPermanently(form({ manga_id: mangaId, confirm_title: typed })), () => router.push("/bibliotheque"))}
+                  className="min-h-11 rounded-xl text-sm font-bold text-white disabled:opacity-40"
+                  style={{ background: "#b3261e" }}
+                >
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" onClick={() => setDeleting(true)} className="flex min-h-11 items-center gap-2 self-start rounded-xl px-3 text-sm font-semibold" style={{ border: "1px solid rgba(255,110,90,0.4)", color: "#ff9a8a" }}>
+              <AppIcon name="trash" size={16} /> Supprimer définitivement
+            </button>
+          )}
+        </div>
+      </div>
+    </details>
   );
 }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
+function NextCard({
+  candidate,
+  waiting,
+  ownedCount,
+  readCount,
+  pending,
+  onAct,
+}: {
+  candidate: ReturnType<typeof nextToRead>;
+  waiting: number;
+  readCount: number;
+  ownedCount: number;
+  pending: boolean;
+  onAct: (intent: ReadingIntent, volume: number) => void;
+}) {
+  const box = "rounded-3xl p-4 sm:p-5";
+  const boxStyle = {
+    background: "radial-gradient(100% 120% at 0% 0%, rgba(255,106,61,0.14) 0%, transparent 60%), var(--surface)",
+    border: "1px solid var(--border)",
+  };
+
+  if (!candidate) {
+    return (
+      <div className={box} style={boxStyle}>
+        <p className="text-base font-bold">
+          {ownedCount === 0 && readCount === 0
+            ? "Aucun tome noté pour l'instant."
+            : waiting === 0
+              ? "Tu as lu tous les tomes parus de cette série !"
+              : "Rien à lire ensuite ici."}
+        </p>
+        <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+          {ownedCount === 0 && readCount === 0
+            ? "Ajoute les tomes que tu as, ou note ceux que tu as lus, juste en dessous."
+            : "Quand un nouveau tome sort, ajoute-le juste en dessous."}
+        </p>
+      </div>
+    );
+  }
+
+  if (candidate.kind === "gap") {
+    return (
+      <div className={box} style={boxStyle}>
+        <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--read)" }}>Tu peux lire…</p>
+        <p className="mt-1 text-2xl font-black">Tome {candidate.available}</p>
+        <p className="mt-2 rounded-xl px-3 py-2 text-sm" style={{ background: "rgba(248,192,74,0.1)", border: "1px dashed rgba(248,192,74,0.45)" }}>
+          Le <strong>tome {candidate.missing}</strong>{" "}n&apos;est pas sur ton étagère.
+        </p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <BigButton onClick={() => onAct("start", candidate.available)} disabled={pending}>
+            Lire le tome {candidate.available}
+          </BigButton>
+          <BigButton onClick={() => onAct("finish_earlier", candidate.missing)} disabled={pending} secondary>
+            J&apos;ai lu le tome {candidate.missing} ailleurs
+          </BigButton>
+        </div>
+      </div>
+    );
+  }
+
+  const isReading = candidate.kind === "reading";
   return (
-    <div>
-      <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--muted)" }}>{label}</p>
-      <p className="text-base font-bold tabular-nums">{value}</p>
+    <div className={box} style={boxStyle}>
+      <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--read)" }}>
+        {isReading
+          ? "Tu lis…"
+          : candidate.kind === "skipped"
+            ? "Tu as laissé de côté…"
+            : candidate.kind === "to_find"
+              ? "Prochain tome à trouver"
+              : "À lire ensuite"}
+      </p>
+      <p className="mt-1 text-2xl font-black">Tome {candidate.volume}</p>
+      {candidate.kind === "to_find" && (
+        <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+          Il n&apos;est pas chez toi. Tu peux le lire ailleurs (emprunt, bibliothèque) et le noter ici.
+        </p>
+      )}
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <BigButton onClick={() => onAct(isReading ? "finish" : "start", candidate.volume)} disabled={pending}>
+          {pending ? "J'enregistre…" : isReading ? "Je l'ai fini !" : "Je commence"}
+        </BigButton>
+        {!isReading && (
+          <BigButton onClick={() => onAct("finish_earlier", candidate.volume)} disabled={pending} secondary>
+            Déjà terminé ?
+          </BigButton>
+        )}
+      </div>
     </div>
+  );
+}
+
+function BigButton({ onClick, disabled, secondary, children }: { onClick: () => void; disabled?: boolean; secondary?: boolean; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="min-h-12 flex-1 rounded-2xl px-4 py-3 text-base font-bold transition-transform active:scale-[0.98] disabled:opacity-60"
+      style={
+        secondary
+          ? { background: "var(--surface-raised)", border: "1px solid var(--border)" }
+          : { background: "linear-gradient(135deg, var(--read), var(--read-deep))", color: "white" }
+      }
+    >
+      {children}
+    </button>
+  );
+}
+
+// Each state has its own icon and border, so it reads without colour.
+// Reading (✓, ▶, open book) and ownership (solid vs dashed edge) are
+// shown separately : a volume read elsewhere is ✓ with a dashed edge.
+function VolumeTile({
+  number,
+  atHome,
+  borrowed,
+  status,
+  next,
+  wished,
+  onOpen,
+}: {
+  number: number;
+  atHome: boolean;
+  borrowed: boolean;
+  status: "reading" | "read" | null;
+  next: boolean;
+  wished: boolean;
+  onOpen: () => void;
+}) {
+  const read = status === "read";
+  const parts = [
+    read ? "lu" : status === "reading" ? "en cours de lecture" : next ? "à lire ensuite" : atHome ? "pas encore lu" : "pas lu",
+    atHome ? (borrowed ? "emprunté, chez toi" : "chez toi") : "pas chez toi",
+  ];
+  if (wished && !atHome) parts.push("dans tes envies");
+
+  const style: React.CSSProperties = read
+    ? atHome
+      ? { background: "linear-gradient(160deg, #ff8a4c 0%, var(--read) 45%, var(--read-deep) 100%)", color: "white" }
+      : { background: "rgba(255,106,61,0.12)", color: "var(--foreground)", border: "2px dashed var(--read)" }
+    : status === "reading"
+    ? { background: "var(--surface-raised)", color: "var(--foreground)", border: "2.5px solid var(--gold)" }
+    : next
+    ? { background: "var(--surface-raised)", color: "var(--foreground)", border: "2.5px solid var(--gold)", boxShadow: "0 0 0 3px rgba(248,192,74,0.2)" }
+    : atHome
+    ? { background: "var(--surface-raised)", color: "var(--foreground)", border: "1.5px solid var(--sleep)" }
+    : { background: "transparent", color: "var(--muted)", border: `1.5px dashed ${wished ? "rgba(248,192,74,0.6)" : "var(--border)"}` };
+
+  const icon = read ? "check" : status === "reading" ? "book-open" : next ? "play" : atHome ? "books" : wished ? "star" : null;
+  const iconColor = read ? (atHome ? "white" : "var(--read)") : status === "reading" || next || wished ? "var(--gold)" : "var(--sleep)";
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`Tome ${number}, ${parts.join(", ")}`}
+      className="relative flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-xl text-base font-extrabold tabular-nums transition-transform active:scale-95"
+      style={{ ...style, aspectRatio: "1 / 1.1" }}
+    >
+      {number}
+      {icon && (
+        <span style={{ color: iconColor }}>
+          <AppIcon name={icon} size={14} strokeWidth={icon === "check" ? 3 : 2} filled={icon === "play" || icon === "star"} />
+        </span>
+      )}
+      {borrowed && (
+        <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-black" style={{ background: "var(--borrow)", color: "#06202b" }} aria-hidden="true">
+          E
+        </span>
+      )}
+    </button>
+  );
+}
+
+function Legend() {
+  const items = [
+    { label: "Lu", icon: "check" as const, style: { background: "var(--read)", color: "white" } },
+    { label: "Lu ailleurs", icon: "check" as const, style: { border: "1.5px dashed var(--read)", color: "var(--read)" } },
+    { label: "En cours", icon: "book-open" as const, style: { border: "1.5px solid var(--gold)", color: "var(--gold)" } },
+    { label: "À lire ensuite", icon: "play" as const, style: { border: "1.5px solid var(--gold)", color: "var(--gold)" } },
+    { label: "Chez toi, pas lu", icon: "books" as const, style: { border: "1.5px solid var(--sleep)", color: "var(--sleep)" } },
+    { label: "Pas chez toi", icon: null, style: { border: "1.5px dashed var(--border)" } },
+  ];
+  return (
+    <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3" style={{ color: "var(--muted)" }}>
+      {items.map((it) => (
+        <li key={it.label} className="flex items-center gap-2">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md" style={it.style}>
+            {it.icon && <AppIcon name={it.icon} size={11} strokeWidth={3} filled={it.icon === "play"} />}
+          </span>
+          {it.label}
+        </li>
+      ))}
+      <li className="flex items-center gap-2">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black" style={{ background: "var(--borrow)", color: "#06202b" }}>E</span>
+        Emprunté
+      </li>
+    </ul>
   );
 }

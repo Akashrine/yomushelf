@@ -14,6 +14,13 @@
   --color-accent-hover: var(--accent-hover);
   --color-accent-foreground: var(--accent-foreground);
 
+  /* Collection value palette — same meaning everywhere */
+  --color-gold: var(--gold);
+  --color-read: var(--read);
+  --color-sleep: var(--sleep);
+  --color-gift: var(--gift);
+  --color-borrow: var(--borrow);
+
   /* Typography */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -31,12 +38,23 @@
   --surface: #181212;
   --surface-raised: #221a1a;
   --border: #2e2020;
-  --muted: #7a6060;
+  --muted: #a8918c;
 
   /* Deep warm crimson */
   --accent: #c0392b;
   --accent-hover: #e74c3c;
   --accent-foreground: #ffffff;
+
+  /* Value = gold, read = warm fire, waiting = lavender night,
+     gift = gold ribbon, borrowed = sky */
+  --gold: #f8c04a;
+  --gold-deep: #e8962e;
+  --read: #ff6a3d;
+  --read-deep: #d93a2b;
+  --sleep: #9b8cff;
+  --sleep-deep: #6a5ae0;
+  --gift: #f8c04a;
+  --borrow: #5ec8f2;
 }
 
 * {
@@ -66,4 +84,95 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 2px;
+}
+
+/* ─────────────────────────────────────────
+   Collection value — motion
+   Every animation is decorative and disabled with reduced motion.
+   ───────────────────────────────────────── */
+
+.text-gold-gradient {
+  background: linear-gradient(180deg, #ffe39a 0%, var(--gold) 45%, var(--gold-deep) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes spine-drop {
+  0% { transform: translateY(-48px); opacity: 0; }
+  70% { transform: translateY(2px); opacity: 1; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.spine-drop {
+  animation: spine-drop 520ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+@keyframes rise-in {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.rise-in {
+  animation: rise-in 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes grow-x {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.grow-x {
+  transform-origin: left center;
+  animation: grow-x 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes zzz {
+  0% { transform: translate(0, 0) scale(0.6); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translate(10px, -22px) scale(1.1); opacity: 0; }
+}
+.zzz {
+  animation: zzz 2.6s ease-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.9; }
+}
+.glow-pulse {
+  animation: glow-pulse 4s ease-in-out infinite;
+}
+
+@keyframes confetti-burst {
+  0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+  100% {
+    transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(0.7);
+    opacity: 0;
+  }
+}
+.confetti-piece {
+  animation: confetti-burst 1100ms cubic-bezier(0.1, 0.7, 0.3, 1) both;
+}
+
+@keyframes pop-in {
+  /* transform only : Tailwind v4 centers with the separate `translate` property */
+  0% { transform: translateY(16px) scale(0.85); opacity: 0; }
+  60% { transform: translateY(-2px) scale(1.04); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+.pop-in {
+  animation: pop-in 420ms cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.sheet-up {
+  animation: sheet-up 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spine-drop, .rise-in, .grow-x, .zzz, .glow-pulse, .confetti-piece, .pop-in, .sheet-up {
+    animation: none !important;
+  }
+  .confetti-piece { display: none; }
 }

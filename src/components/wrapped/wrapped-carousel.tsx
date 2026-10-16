@@ -16,24 +16,41 @@ type Props = {
   username: string | null;
   avatarInitials: string;
   publicSlug: string | null;
+  canShare: boolean; // false on a sharing-locked account : no share slide
   result: { success: true; data: WrappedData } | { success: false; error: string };
 };
 
 const BG = "#0e0b0b";
 
-export function WrappedCarousel({ year, username, avatarInitials, publicSlug, result }: Props) {
-  const [index, setIndex] = useState(0);
-  const touchStartX = useRef<number | null>(null);
-
+export function WrappedCarousel({ year, username, avatarInitials, publicSlug, canShare, result }: Props) {
   // Empty state
   if (!result.success || result.data.total_volumes_added < 10) {
     return <EmptyState year={year} />;
   }
 
-  const data = result.data;
-  const avgPerVolume = data.total_volumes_added > 0
-    ? (data.total_budget_spent / data.total_volumes_added).toFixed(2)
-    : null;
+  return (
+    <WrappedSlides
+      year={year}
+      username={username}
+      avatarInitials={avatarInitials}
+      publicSlug={publicSlug}
+      canShare={canShare}
+      data={result.data}
+    />
+  );
+}
+
+function WrappedSlides({
+  year,
+  username,
+  avatarInitials,
+  publicSlug,
+  canShare,
+  data,
+}: Omit<Props, "result"> & { data: WrappedData }) {
+  const [index, setIndex] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+
 
   const cards = [
     <WrappedCardOpener key="opener" year={year} username={username} avatarInitials={avatarInitials} />,
@@ -46,18 +63,13 @@ export function WrappedCarousel({ year, username, avatarInitials, publicSlug, re
         : `en ${year}`}
       accent
     />,
-    <WrappedCardStat
-      key="budget"
-      value={data.total_budget_spent.toFixed(0)}
-      unit="€"
-      label="dépensés en mangas"
-      sub={avgPerVolume ? `soit ${avgPerVolume} € / tome en moyenne` : undefined}
-    />,
+    // No spending card : this yearly figure multiplied volumes by a default
+    // price. Real spending (prices actually paid) lives in Mon univers.
     ...(data.top_3_series.length > 0
       ? [<WrappedCardTopSeries key="top" series={data.top_3_series} />]
       : []),
     <WrappedCardGenre key="genre" genre={data.top_genre} delta={data.delta_vs_previous_year_pct} year={year} />,
-    <WrappedCardShare key="share" year={year} slug={publicSlug} username={username} />,
+    ...(canShare ? [<WrappedCardShare key="share" year={year} slug={publicSlug} username={username} />] : []),
   ];
 
   const total = cards.length;
@@ -87,7 +99,10 @@ export function WrappedCarousel({ year, username, avatarInitials, publicSlug, re
   function onTouchEnd(e: React.TouchEvent) {
     if (touchStartX.current === null) return;
     const delta = touchStartX.current - e.changedTouches[0].clientX;
-    if (Math.abs(delta) > 50) delta > 0 ? next() : prev();
+    if (Math.abs(delta) > 50) {
+      if (delta > 0) next();
+      else prev();
+    }
     touchStartX.current = null;
   }
 

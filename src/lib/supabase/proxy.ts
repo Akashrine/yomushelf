@@ -40,7 +40,12 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const protectedPaths = [
+    "/collection",
     "/bibliotheque",
+    "/decouvrir",
+    "/univers",
+    "/parent",
+    "/envies",
     "/onboarding",
     "/profil",
     "/ajouter",

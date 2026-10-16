@@ -6,6 +6,12 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
+// null in the database = not specified. "other" only exists in older rows.
+export type AcquisitionType = "bought" | "gift" | "borrowed" | "other";
+export type ReadingStatus = "reading" | "read";
+export type Demographic = "kodomo" | "shonen" | "shojo" | "seinen" | "josei";
+export type WishlistPriority = "high" | "low";
+
 export type Database = {
   public: {
     Tables: {
@@ -18,8 +24,12 @@ export type Database = {
           onboarding_completed: boolean;
           avatar_initials: string;
           is_public: boolean;
+          liked_genres: string[];
+          discovery_scope: "all" | "youth_verified";
+          avoided_genres: string[];
           bio: string | null;
           public_slug: string | null;
+          sharing_locked: boolean;
         };
         Insert: {
           id: string;
@@ -29,6 +39,9 @@ export type Database = {
           onboarding_completed?: boolean;
           avatar_initials?: string;
           is_public?: boolean;
+          liked_genres?: string[];
+          discovery_scope?: "all" | "youth_verified";
+          avoided_genres?: string[];
           bio?: string | null;
           public_slug?: string | null;
         };
@@ -40,6 +53,9 @@ export type Database = {
           onboarding_completed?: boolean;
           avatar_initials?: string;
           is_public?: boolean;
+          liked_genres?: string[];
+          discovery_scope?: "all" | "youth_verified";
+          avoided_genres?: string[];
           bio?: string | null;
           public_slug?: string | null;
         };
@@ -59,6 +75,20 @@ export type Database = {
           external_ids: Json;
           is_top_50_fr: boolean;
           top_50_rank: number | null;
+          genres: string[];
+          demographic: Demographic | null;
+          audience_min_age: number | null;
+          audience_age_source: "cnlj" | "estimate" | null;
+          audience_age_scope: "series" | "volume" | null;
+          audience_age_volumes: number[] | null;
+          audience_age_ref: string | null;
+          audience_age_year: number | null;
+          curated: boolean;
+          merged_into: string | null;
+          synopsis: string | null;
+          aliases: string[];
+          created_by: string | null;
+          search_key: string;
           created_at: string;
           updated_at: string;
         };
@@ -75,6 +105,19 @@ export type Database = {
           external_ids?: Json;
           is_top_50_fr?: boolean;
           top_50_rank?: number | null;
+          genres?: string[];
+          demographic?: Demographic | null;
+          audience_min_age?: number | null;
+          audience_age_source?: "cnlj" | "estimate" | null;
+          audience_age_scope?: "series" | "volume" | null;
+          audience_age_volumes?: number[] | null;
+          audience_age_ref?: string | null;
+          audience_age_year?: number | null;
+          curated?: boolean;
+          merged_into?: string | null;
+          synopsis?: string | null;
+          aliases?: string[];
+          created_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -91,6 +134,19 @@ export type Database = {
           external_ids?: Json;
           is_top_50_fr?: boolean;
           top_50_rank?: number | null;
+          genres?: string[];
+          demographic?: Demographic | null;
+          audience_min_age?: number | null;
+          audience_age_source?: "cnlj" | "estimate" | null;
+          audience_age_scope?: "series" | "volume" | null;
+          audience_age_volumes?: number[] | null;
+          audience_age_ref?: string | null;
+          audience_age_year?: number | null;
+          curated?: boolean;
+          merged_into?: string | null;
+          synopsis?: string | null;
+          aliases?: string[];
+          created_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -155,6 +211,8 @@ export type Database = {
             | "dropped";
           first_added_at: string;
           updated_at: string;
+          archived_at: string | null;
+          liked: boolean | null;
         };
         Insert: {
           id?: string;
@@ -169,6 +227,8 @@ export type Database = {
             | "completed"
             | "dropped";
           first_added_at?: string;
+          archived_at?: string | null;
+          liked?: boolean | null;
           updated_at?: string;
         };
         Update: {
@@ -184,6 +244,8 @@ export type Database = {
             | "completed"
             | "dropped";
           first_added_at?: string;
+          archived_at?: string | null;
+          liked?: boolean | null;
           updated_at?: string;
         };
         Relationships: [
@@ -196,6 +258,197 @@ export type Database = {
           },
           {
             foreignKeyName: "user_collections_manga_id_fkey";
+            columns: ["manga_id"];
+            isOneToOne: false;
+            referencedRelation: "mangas";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      user_volumes: {
+        Row: {
+          id: string;
+          user_id: string;
+          manga_id: string;
+          volume_number: number;
+          price_eur: number | null;
+          acquisition_type: AcquisitionType | null;
+          acquired_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          manga_id: string;
+          volume_number: number;
+          price_eur?: number | null;
+          acquisition_type?: AcquisitionType | null;
+          acquired_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          manga_id?: string;
+          volume_number?: number;
+          price_eur?: number | null;
+          acquisition_type?: AcquisitionType | null;
+          acquired_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_volumes_manga_id_fkey";
+            columns: ["manga_id"];
+            isOneToOne: false;
+            referencedRelation: "mangas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_volumes_collection_fkey";
+            columns: ["user_id", "manga_id"];
+            isOneToOne: false;
+            referencedRelation: "user_collections";
+            referencedColumns: ["user_id", "manga_id"];
+          }
+        ];
+      };
+      user_readings: {
+        Row: {
+          id: string;
+          user_id: string;
+          manga_id: string;
+          volume_number: number;
+          status: ReadingStatus;
+          finished_on: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          manga_id: string;
+          volume_number: number;
+          status: ReadingStatus;
+          finished_on?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          manga_id?: string;
+          volume_number?: number;
+          status?: ReadingStatus;
+          finished_on?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_readings_manga_id_fkey";
+            columns: ["manga_id"];
+            isOneToOne: false;
+            referencedRelation: "mangas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_readings_collection_fkey";
+            columns: ["user_id", "manga_id"];
+            isOneToOne: false;
+            referencedRelation: "user_collections";
+            referencedColumns: ["user_id", "manga_id"];
+          }
+        ];
+      };
+      discovery_dismissals: {
+        Row: { user_id: string; manga_id: string; created_at: string };
+        Insert: { user_id: string; manga_id: string; created_at?: string };
+        Update: { user_id?: string; manga_id?: string; created_at?: string };
+        Relationships: [];
+      };
+      editorial_selections: {
+        Row: {
+          id: string;
+          slug: string;
+          title: string;
+          description: string | null;
+          position: number;
+          published: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          title: string;
+          description?: string | null;
+          position?: number;
+          published?: boolean;
+        };
+        Update: {
+          slug?: string;
+          title?: string;
+          description?: string | null;
+          position?: number;
+          published?: boolean;
+        };
+        Relationships: [];
+      };
+      editorial_selection_items: {
+        Row: { selection_id: string; manga_id: string; position: number; note: string | null };
+        Insert: { selection_id: string; manga_id: string; position?: number; note?: string | null };
+        Update: { position?: number; note?: string | null };
+        Relationships: [
+          {
+            foreignKeyName: "editorial_selection_items_selection_id_fkey";
+            columns: ["selection_id"];
+            isOneToOne: false;
+            referencedRelation: "editorial_selections";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "editorial_selection_items_manga_id_fkey";
+            columns: ["manga_id"];
+            isOneToOne: false;
+            referencedRelation: "mangas";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      wishlist_items: {
+        Row: {
+          id: string;
+          user_id: string;
+          manga_id: string;
+          volume_number: number | null;
+          target_price: number | null;
+          priority: WishlistPriority;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          manga_id: string;
+          volume_number?: number | null;
+          target_price?: number | null;
+          priority?: WishlistPriority;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          manga_id?: string;
+          volume_number?: number | null;
+          target_price?: number | null;
+          priority?: WishlistPriority;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wishlist_items_manga_id_fkey";
             columns: ["manga_id"];
             isOneToOne: false;
             referencedRelation: "mangas";
@@ -385,6 +638,28 @@ export type Database = {
       generate_wrapped: {
         Args: { p_user_id: string; p_year: number };
         Returns: string;
+      };
+      search_mangas: {
+        Args: { p_query: string; p_limit?: number };
+        Returns: {
+          id: string;
+          title: string;
+          author: string | null;
+          publisher_fr: string | null;
+          total_volumes: number | null;
+          status: "ongoing" | "completed" | "paused";
+          cover_url: string | null;
+          genres: string[];
+          demographic: Demographic | null;
+          audience_min_age: number | null;
+          external_ids: Json;
+          is_private: boolean;
+          score: number;
+        }[];
+      };
+      consume_import_quota: {
+        Args: { p_user_id: string; p_kind: string; p_limit: number; p_window_seconds: number };
+        Returns: boolean;
       };
     };
   };

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
-export default function OnboardingRoot() {
-  redirect("/onboarding/1");
+// First steps happen in the library itself : add a manga.
+export default function OnboardingPage() {
+  redirect("/bibliotheque");
 }

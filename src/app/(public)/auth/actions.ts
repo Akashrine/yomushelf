@@ -43,23 +43,6 @@ export async function signIn(
     return { error: "Erreur de connexion. Réessaie." };
   }
 
-  // Check onboarding status
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("onboarding_completed")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.onboarding_completed) {
-      redirect("/onboarding/1");
-    }
-  }
-
   redirect("/bibliotheque");
 }
 
@@ -78,12 +61,13 @@ export async function signUp(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
       data: { username: parsed.data.username ?? "" },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+      // The email link lands on /auth/confirm (see supabase/templates).
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm?next=/bibliotheque`,
     },
   });
 
@@ -94,6 +78,8 @@ export async function signUp(
     return { error: "Erreur lors de l'inscription. Réessaie." };
   }
 
+  // No email confirmation required : the account is ready and signed in.
+  if (data.session) redirect("/bibliotheque");
   return { success: true };
 }
 
@@ -134,7 +120,7 @@ export async function resetPassword(
 
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/profil`,
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm?next=/univers%23reglages`,
   });
 
   if (error) return { error: "Erreur. Vérifie ton email et réessaie." };

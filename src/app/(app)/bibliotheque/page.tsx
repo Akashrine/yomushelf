@@ -1,62 +1,78 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
-import { LibraryShell } from "@/components/bibliotheque/library-shell";
-import { LibraryGrid } from "@/components/bibliotheque/library-grid";
-import { LibrarySkeleton } from "@/components/bibliotheque/library-skeleton";
+import { getOwnedVolumes, getReadings, getSeriesMeta } from "@/lib/supabase/queries";
+import { buildShelves } from "@/lib/collection/reading";
+import { AppShell } from "@/components/app/app-shell";
+import { LibraryHome, type ArchivedSeries, type ShelfCard, type WishPreview } from "@/components/bibliotheque/library-home";
 
 export const metadata: Metadata = { title: "Ma bibliothèque" };
 
-export default async function BibliotequePage() {
+// Home of the app : what to read now, the series, the wishes.
+// Everything comes from the server render ; actions refresh it.
+export default async function BibliothequePage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
   if (!user) redirect("/login");
 
-  // Fetch collection with manga details
-  const { data: collections } = await supabase
-    .from("user_collections")
-    .select(
-      `
-      id,
-      owned_volumes,
-      last_read_volume,
-      status,
-      updated_at,
-      mangas (
-        id, title, author, publisher_fr, total_volumes,
-        status, avg_price_eur, genre_primary, cover_url, top_50_rank
-      )
-    `
-    )
-    .eq("user_id", user.id)
-    .order("updated_at", { ascending: false });
+  const [series, volumes, readings, { data: profile }, wishesResult] = await Promise.all([
+    getSeriesMeta(supabase, user.id, { includeArchived: true }),
+    getOwnedVolumes(supabase, user.id),
+    getReadings(supabase, user.id),
+    supabase.from("profiles").select("username, avatar_initials").eq("id", user.id).single(),
+    supabase.from("wishlist_items").select("manga_id, volume_number, created_at, mangas ( title )").eq("user_id", user.id).order("created_at"),
+  ]);
+  if (wishesResult.error) throw new Error("Impossible de charger tes envies.");
+  const wishes = wishesResult.data ?? [];
 
-  // Fetch user stats via RPC
-  const { data: statsRaw } = await supabase.rpc("get_user_stats", {
-    p_user_id: user.id,
-  });
-  const stats = statsRaw?.[0] ?? null;
+  const active = series.filter((s) => !s.archived_at);
+  const archivedMeta = series.filter((s) => s.archived_at);
+  const shelves = buildShelves(active, volumes, readings);
+  const meta = new Map(series.map((s) => [s.manga_id, s]));
 
-  // Fetch profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username, avatar_initials")
-    .eq("id", user.id)
-    .single();
+  // Most recently active first : reading now, then last finished, then newest.
+  const cards: ShelfCard[] = shelves
+    .map((shelf) => ({
+      shelf,
+      totalVolumes: meta.get(shelf.manga_id)?.total_volumes ?? null,
+      wished: wishes.filter((w) => w.manga_id === shelf.manga_id && w.volume_number != null).map((w) => w.volume_number as number),
+      isPrivate: meta.get(shelf.manga_id)?.is_private ?? false,
+    }))
+    .sort((a, b) => {
+      const ra = a.shelf.reading.length ? 1 : 0;
+      const rb = b.shelf.reading.length ? 1 : 0;
+      return (
+        rb - ra ||
+        (b.shelf.lastFinished ?? "").localeCompare(a.shelf.lastFinished ?? "") ||
+        (meta.get(b.shelf.manga_id)?.first_added_at ?? "").localeCompare(meta.get(a.shelf.manga_id)?.first_added_at ?? "") ||
+        a.shelf.title.localeCompare(b.shelf.title, "fr")
+      );
+    });
+
+  const archived: ArchivedSeries[] = buildShelves(archivedMeta, volumes, readings).map((s) => ({
+    manga_id: s.manga_id,
+    title: s.title,
+    read: s.read.length,
+    owned: s.owned.length,
+  }));
+
+  const wishPreview: WishPreview[] = wishes.slice(0, 6).map((w) => ({
+    manga_id: w.manga_id,
+    title: (w.mangas as unknown as { title: string } | null)?.title ?? meta.get(w.manga_id)?.title ?? "Série",
+    volume_number: w.volume_number,
+  }));
 
   return (
-    <LibraryShell
-      username={profile?.username ?? null}
-      avatarInitials={profile?.avatar_initials ?? "?"}
-      stats={stats}
-    >
-      <Suspense fallback={<LibrarySkeleton />}>
-        <LibraryGrid collections={collections ?? []} />
-      </Suspense>
-    </LibraryShell>
+    <AppShell active="bibliotheque" avatarInitials={profile?.avatar_initials ?? undefined}>
+      <LibraryHome
+        name={profile?.username ?? null}
+        cards={cards}
+        archived={archived}
+        wishes={wishPreview}
+        wishCount={wishes.length}
+      />
+    </AppShell>
   );
 }

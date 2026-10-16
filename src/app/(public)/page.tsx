@@ -8,21 +8,19 @@ import Link from "next/link";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Yomushelf : suivre ta collection manga sans rien oublier",
+  title: "Yomushelf : tes mangas, là où tu en es",
   description:
-    "L'app FR pour collectionneurs manga. Scanne, ajoute, suis ton budget. Plus de doublons, plus de tomes oubliés. Inscription liste d'attente.",
+    "Retrouve les mangas que tu as, où tu en es dans chaque série, et ceux que tu aimeras ensuite. Simple pour toute la famille. Inscription liste d'attente.",
   openGraph: {
-    title: "Yomushelf : suivre ta collection manga sans rien oublier",
-    description:
-      "L'app FR pour collectionneurs manga. Scanne, ajoute, suis ton budget. Plus de doublons, plus de tomes oubliés.",
+    title: "Yomushelf : tes mangas, là où tu en es",
+    description: "Retrouve les mangas que tu as, où tu en es dans chaque série, et ceux que tu aimeras ensuite.",
     url: "https://yomushelf.com",
     images: [{ url: "https://yomushelf.com/og-image.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Yomushelf : suivre ta collection manga sans rien oublier",
-    description:
-      "L'app FR pour collectionneurs manga. Scanne, ajoute, suis ton budget.",
+    title: "Yomushelf : tes mangas, là où tu en es",
+    description: "Retrouve les mangas que tu as, où tu en es dans chaque série, et ceux que tu aimeras ensuite.",
     images: ["https://yomushelf.com/og-image.png"],
   },
 };
@@ -34,14 +32,14 @@ const FEATURES = [
     body: "Tous tes tomes au même endroit. Vois en un coup d'œil ce que tu as, ce qu'il te manque, et où tu en es dans chaque série.",
   },
   {
-    icon: "📷",
-    title: "Ajoute un tome en 2 secondes",
-    body: "Scanne le code-barres avec ton téléphone. L'app reconnaît le tome et l'ajoute à ta collection sans friction.",
+    icon: "🧭",
+    title: "Ta prochaine série",
+    body: "Des idées qui ressemblent à ce que tu aimes, chacune avec son explication. Et une carte de tes goûts pour explorer.",
   },
   {
     icon: "💶",
-    title: "Ton budget manga, transparent",
-    body: "Suis combien tu as investi dans ta passion. Anticipe les achats à venir. Pas de mauvaise surprise à la caisse.",
+    title: "Tes dépenses, si tu veux",
+    body: "Note le prix payé quand tu le connais. Les cadeaux restent à part, et rien n'est inventé.",
   },
 ];
 
@@ -68,7 +66,7 @@ export default async function LandingPage({ searchParams }: Props) {
           <span className="text-xl font-bold tracking-tight" style={{ color: "var(--accent)" }}>漫</span>
           <span className="text-base font-semibold tracking-tight">Yomushelf</span>
         </div>
-        <a href="/login" className="text-sm font-medium px-4 py-1.5 rounded-lg transition-colors" style={{ color: "var(--muted)" }}>
+        <a href="/login" className="flex min-h-11 items-center rounded-lg px-4 text-sm font-medium transition-colors" style={{ color: "var(--muted)" }}>
           Connexion
         </a>
       </header>
@@ -91,13 +89,13 @@ export default async function LandingPage({ searchParams }: Props) {
 
                 <div className="flex flex-col gap-4">
                   <h1 className="text-4xl sm:text-5xl lg:text-5xl xl:text-6xl font-bold leading-[1.1] tracking-tight">
-                    Ta collection manga,
+                    Tes mangas, là où tu en es.
                     <br />
-                    <span style={{ color: "var(--accent)" }}>enfin maîtrisée.</span>
+                    <span style={{ color: "var(--accent)" }}>Et ceux que tu aimeras ensuite.</span>
                   </h1>
                   <p className="text-lg leading-relaxed max-w-md" style={{ color: "var(--muted)" }}>
-                    40 sorties par semaine. Des séries de 40 tomes. Un budget qui fout le camp.
-                    Yomushelf te remet aux commandes.
+                    Retrouve tes séries, ce que tu as déjà lu et le prochain tome à lire. Assez simple pour un enfant,
+                    agréable pour les ados et les adultes.
                   </p>
                 </div>
 
@@ -201,7 +199,7 @@ export default async function LandingPage({ searchParams }: Props) {
             <div className="flex flex-col gap-3">
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Sois parmi les premiers.</h2>
               <p className="text-base" style={{ color: "var(--muted)" }}>
-                L'accès est limité au lancement. Inscris-toi maintenant, on te prévient dès que c'est ouvert.
+                L&apos;accès est limité au lancement. Inscris-toi maintenant, on te prévient dès que c&apos;est ouvert.
               </p>
             </div>
             <WaitlistForm source="landing_footer" />

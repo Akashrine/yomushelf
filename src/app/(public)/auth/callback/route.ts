@@ -4,7 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/bibliotheque";
+  // Same-site paths only : "//host", "/\\host" or "https://…" would leave the app.
+  const rawNext = searchParams.get("next") ?? "/bibliotheque";
+  const next = /^\/(?![\/\\])/.test(rawNext) ? rawNext : "/bibliotheque";
   const error = searchParams.get("error");
 
   if (error) {
@@ -20,23 +22,6 @@ export async function GET(request: NextRequest) {
 
   if (exchangeError) {
     return NextResponse.redirect(`${origin}/login?error=exchange_failed`);
-  }
-
-  // Check if onboarding is complete
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("onboarding_completed")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.onboarding_completed) {
-      return NextResponse.redirect(`${origin}/onboarding/1`);
-    }
   }
 
   return NextResponse.redirect(`${origin}${next}`);

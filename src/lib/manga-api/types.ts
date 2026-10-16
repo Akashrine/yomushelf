@@ -39,6 +39,8 @@ export type MALMangaNode = {
   genres?: Array<{ id: number; name: string }>;
   authors?: Array<{ node: { id: number; first_name: string; last_name: string }; role: string }>;
   serialization?: Array<{ node: { id: number; name: string }; role: string }>;
+  nsfw?: "white" | "gray" | "black";
+  media_type?: string; // manga, one_shot, manhwa, manhua, novel, light_novel, doujinshi, oel
 };
 
 // Google Books raw types

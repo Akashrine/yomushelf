@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId } from "react";
+import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { signIn, signUp, signInWithGoogle } from "@/app/(public)/auth/actions";
+import { resetPassword, signIn, signUp, signInWithGoogle } from "@/app/(public)/auth/actions";
 
 // ─── Shared field ─────────────────────────────────────────────
 function Field({
@@ -20,43 +21,63 @@ function Field({
   autoComplete?: string;
   required?: boolean;
 }) {
+  const id = useId();
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+      <label htmlFor={id} className="text-sm font-medium">
         {label}
       </label>
       <input
+        id={id}
         name={name}
         type={type}
         placeholder={placeholder}
         autoComplete={autoComplete}
         required={required}
-        className="rounded-xl px-4 py-3 text-sm outline-none transition-all"
+        className="min-h-12 rounded-xl px-4 text-base outline-none transition-all focus:ring-2 focus:ring-[var(--accent)]"
         style={{
           background: "var(--surface-raised)",
           border: "1px solid var(--border)",
           color: "var(--foreground)",
         }}
-        onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
-        onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
       />
     </div>
   );
 }
 
+function FormError({ text }: { text?: string }) {
+  if (!text) return null;
+  return (
+    <p role="alert" className="rounded-lg px-3 py-2 text-sm" style={{ background: "#c0392b22", color: "#ff8a7a", border: "1px solid #c0392b66" }}>
+      {text}
+    </p>
+  );
+}
+
 // ─── Google button ────────────────────────────────────────────
+function GoogleSubmit({ children }: { children: React.ReactNode }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl px-4 text-sm font-medium transition-colors disabled:opacity-60"
+      style={{
+        background: "var(--surface-raised)",
+        border: "1px solid var(--border)",
+        color: "var(--foreground)",
+      }}
+    >
+      {children}
+      {pending && <span className="sr-only">Connexion à Google…</span>}
+    </button>
+  );
+}
+
 function GoogleButton({ label }: { label: string }) {
   return (
     <form action={signInWithGoogle}>
-      <button
-        type="submit"
-        className="w-full flex items-center justify-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors"
-        style={{
-          background: "var(--surface-raised)",
-          border: "1px solid var(--border)",
-          color: "var(--foreground)",
-        }}
-      >
+      <GoogleSubmit>
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
           <path
             fill="#4285F4"
@@ -76,7 +97,7 @@ function GoogleButton({ label }: { label: string }) {
           />
         </svg>
         {label}
-      </button>
+      </GoogleSubmit>
     </form>
   );
 }
@@ -93,11 +114,12 @@ function Divider() {
 }
 
 // ─── Login form ───────────────────────────────────────────────
-export function LoginForm() {
+export function LoginForm({ notice }: { notice?: string }) {
   const [state, action, pending] = useActionState(signIn, {});
 
   return (
     <div className="flex flex-col gap-5">
+      <FormError text={notice} />
       <GoogleButton label="Continuer avec Google" />
       <Divider />
       <form action={action} className="flex flex-col gap-4">
@@ -112,31 +134,25 @@ export function LoginForm() {
           label="Mot de passe"
           name="password"
           type="password"
-          placeholder="••••••••"
           autoComplete="current-password"
         />
 
-        {state?.error && (
-          <p className="text-xs rounded-lg px-3 py-2"
-            style={{ background: "#c0392b22", color: "#e74c3c", border: "1px solid #c0392b44" }}>
-            {state.error}
-          </p>
-        )}
+        <FormError text={state?.error} />
 
         <button
           type="submit"
           disabled={pending}
-          className="w-full rounded-xl py-3 text-sm font-semibold transition-all active:scale-[0.99] disabled:opacity-60 mt-1"
+          className="mt-1 min-h-12 w-full rounded-xl text-sm font-semibold transition-all active:scale-[0.99] disabled:opacity-60"
           style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
         >
           {pending ? "Connexion…" : "Se connecter"}
         </button>
 
-        <div className="flex items-center justify-between text-xs" style={{ color: "var(--muted)" }}>
-          <Link href="/signup" className="hover:underline">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 text-sm" style={{ color: "var(--muted)" }}>
+          <Link href="/signup" className="flex min-h-11 items-center underline-offset-4 hover:underline">
             Pas encore de compte ?
           </Link>
-          <Link href="/forgot-password" className="hover:underline">
+          <Link href="/forgot-password" className="flex min-h-11 items-center underline-offset-4 hover:underline">
             Mot de passe oublié ?
           </Link>
         </div>
@@ -158,9 +174,9 @@ export function SignupForm() {
           border: "1px solid var(--border)",
         }}
       >
-        <p className="text-base font-semibold mb-2">Vérifie tes emails 📬</p>
+        <p className="mb-2 text-base font-semibold" role="status">Vérifie tes emails.</p>
         <p style={{ color: "var(--muted)" }}>
-          On t'a envoyé un lien de confirmation. Clique dessus pour activer ton compte.
+          On t&apos;a envoyé un lien de confirmation. Clique dessus pour activer ton compte.
         </p>
       </div>
     );
@@ -172,7 +188,7 @@ export function SignupForm() {
       <Divider />
       <form action={action} className="flex flex-col gap-4">
         <Field
-          label="Pseudo (optionnel)"
+          label="Pseudo (facultatif)"
           name="username"
           placeholder="ton_pseudo"
           autoComplete="username"
@@ -193,29 +209,54 @@ export function SignupForm() {
           autoComplete="new-password"
         />
 
-        {state?.error && (
-          <p className="text-xs rounded-lg px-3 py-2"
-            style={{ background: "#c0392b22", color: "#e74c3c", border: "1px solid #c0392b44" }}>
-            {state.error}
-          </p>
-        )}
+        <FormError text={state?.error} />
 
         <button
           type="submit"
           disabled={pending}
-          className="w-full rounded-xl py-3 text-sm font-semibold transition-all active:scale-[0.99] disabled:opacity-60 mt-1"
+          className="mt-1 min-h-12 w-full rounded-xl text-sm font-semibold transition-all active:scale-[0.99] disabled:opacity-60"
           style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
         >
           {pending ? "Création…" : "Créer mon compte"}
         </button>
 
-        <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
+        <p className="text-center text-sm" style={{ color: "var(--muted)" }}>
           Déjà un compte ?{" "}
-          <Link href="/login" className="hover:underline" style={{ color: "var(--foreground)" }}>
+          <Link href="/login" className="inline-flex min-h-11 items-center underline underline-offset-4" style={{ color: "var(--foreground)" }}>
             Se connecter
           </Link>
         </p>
       </form>
     </div>
+  );
+}
+
+// ─── Forgot password ──────────────────────────────────────────
+export function ForgotPasswordForm() {
+  const [state, action, pending] = useActionState(resetPassword, {});
+  if (state?.success) {
+    return (
+      <p role="status" className="rounded-xl p-5 text-sm leading-relaxed" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+        Si un compte existe pour cet email, tu vas recevoir un lien pour choisir un nouveau mot de passe. Pense à regarder tes
+        courriers indésirables.
+      </p>
+    );
+  }
+  return (
+    <form action={action} className="flex flex-col gap-4">
+      <Field label="Email" name="email" type="email" placeholder="ton@email.fr" autoComplete="email" />
+      <FormError text={state?.error} />
+      <button
+        type="submit"
+        disabled={pending}
+        className="min-h-12 w-full rounded-xl text-sm font-semibold disabled:opacity-60"
+        style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+      >
+        {pending ? "Envoi…" : "Recevoir le lien"}
+      </button>
+      <Link href="/login" className="flex min-h-11 items-center justify-center text-sm underline underline-offset-4" style={{ color: "var(--muted)" }}>
+        Retour à la connexion
+      </Link>
+    </form>
   );
 }

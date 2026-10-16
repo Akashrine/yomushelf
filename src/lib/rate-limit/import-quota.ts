@@ -6,6 +6,8 @@ export const IMPORT_QUOTAS = {
   import: { limit: 10, windowSeconds: 60 * 60 },
   // ISBN lookups against Google Books
   isbn_lookup: { limit: 30, windowSeconds: 60 },
+  // Searches that also ask MyAnimeList (local search stays unlimited)
+  remote_search: { limit: 30, windowSeconds: 60 },
 } as const;
 
 export type ImportQuotaKind = keyof typeof IMPORT_QUOTAS;

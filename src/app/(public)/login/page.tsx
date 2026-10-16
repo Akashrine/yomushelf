@@ -7,7 +7,24 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
-export default function LoginPage() {
+// Errors sent back by the Google sign-in and the email link callback.
+const CALLBACK_ERRORS: Record<string, string> = {
+  oauth: "La connexion avec Google n'a pas abouti. Réessaie.",
+  access_denied: "Connexion annulée.",
+  no_code: "Ce lien de connexion n'est pas valable. Redemande-en un.",
+  // Mail scanners sometimes open links before the reader : a sign-up is
+  // then confirmed all the same.
+  link_invalid:
+    "Ce lien a expiré ou a déjà servi. Si tu venais de créer ton compte, il est sans doute confirmé : connecte-toi avec ton mot de passe. Sinon, redemande un lien.",
+  // Also happens when the link is opened on another device than the one
+  // that asked for it (PKCE) : a sign-up is then confirmed all the same.
+  exchange_failed:
+    "Ce lien n'a pas pu te connecter ici. Si tu venais de créer ton compte, il est confirmé : connecte-toi avec ton mot de passe. Sinon, redemande un lien.",
+};
+
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error } = await searchParams;
+  const notice = error ? CALLBACK_ERRORS[error] ?? "La connexion n'a pas abouti. Réessaie." : undefined;
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-16">
       <div className="w-full max-w-sm flex flex-col gap-8">
@@ -31,7 +48,7 @@ export default function LoginPage() {
               Connecte-toi à ta bibliothèque.
             </p>
           </div>
-          <LoginForm />
+          <LoginForm notice={notice} />
         </div>
       </div>
     </div>

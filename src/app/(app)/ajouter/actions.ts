@@ -1,18 +1,21 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { consumeImportQuota } from "@/lib/rate-limit/import-quota";
 import { lookupByIsbn } from "@/lib/manga-api/google-books";
 import { getMangaByIdMAL } from "@/lib/manga-api/mal";
+import { splitVolumeTitle } from "@/lib/manga-api/volume-title";
+import { titleKey } from "@/lib/manga-api/merge";
 import { cacheCoverToStorage } from "@/lib/manga-api/storage";
-import {
-  getUserCollection,
-  updateCollectionVolumes,
-} from "@/lib/supabase/queries";
+import { upsertUserVolume } from "@/app/(app)/bibliotheque/actions";
 import type { MangaSearchResult } from "@/lib/manga-api/types";
-import type { Json } from "@/lib/types/database";
+import type { Database, Json } from "@/lib/types/database";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { todayIso } from "@/lib/collection/value";
+import { acquisitionTypeField, priceField } from "@/lib/collection/schema";
 
 function getServiceClient() {
   return createServiceClient(
@@ -22,67 +25,14 @@ function getServiceClient() {
 }
 
 // ─────────────────────────────────────────
-// addVolumeToCollection
+// addVolumeToCollection — one volume, its optional price and origin,
+// and whether it was already read (date unknown).
 // ─────────────────────────────────────────
 
-const AddVolumeSchema = z.object({
-  manga_id: z.string().uuid(),
-  volume_number: z.coerce.number().int().positive(),
-});
+type AddVolumeResult = { success: true } | { success: false; error: string };
 
-type AddVolumeResult =
-  | { success: true; owned_volumes: number[] }
-  | { success: false; error: string };
-
-export async function addVolumeToCollection(
-  formData: FormData
-): Promise<AddVolumeResult> {
-  const parsed = AddVolumeSchema.safeParse({
-    manga_id: formData.get("manga_id"),
-    volume_number: formData.get("volume_number"),
-  });
-
-  if (!parsed.success) {
-    return { success: false, error: "Données invalides." };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Non authentifié." };
-
-  const { manga_id, volume_number } = parsed.data;
-
-  const existing = await getUserCollection(supabase, user.id, manga_id);
-
-  if (existing) {
-    if (existing.owned_volumes.includes(volume_number)) {
-      return { success: true, owned_volumes: existing.owned_volumes };
-    }
-
-    const newVolumes = [...existing.owned_volumes, volume_number].sort(
-      (a, b) => a - b
-    );
-    const { error } = await updateCollectionVolumes(
-      supabase,
-      existing.id,
-      newVolumes
-    );
-    if (error) return { success: false, error: "Erreur lors de l'ajout." };
-    return { success: true, owned_volumes: newVolumes };
-  }
-
-  // First volume for this series
-  const { error } = await supabase.from("user_collections").insert({
-    user_id: user.id,
-    manga_id,
-    owned_volumes: [volume_number],
-    status: "not_started",
-  });
-
-  if (error) return { success: false, error: "Erreur lors de l'ajout." };
-  return { success: true, owned_volumes: [volume_number] };
+export async function addVolumeToCollection(formData: FormData): Promise<AddVolumeResult> {
+  return upsertUserVolume(formData);
 }
 
 // ─────────────────────────────────────────
@@ -119,11 +69,12 @@ export async function lookupIsbn(formData: FormData): Promise<IsbnResult> {
   const isbn = parsed.data.isbn;
 
   // 1. Check local DB first
-  const { data: localVolume } = await supabase
+  const { data: localVolume, error: lookupError } = await supabase
     .from("volumes")
     .select("volume_number, manga_id, mangas(*)")
     .eq("isbn_13", isbn)
     .maybeSingle();
+  if (lookupError) return { success: false, error: "Impossible de vérifier le catalogue. Réessaie." };
 
   if (localVolume?.mangas) {
     const manga = localVolume.mangas as Record<string, unknown>;
@@ -149,7 +100,12 @@ export async function lookupIsbn(formData: FormData): Promise<IsbnResult> {
   }
 
   // 2. Google Books fallback
-  const result = await lookupByIsbn(isbn);
+  let result: MangaSearchResult | null;
+  try {
+    result = await lookupByIsbn(isbn);
+  } catch {
+    return { success: false, error: "Le catalogue en ligne ne répond pas. Réessaie plus tard." };
+  }
   if (!result) {
     return {
       success: false,
@@ -157,7 +113,38 @@ export async function lookupIsbn(formData: FormData): Promise<IsbnResult> {
     };
   }
 
-  return { success: true, manga: result, volume_number: null };
+  // The record names a volume : point to the series already in the
+  // catalogue instead of offering a new one for every volume.
+  const known = await findSeriesForVolumeTitle(supabase, result.title);
+  if (known) {
+    const { data: manga } = await supabase
+      .from("mangas")
+      .select("id, title, author, publisher_fr, total_volumes, status, genre_primary, cover_url")
+      .eq("id", known.manga_id)
+      .single();
+    if (manga) {
+      return {
+        success: true,
+        manga: {
+          source: "db",
+          id: manga.id,
+          external_id: manga.id,
+          title: manga.title,
+          author: manga.author,
+          publisher_fr: manga.publisher_fr,
+          total_volumes: manga.total_volumes,
+          status: manga.status,
+          avg_price_eur: 7.5,
+          genre_primary: manga.genre_primary,
+          cover_url: manga.cover_url,
+          external_ids: { isbn_13: isbn },
+        },
+        volume_number: known.volume,
+      };
+    }
+  }
+
+  return { success: true, manga: result, volume_number: splitVolumeTitle(result.title).volume };
 }
 
 // ─────────────────────────────────────────
@@ -223,6 +210,153 @@ async function insertCatalogEntry(meta: MangaSearchResult): Promise<string | nul
   return data.id;
 }
 
+type Supabase = SupabaseClient<Database>;
+type Resolved = { ok: true; manga_id: string } | { ok: false; error: string };
+
+// A bookstore record ("One Piece - Tome 12") → the catalogue series it
+// belongs to, matched on its title or aliases. Never creates anything.
+async function findSeriesForVolumeTitle(
+  supabase: Supabase,
+  rawTitle: string
+): Promise<{ manga_id: string; volume: number | null } | null> {
+  const split = splitVolumeTitle(rawTitle);
+  const candidates = [...new Set([split.series, rawTitle.trim()])];
+  for (const candidate of candidates) {
+    const { data: hits, error } = await supabase.rpc("search_mangas", { p_query: candidate, p_limit: 5 });
+    if (error || !hits?.length) continue;
+    const { data: rows } = await supabase.from("mangas").select("id, title, aliases").in("id", hits.map((h) => h.id));
+    const key = titleKey(candidate);
+    const match = (rows ?? []).find((r) => [r.title, ...(r.aliases ?? [])].some((t) => titleKey(t) === key));
+    if (match) return { manga_id: match.id, volume: candidate === split.series ? split.volume : null };
+  }
+  return null;
+}
+
+type SeriesSource =
+  | { source: "db"; manga_id: string }
+  | { source: "mal"; mal_id: number }
+  | { source: "google_books"; isbn: string }
+  | { source: "private"; title: string; author?: string | null; total_volumes?: number | null };
+
+// Finds the catalogue series the reader means, creating it when needed :
+// from a provider (server-side metadata, quota per account) or as a
+// private series that only this reader can see.
+async function resolveSeries(supabase: Supabase, userId: string, src: SeriesSource): Promise<Resolved> {
+  if (src.source === "db") {
+    const { data, error } = await supabase.from("mangas").select("id, merged_into").eq("id", src.manga_id).maybeSingle();
+    if (error) return { ok: false, error: "Impossible de vérifier le catalogue. Réessaie." };
+    if (!data) return { ok: false, error: "Série introuvable." };
+    // A merged series lives on under the series it was merged into.
+    return { ok: true, manga_id: data.merged_into ?? data.id };
+  }
+
+  if (src.source === "private") {
+    const title = src.title.trim().replace(/\s+/g, " ");
+    // Same title typed twice : reuse the reader's own private series.
+    const { data: mine, error: findError } = await supabase
+      .from("mangas")
+      .select("id, title")
+      .eq("created_by", userId);
+    if (findError) return { ok: false, error: "Impossible de vérifier le catalogue. Réessaie." };
+    const same = (mine ?? []).find((m) => m.title.toLowerCase() === title.toLowerCase());
+    if (same) return { ok: true, manga_id: same.id };
+    if (!(await consumeImportQuota(userId, "import"))) {
+      return { ok: false, error: "Tu as ajouté beaucoup de séries d'un coup. Réessaie dans une heure." };
+    }
+    // Readers may only write these columns (see the catalogue migration) ;
+    // the id comes from the database.
+    const { data: created, error } = await supabase
+      .from("mangas")
+      .insert({
+        title,
+        author: src.author?.trim() || null,
+        total_volumes: src.total_volumes ?? null,
+        status: "ongoing",
+        created_by: userId,
+      })
+      .select("id")
+      .single();
+    if (error || !created) return { ok: false, error: "Impossible de créer cette série. Réessaie." };
+    return { ok: true, manga_id: created.id };
+  }
+
+  // Already in the catalogue ? Reuse it, no quota spent.
+  const key = src.source === "mal" ? { mal_id: src.mal_id } : { isbn_13: src.isbn };
+  const { data: existing, error: lookupError } = await supabase
+    .from("mangas")
+    .select("id")
+    .contains("external_ids", key)
+    .is("merged_into", null)
+    .limit(1)
+    .maybeSingle();
+  if (lookupError) return { ok: false, error: "Impossible de vérifier le catalogue. Réessaie." };
+  if (existing) return { ok: true, manga_id: existing.id };
+
+  if (!(await consumeImportQuota(userId, "import"))) {
+    return { ok: false, error: "Tu as ajouté beaucoup de séries d'un coup. Réessaie dans une heure." };
+  }
+  if (src.source === "google_books") {
+    // A bookstore record describes one volume with poor metadata : it is
+    // only used to recognise a series already in the catalogue.
+    let record: MangaSearchResult | null = null;
+    try {
+      record = await lookupByIsbn(src.isbn);
+    } catch {
+      return { ok: false, error: "Le catalogue en ligne ne répond pas. Réessaie plus tard." };
+    }
+    if (!record) return { ok: false, error: "ISBN introuvable. Cherche la série par son titre." };
+    const known = await findSeriesForVolumeTitle(supabase, record.title);
+    if (known) return { ok: true, manga_id: known.manga_id };
+    return {
+      ok: false,
+      error: "Cette série n'est pas encore au catalogue. Cherche-la par son titre, ou ajoute-la toi-même.",
+    };
+  }
+
+  let found: Awaited<ReturnType<typeof getMangaByIdMAL>> = null;
+  try {
+    found = await getMangaByIdMAL(src.mal_id);
+  } catch {
+    return { ok: false, error: "Le catalogue en ligne ne répond pas. Réessaie plus tard." };
+  }
+  if (!found) return { ok: false, error: "Série introuvable." };
+  if ("refused" in found) {
+    return {
+      ok: false,
+      error: "Cette œuvre ne peut pas entrer dans le catalogue commun. Tu peux l'ajouter toi-même en fiche personnelle.",
+    };
+  }
+  const meta = found;
+  const id = await insertCatalogEntry(meta);
+  if (!id) return { ok: false, error: "Erreur lors de l'ajout du manga." };
+  return { ok: true, manga_id: id };
+}
+
+// Makes sure the series is on the reader's shelf, bringing it back if it
+// was archived. Never touches existing volumes or readings.
+async function ensureOnShelf(supabase: Supabase, userId: string, mangaId: string): Promise<boolean> {
+  const { error } = await supabase.from("user_collections").upsert(
+    { user_id: userId, manga_id: mangaId, owned_volumes: [], status: "not_started" },
+    { onConflict: "user_id,manga_id", ignoreDuplicates: true }
+  );
+  if (error) return false;
+  const { error: unarchiveError } = await supabase
+    .from("user_collections")
+    .update({ archived_at: null })
+    .eq("user_id", userId)
+    .eq("manga_id", mangaId)
+    .not("archived_at", "is", null);
+  return !unarchiveError;
+}
+
+function revalidateLibrary(mangaId?: string) {
+  revalidatePath("/bibliotheque");
+  if (mangaId) revalidatePath(`/bibliotheque/${mangaId}`);
+  revalidatePath("/envies");
+  revalidatePath("/decouvrir");
+  revalidatePath("/univers");
+}
+
 export async function addMangaFromExternalSource(
   formData: FormData
 ): Promise<AddFromExternalResult> {
@@ -236,53 +370,191 @@ export async function addMangaFromExternalSource(
   if (!parsed.success) return { success: false, error: "Données invalides." };
   const d = parsed.data;
 
-  let manga_id: string | null = null;
-
-  if (d.source === "db") {
-    const { data } = await supabase.from("mangas").select("id").eq("id", d.manga_id).maybeSingle();
-    if (!data) return { success: false, error: "Série introuvable." };
-    manga_id = data.id;
-  } else {
-    // Already in the catalogue ? Reuse it, no quota spent.
-    const key = d.source === "mal" ? { mal_id: d.mal_id } : { isbn_13: d.isbn };
-    const { data: existing } = await supabase
-      .from("mangas")
-      .select("id")
-      .contains("external_ids", key)
-      .limit(1)
-      .maybeSingle();
-
-    if (existing) {
-      manga_id = existing.id;
-    } else {
-      if (!(await consumeImportQuota(user.id, "import"))) {
-        return { success: false, error: "Tu as ajouté beaucoup de séries d'un coup. Réessaie dans une heure." };
-      }
-      let meta: MangaSearchResult | null = null;
-      try {
-        meta = d.source === "mal" ? await getMangaByIdMAL(d.mal_id) : await lookupByIsbn(d.isbn);
-      } catch {
-        return { success: false, error: "Le catalogue en ligne ne répond pas. Réessaie plus tard." };
-      }
-      if (!meta) return { success: false, error: "Série introuvable." };
-      manga_id = await insertCatalogEntry(meta);
-      if (!manga_id) return { success: false, error: "Erreur lors de l'ajout du manga." };
-    }
-  }
+  const resolved = await resolveSeries(supabase, user.id, d);
+  if (!resolved.ok) return { success: false, error: resolved.error };
+  const manga_id = resolved.manga_id;
 
   if (d.volume_number) {
     const volumeFormData = new FormData();
     volumeFormData.set("manga_id", manga_id);
     volumeFormData.set("volume_number", String(d.volume_number));
+    for (const key of ["price_eur", "acquisition_type", "reading"]) {
+      const value = formData.get(key);
+      if (value != null) volumeFormData.set(key, value);
+    }
     const addResult = await addVolumeToCollection(volumeFormData);
     if (!addResult.success) return { success: false, error: addResult.error };
-  } else {
-    const { error } = await supabase.from("user_collections").upsert(
-      { user_id: user.id, manga_id, owned_volumes: [], status: "not_started" },
-      { onConflict: "user_id,manga_id", ignoreDuplicates: true }
-    );
-    if (error) return { success: false, error: "Erreur lors de l'ajout. Réessaie." };
+  } else if (!(await ensureOnShelf(supabase, user.id, manga_id))) {
+    return { success: false, error: "Erreur lors de l'ajout. Réessaie." };
   }
 
+  revalidateLibrary(manga_id);
   return { success: true, manga_id };
+}
+
+// ─────────────────────────────────────────
+// addSeriesToLibrary — the common add flow (new series, several volumes,
+// "J'ai le tome 15 !", private series). One call :
+//   which series · which volumes are at home · where the reading is.
+// Existing volumes keep their price, origin and date ; existing
+// readings keep their date. Unknown dates stay unknown.
+// ─────────────────────────────────────────
+
+const MAX_VOLUME = 500;
+const VolumeNumber = z
+  .number({ error: "Numéro de tome invalide." })
+  .int("Numéro de tome invalide.")
+  .positive("Numéro de tome invalide.")
+  .max(MAX_VOLUME, `${MAX_VOLUME} tomes maximum.`);
+
+const AddSeriesSchema = z.object({
+  series: z.discriminatedUnion("source", [
+    z.object({ source: z.literal("db"), manga_id: z.string().uuid() }),
+    z.object({ source: z.literal("mal"), mal_id: z.number().int().positive() }),
+    z.object({ source: z.literal("google_books"), isbn: z.string().regex(/^\d{13}$/) }),
+    z.object({
+      source: z.literal("private"),
+      title: z.string().trim().min(1, "Écris le titre.").max(200, "Titre trop long (200 caractères maximum)."),
+      author: z.string().trim().max(200, "Nom d'auteur trop long.").nullish(),
+      total_volumes: VolumeNumber.nullish(),
+    }),
+  ]),
+  owned: z.discriminatedUnion("mode", [
+    z.object({ mode: z.literal("none") }),
+    z.object({ mode: z.literal("range"), to: VolumeNumber, from: VolumeNumber.default(1) }),
+    z.object({ mode: z.literal("list"), volumes: z.array(VolumeNumber).min(1, "Choisis au moins un tome.").max(MAX_VOLUME) }),
+  ]),
+  reading: z.discriminatedUnion("mode", [
+    z.object({ mode: z.literal("none") }),
+    z.object({ mode: z.literal("all_owned") }),
+    // Only the volumes added by this request ("Je l'ai déjà lu").
+    z.object({ mode: z.literal("added") }),
+    z.object({ mode: z.literal("up_to"), to: VolumeNumber }),
+  ]),
+  // When the volumes arrived : today (a new purchase), a given date, or
+  // unknown (already on the shelf). Never in the future.
+  arrived_now: z.boolean().default(false),
+  acquired_on: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide.")
+    .refine((d) => d <= todayIso(), "La date ne peut pas être dans le futur.")
+    .nullish(),
+  acquisition_type: acquisitionTypeField,
+  price_eur: priceField,
+});
+
+export type AddSeriesInput = z.input<typeof AddSeriesSchema>;
+export type AddSeriesResult =
+  | { success: true; manga_id: string; added_volumes: number; added_readings: number }
+  | { success: false; error: string };
+
+// Honest message when the volumes went in but the readings did not.
+function partialReadings(addedVolumes: number): string {
+  return addedVolumes
+    ? `${addedVolumes} tome${addedVolumes > 1 ? "s" : ""} enregistré${addedVolumes > 1 ? "s" : ""}, mais pas tes lectures. Réessaie : rien ne sera ajouté deux fois.`
+    : "Tes lectures n'ont pas été enregistrées. Réessaie.";
+}
+
+export async function addSeriesToLibrary(input: AddSeriesInput): Promise<AddSeriesResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Non authentifié." };
+
+  const parsed = AddSeriesSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Données invalides." };
+  }
+  const d = parsed.data;
+  if (d.owned.mode === "range" && d.owned.from > d.owned.to) {
+    return { success: false, error: "Le premier tome doit venir avant le dernier." };
+  }
+
+  const resolved = await resolveSeries(supabase, user.id, d.series);
+  if (!resolved.ok) return { success: false, error: resolved.error };
+  const manga_id = resolved.manga_id;
+
+  if (!(await ensureOnShelf(supabase, user.id, manga_id))) {
+    return { success: false, error: "Erreur lors de l'ajout. Réessaie." };
+  }
+
+  const ownedSpec = d.owned;
+  const owned =
+    ownedSpec.mode === "none"
+      ? []
+      : ownedSpec.mode === "range"
+        ? Array.from({ length: ownedSpec.to - ownedSpec.from + 1 }, (_, i) => ownedSpec.from + i)
+        : [...new Set(ownedSpec.volumes)].sort((a, b) => a - b);
+
+  let addedVolumes = 0;
+  if (owned.length) {
+    const { data: inserted, error } = await supabase
+      .from("user_volumes")
+      .upsert(
+        owned.map((n) => ({
+          user_id: user.id,
+          manga_id,
+          volume_number: n,
+          price_eur: d.price_eur,
+          acquisition_type: d.acquisition_type,
+          acquired_at: d.acquired_on ?? (d.arrived_now ? todayIso() : null),
+        })),
+        { onConflict: "user_id,manga_id,volume_number", ignoreDuplicates: true }
+      )
+      .select("volume_number");
+    if (error) {
+      return {
+        success: false,
+        error: "La série est dans ta bibliothèque, mais les tomes n'ont pas été enregistrés. Réessaie : rien ne sera ajouté deux fois.",
+      };
+    }
+    addedVolumes = inserted?.length ?? 0;
+  }
+
+  // "J'ai lu tous ceux que j'ai" covers the volumes already at home too,
+  // not only the ones typed now.
+  let atHome = owned;
+  if (d.reading.mode === "all_owned") {
+    const { data: rows, error } = await supabase
+      .from("user_volumes")
+      .select("volume_number")
+      .eq("user_id", user.id)
+      .eq("manga_id", manga_id);
+    if (error) return { success: false, error: partialReadings(addedVolumes) };
+    atHome = [...new Set([...owned, ...(rows ?? []).map((r) => r.volume_number)])].sort((a, b) => a - b);
+  }
+
+  let addedReadings = 0;
+  const readVolumes =
+    d.reading.mode === "none"
+      ? []
+      : d.reading.mode === "all_owned"
+        ? atHome
+        : d.reading.mode === "added"
+          ? owned
+          : Array.from({ length: d.reading.to }, (_, i) => i + 1);
+  if (readVolumes.length) {
+    // A volume in progress becomes read ; finished readings keep their date.
+    const { error: upgradeError } = await supabase
+      .from("user_readings")
+      .update({ status: "read", finished_on: null })
+      .eq("user_id", user.id)
+      .eq("manga_id", manga_id)
+      .eq("status", "reading")
+      .in("volume_number", readVolumes);
+    if (upgradeError) return { success: false, error: partialReadings(addedVolumes) };
+    const { data: inserted, error } = await supabase
+      .from("user_readings")
+      .upsert(
+        readVolumes.map((n) => ({ user_id: user.id, manga_id, volume_number: n, status: "read" as const, finished_on: null })),
+        { onConflict: "user_id,manga_id,volume_number", ignoreDuplicates: true }
+      )
+      .select("volume_number");
+    if (error) return { success: false, error: partialReadings(addedVolumes) };
+    addedReadings = inserted?.length ?? 0;
+  }
+
+  revalidateLibrary(manga_id);
+  return { success: true, manga_id, added_volumes: addedVolumes, added_readings: addedReadings };
 }
