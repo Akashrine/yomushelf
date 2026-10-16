@@ -27,6 +27,10 @@ export default async function BibliothequePage() {
   if (wishesResult.error) throw new Error("Impossible de charger tes envies.");
   const wishes = wishesResult.data ?? [];
 
+  // A brand-new library starts with the quick add (onboarding) : covers to
+  // tap rather than an empty page.
+  if (series.length === 0) redirect("/ajouter?bienvenue=1");
+
   const active = series.filter((s) => !s.archived_at);
   const archivedMeta = series.filter((s) => s.archived_at);
   const shelves = buildShelves(active, volumes, readings);
