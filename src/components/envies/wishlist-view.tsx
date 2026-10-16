@@ -177,7 +177,7 @@ export function WishlistView({ items, series }: Props) {
                   width: 44,
                   aspectRatio: "2/3",
                   background: s?.cover_url
-                    ? `url(${s.cover_url}) center/cover no-repeat, #1a1010`
+                    ? `url(${s.cover_url}) center/cover no-repeat, var(--surface-raised)`
                     : "linear-gradient(160deg,#3a2a12 0%,#1a120a 100%)",
                 }}
                 aria-hidden="true"
@@ -404,7 +404,7 @@ function AddWishForm({
         type="submit"
         disabled={disabled || !volume}
         className="mt-4 min-h-12 w-full rounded-2xl px-5 text-sm font-bold disabled:opacity-50 sm:w-auto"
-        style={{ background: "linear-gradient(135deg, var(--gold), var(--gold-deep))", color: "#2a1a05" }}
+        style={{ background: "linear-gradient(135deg, var(--gold), var(--gold-deep))", color: "white" }}
       >
         Ajouter à mes envies
       </button>

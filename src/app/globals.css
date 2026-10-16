@@ -9,7 +9,7 @@
   --color-border: var(--border);
   --color-muted: var(--muted);
 
-  /* Accent — deep warm crimson */
+  /* Accent — terracotta */
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-foreground: var(--accent-foreground);
@@ -23,6 +23,7 @@
 
   /* Typography */
   --font-sans: var(--font-geist-sans);
+  --font-serif: var(--font-fraunces);
   --font-mono: var(--font-geist-mono);
 
   /* Radius */
@@ -32,29 +33,34 @@
 }
 
 :root {
-  /* Dark near-black warm tint */
-  --background: #0e0b0b;
-  --foreground: #f0ebe8;
-  --surface: #181212;
-  --surface-raised: #221a1a;
-  --border: #2e2020;
-  --muted: #a8918c;
+  /* Paper : cream page, white-ish cards, navy ink (design decided 2026-10-16) */
+  --background: #f6f0e7;
+  --foreground: #1d2433;
+  --surface: #fffaf2;
+  --surface-raised: #efe6d8;
+  --border: #e3d6c4;
+  --muted: #6b6359;
 
-  /* Deep warm crimson */
-  --accent: #c0392b;
-  --accent-hover: #e74c3c;
+  /* Terracotta */
+  --accent: #b5502f;
+  --accent-hover: #9c4227;
   --accent-foreground: #ffffff;
 
-  /* Value = gold, read = warm fire, waiting = lavender night,
-     gift = gold ribbon, borrowed = sky */
-  --gold: #f8c04a;
-  --gold-deep: #e8962e;
-  --read: #ff6a3d;
-  --read-deep: #d93a2b;
-  --sleep: #9b8cff;
-  --sleep-deep: #6a5ae0;
-  --gift: #f8c04a;
-  --borrow: #5ec8f2;
+  /* Same meanings as before, tuned for paper (text use passes WCAG AA) :
+     value / wish = amber, read = terracotta, waiting = night blue,
+     gift = amber ribbon, borrowed = sea blue */
+  --gold: #9a6412;
+  --gold-deep: #7a4e0c;
+  --read: #c0532f;
+  --read-deep: #9e3f20;
+  --sleep: #4f5fa3;
+  --sleep-deep: #3b4884;
+  --gift: #9a6412;
+  --borrow: #276f8c;
+
+  /* Feedback */
+  --danger: #b3261e;
+  --success: #2e7d5b;
 }
 
 * {
@@ -62,7 +68,7 @@
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
@@ -71,6 +77,23 @@ body {
   font-family: var(--font-sans, system-ui, sans-serif);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Titles in the serif ; body text stays in the sans */
+h1,
+h2 {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Small letter-spaced label above a title ("V O S   M A N G A S") */
+.eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 /* Scrollbar minimal */

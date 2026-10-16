@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
+import { Fraunces, Geist } from "next/font/google";
 import "./globals.css";
 import { GoogleAnalytics } from "@/components/analytics/google-analytics";
 import { Analytics } from "@vercel/analytics/next";
@@ -10,8 +10,16 @@ const geistSans = Geist({
   display: "swap",
 });
 
+// Display serif for titles (h1, h2 in globals.css)
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  display: "swap",
+  axes: ["SOFT", "opsz"],
+});
+
 export const viewport: Viewport = {
-  themeColor: "#0e0b0b",
+  themeColor: "#f6f0e7",
   width: "device-width",
   initialScale: 1, // zoom stays allowed (WCAG 1.4.4) ; inputs are 16px so iOS does not auto-zoom
 };
@@ -29,7 +37,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "Yomushelf",
   },
   formatDetection: { telephone: false },
@@ -59,7 +67,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" className={`${geistSans.variable} h-full`}>
+    <html lang="fr" className={`${geistSans.variable} ${fraunces.variable} h-full`}>
       <body className="min-h-full flex flex-col antialiased">
         {children}
         <GoogleAnalytics />

@@ -21,7 +21,7 @@ type Choice = "wish" | "dismiss" | "skip";
 type Toast = { ok: boolean; text: string; undo?: () => void };
 
 const THRESHOLD = 90; // px of drag that commits a swipe
-const COLORS = ["#ff6a3d", "#f8c04a", "#9b8cff", "#5ec8f2", "#ff8a4c"];
+const COLORS = ["#c0532f", "#e3a33a", "#4f5fa3", "#276f8c", "#2e7d5b"];
 const NETWORK_ERROR = "Pas enregistré. Vérifie ta connexion et réessaie.";
 
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
@@ -148,7 +148,7 @@ export function SwipeDeck({ deck }: { deck: DeckCard[] }) {
           style={{
             background: "var(--surface)",
             border: "1px solid var(--border)",
-            boxShadow: "0 18px 40px rgba(0,0,0,0.45)",
+            boxShadow: "0 18px 40px rgba(29,36,51,0.16)",
             transform: `translateX(${dx}px) rotate(${reduced ? 0 : dx / 18}deg)`,
             transition: dragging ? "none" : "transform 220ms cubic-bezier(0.25, 1, 0.5, 1)",
           }}
@@ -199,7 +199,7 @@ export function SwipeDeck({ deck }: { deck: DeckCard[] }) {
           type="button"
           onClick={() => choose("wish")}
           className="flex min-h-16 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl text-sm font-bold"
-          style={{ background: "linear-gradient(135deg, #ffd56b, var(--gold-deep))", color: "#2a1a05" }}
+          style={{ background: "linear-gradient(135deg, var(--gold), var(--gold-deep))", color: "white" }}
         >
           <AppIcon name="star" size={24} filled /> Je le veux !
         </button>
@@ -210,7 +210,7 @@ export function SwipeDeck({ deck }: { deck: DeckCard[] }) {
 
       {toast && (
         // floats above the mobile tab bar, so it is seen without scrolling
-        <div role="status" className="fixed inset-x-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-[360px] items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm shadow-lg md:bottom-6" style={{ background: toast.ok ? "var(--surface-raised)" : "#3a1512", border: `1px solid ${toast.ok ? "var(--border)" : "var(--accent)"}` }}>
+        <div role="status" className="fixed inset-x-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-[360px] items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm shadow-lg md:bottom-6" style={{ background: toast.ok ? "var(--surface)" : "#fbe9e6", border: `1px solid ${toast.ok ? "var(--border)" : "var(--accent)"}` }}>
           <span>{toast.text}</span>
           {toast.undo && (
             <button type="button" onClick={toast.undo} className="min-h-11 shrink-0 font-bold underline">
@@ -228,7 +228,7 @@ function Stamp({ show, side, color, text }: { show: boolean; side: "left" | "rig
     <span
       aria-hidden="true"
       className={`absolute top-5 ${side === "left" ? "left-4 -rotate-12" : "right-4 rotate-12"} rounded-xl border-4 px-3 py-1 text-lg font-black uppercase transition-opacity`}
-      style={{ borderColor: color, color, background: "rgba(14,11,11,0.65)", opacity: show ? 1 : 0 }}
+      style={{ borderColor: color, color, background: "rgba(255,250,242,0.85)", opacity: show ? 1 : 0 }}
     >
       {text}
     </span>

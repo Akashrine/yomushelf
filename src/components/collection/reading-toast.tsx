@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import type { ReadingToastState } from "@/components/collection/use-reading-action";
 
-const COLORS = ["#f8c04a", "#ff6a3d", "#9b8cff", "#5ec8f2", "#7fd1a8"];
+const COLORS = ["#e3a33a", "#c0532f", "#4f5fa3", "#276f8c", "#2e7d5b"];
 const PIECES = 22;
 
 type Props = { toast: ReadingToastState; onClose: () => void };
@@ -71,7 +71,7 @@ export function ReadingToast({ toast, onClose }: Props) {
           <div className="min-w-0 flex-1">
             {toast.kind === "error" ? (
               <>
-                <p className="font-bold" style={{ color: "#ff9a8a" }}>Enregistrement non confirmé.</p>
+                <p className="font-bold" style={{ color: "var(--danger)" }}>Enregistrement non confirmé.</p>
                 <p className="text-sm" style={{ color: "var(--muted)" }}>Vérifie ta connexion et réessaie.</p>
               </>
             ) : (

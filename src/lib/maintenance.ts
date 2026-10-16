@@ -38,7 +38,7 @@ export function maintenanceDecision({
 export const MAINTENANCE_HTML = `<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Yomushelf revient vite</title></head>
-<body style="margin:0;background:#0e0b0b;color:#f5ede9;font-family:system-ui,sans-serif">
+<body style="margin:0;background:#f6f0e7;color:#1d2433;font-family:system-ui,sans-serif">
 <main style="max-width:420px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;justify-content:center;gap:12px;padding:24px">
 <p style="font-size:40px;margin:0;color:#e0563a" aria-hidden="true">漫</p>
 <h1 style="font-size:24px;margin:0">Yomushelf fait une petite mise à jour</h1>

@@ -232,7 +232,7 @@ function SeriesCard({ card }: { card: ShelfCard }) {
         {s.cover_url ? (
           <div
             className="w-full overflow-hidden rounded-xl"
-            style={{ aspectRatio: "2/3", background: `url(${s.cover_url}) center/cover no-repeat, #1a1010` }}
+            style={{ aspectRatio: "2/3", background: `url(${s.cover_url}) center/cover no-repeat, var(--surface-raised)` }}
             aria-hidden="true"
           />
         ) : (
@@ -254,7 +254,7 @@ function SeriesCard({ card }: { card: ShelfCard }) {
       <p className="line-clamp-2 text-sm font-bold leading-snug">{s.title}</p>
       <div
         className="flex h-2 w-full overflow-hidden rounded-full"
-        style={{ background: "rgba(255,255,255,0.07)" }}
+        style={{ background: "var(--surface-raised)" }}
         aria-hidden="true"
       >
         <span style={{ width: pct(readOwned + readElsewhere), background: "var(--read)" }} />

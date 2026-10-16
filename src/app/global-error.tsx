@@ -5,7 +5,7 @@
 export default function GlobalError({ unstable_retry }: { unstable_retry: () => void }) {
   return (
     <html lang="fr">
-      <body style={{ margin: 0, background: "#0e0b0b", color: "#f5ede9", fontFamily: "system-ui, sans-serif" }}>
+      <body style={{ margin: 0, background: "#f6f0e7", color: "#1d2433", fontFamily: "system-ui, sans-serif" }}>
         <main style={{ maxWidth: 420, margin: "0 auto", minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", gap: 16, padding: 24 }}>
           <h1 style={{ fontSize: 24, margin: 0 }}>Yomushelf ne répond pas</h1>
           <p role="alert" style={{ margin: 0 }}>Une erreur est survenue. Tes données ne sont pas perdues. Réessaie dans un instant.</p>
