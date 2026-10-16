@@ -3,6 +3,7 @@
 import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { AppIcon } from "@/components/app/app-icon";
 import { Cover } from "@/components/collection/reader-home";
 import { VolumeSheet, type VolumeSavedEvent } from "@/components/collection/volume-sheet";
@@ -45,6 +46,7 @@ type Props = {
   readings: Reading[];
   wishedVolumes: number[];
   liked: boolean | null;
+  volumeCovers?: Record<number, string>; // volume number → cover, when known
 };
 
 const MANGA_STATUS_LABELS = {
@@ -65,7 +67,7 @@ export function firstMissingVolume(owned: number[]): number {
   return n;
 }
 
-export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes, liked }: Props) {
+export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes, liked, volumeCovers = {} }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [openVolume, setOpenVolume] = useState<number | null>(null);
@@ -296,6 +298,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
               status={readingByNumber.get(n)?.status ?? null}
               next={n === highlighted}
               wished={wishedVolumes.includes(n)}
+              cover={owned.has(n) ? volumeCovers[n] : undefined}
               onOpen={() => setOpenVolume(n)}
             />
           ))}
@@ -738,6 +741,7 @@ function VolumeTile({
   status,
   next,
   wished,
+  cover,
   onOpen,
 }: {
   number: number;
@@ -746,6 +750,7 @@ function VolumeTile({
   status: "reading" | "read" | null;
   next: boolean;
   wished: boolean;
+  cover?: string; // the volume's own cover, shown only for volumes at home
   onOpen: () => void;
 }) {
   const read = status === "read";
@@ -769,6 +774,35 @@ function VolumeTile({
 
   const icon = read ? "check" : status === "reading" ? "book-open" : next ? "play" : atHome ? "books" : wished ? "star" : null;
   const iconColor = read ? (atHome ? "white" : "var(--read)") : status === "reading" || next || wished ? "var(--gold)" : "var(--sleep)";
+
+  if (cover) {
+    // The real cover, framed by the reading colour ; number and state stay
+    // readable on a dark band at the bottom.
+    const frame = read ? "var(--read)" : status === "reading" || next ? "var(--gold)" : "var(--sleep)";
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Tome ${number}, ${parts.join(", ")}`}
+        className="relative min-h-14 overflow-hidden rounded-xl transition-transform active:scale-95"
+        style={{ aspectRatio: "1 / 1.1", border: `2.5px solid ${frame}` }}
+      >
+        <Image src={cover} alt="" fill sizes="(min-width: 1024px) 96px, 20vw" className="object-cover object-top" />
+        <span
+          className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 py-0.5 text-sm font-extrabold tabular-nums text-white"
+          style={{ background: read ? "rgba(217,58,43,0.92)" : "rgba(14,11,11,0.82)" }}
+        >
+          {number}
+          {icon && <AppIcon name={icon} size={12} strokeWidth={icon === "check" ? 3 : 2} filled={icon === "play"} />}
+        </span>
+        {borrowed && (
+          <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-black" style={{ background: "var(--borrow)", color: "#06202b" }} aria-hidden="true">
+            E
+          </span>
+        )}
+      </button>
+    );
+  }
 
   return (
     <button

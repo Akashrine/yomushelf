@@ -48,9 +48,11 @@ export type GoogleBooksVolume = {
   id: string;
   volumeInfo: {
     title: string;
+    subtitle?: string;
     authors?: string[];
     publisher?: string;
     publishedDate?: string;
+    language?: string;
     industryIdentifiers?: Array<{ type: string; identifier: string }>;
     imageLinks?: {
       thumbnail?: string;
