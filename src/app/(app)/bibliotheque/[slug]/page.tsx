@@ -1,6 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getOwnedVolumes, getReadings } from "@/lib/supabase/queries";
+import { getOwnedVolumes, getReadings, getSeriesMeta } from "@/lib/supabase/queries";
+import { loadDiscoveryContext, readerLibrary, withReaderSeries } from "@/lib/supabase/discovery-data";
+import { contentContext } from "@/lib/discovery/suggest";
+import { similarSeries } from "@/lib/discovery/similar";
 import { AppShell } from "@/components/app/app-shell";
 import { SerieDetail, type ShelfPresence } from "@/components/bibliotheque/serie-detail";
 
@@ -21,7 +24,7 @@ export default async function SeriePage({
   // RLS : another reader's private series is simply not found.
   const { data: manga, error: mangaError } = await supabase
     .from("mangas")
-    .select("id, title, author, publisher_fr, total_volumes, status, cover_url, genres, demographic, audience_min_age, audience_age_source, audience_age_scope, audience_age_volumes, audience_age_year, synopsis, created_by, merged_into")
+    .select("id, title, author, publisher_fr, total_volumes, status, cover_url, genres, demographic, audience_min_age, audience_age_source, audience_age_scope, audience_age_volumes, audience_age_year, synopsis, created_by, merged_into, pictures")
     .eq("id", slug)
     .maybeSingle();
 
@@ -30,7 +33,7 @@ export default async function SeriePage({
   // An old link to a series merged into another one.
   if (manga.merged_into) redirect(`/bibliotheque/${manga.merged_into}`);
 
-  const [volumes, readings, { data: wishes, error: wishesError }, { data: collection, error: collectionError }, { data: profile }, { data: catalogueVolumes }] =
+  const [volumes, readings, { data: wishes, error: wishesError }, { data: collection, error: collectionError }, { data: profile }, { data: catalogueVolumes }, allSeries, allVolumes, allReadings, discovery] =
     await Promise.all([
       getOwnedVolumes(supabase, user.id, manga.id),
       getReadings(supabase, user.id, manga.id),
@@ -39,9 +42,24 @@ export default async function SeriePage({
       supabase.from("profiles").select("avatar_initials").eq("id", user.id).single(),
       // French-edition covers per volume (filled nightly) ; none is fine
       supabase.from("volumes").select("volume_number, cover_url").eq("manga_id", manga.id).not("cover_url", "is", null),
+      // "Dans le même genre" : the same content rules as Découvrir
+      getSeriesMeta(supabase, user.id, { includeArchived: true }),
+      getOwnedVolumes(supabase, user.id),
+      getReadings(supabase, user.id),
+      loadDiscoveryContext(supabase, user.id),
     ]);
   if (wishesError) throw new Error("Impossible de charger les envies.");
   if (collectionError) throw new Error("Impossible de charger cette série.");
+
+  const knownMap = withReaderSeries(discovery.catalogue, allSeries);
+  const ctx = contentContext(readerLibrary(allSeries, allVolumes, allReadings), knownMap, discovery.declared, discovery.scope);
+  const shelfIds = new Set(allSeries.filter((s) => !s.archived_at).map((s) => s.manga_id));
+  const similar = similarSeries({ id: manga.id, title: manga.title, genres: manga.genres ?? [], demographic: manga.demographic }, discovery.catalogue, ctx).map((c) => ({
+    id: c.id,
+    title: c.title,
+    cover_url: c.cover_url,
+    onShelf: shelfIds.has(c.id),
+  }));
 
   const presence: ShelfPresence = !collection ? "absent" : collection.archived_at ? "archived" : "on_shelf";
 
@@ -71,6 +89,8 @@ export default async function SeriePage({
         readings={readings}
         wishedVolumes={(wishes ?? []).flatMap((w) => (w.volume_number == null ? [] : [w.volume_number]))}
         liked={collection?.liked ?? null}
+        similar={similar}
+        pictures={manga.pictures ?? []}
         volumeCovers={Object.fromEntries((catalogueVolumes ?? []).map((v) => [v.volume_number, v.cover_url as string]))}
       />
     </AppShell>

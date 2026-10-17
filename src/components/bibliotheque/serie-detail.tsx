@@ -9,6 +9,7 @@ import { VolumeSheet, type VolumeSavedEvent } from "@/components/collection/volu
 import { ReadingToast } from "@/components/collection/reading-toast";
 import { useReadingAction, type ReadingIntent } from "@/components/collection/use-reading-action";
 import { VolumeGrid, type GridMode } from "@/components/bibliotheque/volume-grid";
+import { PictureRow } from "@/components/bibliotheque/picture-row";
 import { SeriesMenu, formOf, type Runner } from "@/components/bibliotheque/series-menu";
 import { markReadUpTo, removeUserVolume, restoreSeries, setSeriesLiked } from "@/app/(app)/bibliotheque/actions";
 import { saveReading } from "@/app/(app)/collection/actions";
@@ -17,7 +18,9 @@ import { addWishlistItem } from "@/app/(app)/envies/actions";
 import { lastKnownPrice, nextVolumeToBuy, type OwnedVolume } from "@/lib/collection/value";
 import type { Reading } from "@/lib/collection/reading";
 import { gapBelow, rangeLabel } from "@/lib/collection/fill";
-import { ageLabel } from "@/lib/discovery/suggest";
+import { GENRE_LABELS, ageLabel } from "@/lib/discovery/suggest";
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 import type { Demographic } from "@/lib/types/database";
 
 type Manga = {
@@ -49,6 +52,8 @@ type Props = {
   wishedVolumes: number[];
   liked: boolean | null;
   volumeCovers?: Record<number, string>; // volume number → cover, when known
+  similar?: { id: string; title: string; cover_url: string | null; onShelf: boolean }[];
+  pictures?: string[]; // "En images", filled nightly from MyAnimeList
 };
 
 type Toggle = { nums: number[]; on: boolean };
@@ -69,7 +74,7 @@ const applyToggle = (set: Set<number>, t: Toggle) => {
 // A series, Letterboxd style : the cover, three big actions, then the
 // volumes themselves. Tapping a volume is the whole interaction ; reading
 // lives in its own tab, never mixed with what is at home.
-export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes, liked, volumeCovers = {} }: Props) {
+export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes, liked, volumeCovers = {}, similar = [], pictures = [] }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [mode, setMode] = useState<GridMode>("tomes");
@@ -79,6 +84,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
   const [error, setError] = useState<string | null>(null);
   const [prompt, setPrompt] = useState<FillPrompt | null>(null);
   const [extra, setExtra] = useState(0);
+  const [showAll, setShowAll] = useState(false);
   const reading = useReadingAction();
 
   const ownedFromServer = useMemo(() => new Set(volumes.map((v) => v.volume_number)), [volumes]);
@@ -91,6 +97,9 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
   const totalVolumes = manga.total_volumes ?? 0;
   const highest = Math.max(0, ...owned, ...read, ...wishedVolumes);
   const gridCount = (totalVolumes > 0 ? Math.max(totalVolumes, highest) : Math.max(highest + 1, 12)) + extra;
+  // A long series shows the useful part first : a few volumes past the
+  // last one at home, the rest one tap away.
+  const shownCount = showAll ? gridCount : Math.min(gridCount, Math.max(highest + 8, 24));
   const canExtend = manga.status !== "completed" || totalVolumes === 0;
   const toBuy = nextVolumeToBuy(volumes);
   const wishTarget = onShelf ? (totalVolumes === 0 || toBuy <= totalVolumes ? toBuy : null) : 1;
@@ -193,40 +202,118 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
         ? "Tu as des tomes ? Touche le dernier que tu as."
         : "Touche un tome pour l'ajouter ou l'enlever.";
 
+  // Pictures and similar series : under the volumes for a series at home,
+  // above them for one being discovered.
+  const extras = (
+    <>
+      {pictures.length > 0 && <PictureRow title={manga.title} pictures={pictures} />}
+
+      {similar.length > 0 && (
+        <section aria-labelledby="h-similar" className="flex flex-col gap-3">
+          <h2 id="h-similar" className="text-xl sm:text-2xl">Dans le même genre</h2>
+          <ul className="no-scrollbar -mx-4 flex snap-x scroll-pl-4 gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:scroll-pl-6 sm:px-6">
+            {similar.map((c) => (
+              <li key={c.id} className="w-28 shrink-0 snap-start sm:w-32">
+                <Link href={`/bibliotheque/${c.id}`} className="flex flex-col gap-1.5">
+                  <span className="relative block w-full" style={{ aspectRatio: "2/3" }}>
+                    <Cover shelf={{ manga_id: c.id, title: c.title, cover_url: c.cover_url }} volume={1} full bare />
+                    {c.onShelf && (
+                      <span className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full" style={{ background: "var(--accent)", color: "white" }}>
+                        <AppIcon name="check" size={15} strokeWidth={3} />
+                        <span className="sr-only">Chez toi</span>
+                      </span>
+                    )}
+                  </span>
+                  <span className="line-clamp-2 text-sm font-semibold leading-snug">{c.title}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
+  );
+
   return (
     <div className="flex flex-col gap-6">
-      <Link href="/bibliotheque" className="flex min-h-11 items-center gap-1.5 self-start text-sm" style={{ color: "var(--muted)" }}>
-        <AppIcon name="arrow-left" size={16} /> Ma collection
-      </Link>
-
-      {/* Hero */}
-      <div className="flex gap-4 sm:gap-6">
-        <div className="w-28 shrink-0 overflow-hidden rounded-xl shadow-md sm:w-40" style={{ aspectRatio: "2/3" }}>
-          <Cover shelf={{ manga_id: manga.id, title: manga.title, cover_url: manga.cover_url }} volume={1} full bare />
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h1 className="text-2xl leading-tight sm:text-4xl">{manga.title}</h1>
-          {manga.author && <p className="text-sm" style={{ color: "var(--muted)" }}>{manga.author}</p>}
-          <p className="text-xs" style={{ color: "var(--muted)" }}>
-            {[
-              totalVolumes > 0 ? `${totalVolumes} tomes` : null,
-              manga.status === "completed" ? "terminée" : manga.status === "ongoing" ? "en cours" : null,
-              manga.is_private ? null : ageLabel({ ...manga, author: null, top_50_rank: null, demographic: manga.demographic }),
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
+      {/* Hero : the cover, blown up and blurred behind it */}
+      <section className="relative -mx-4 -mt-4 overflow-hidden px-4 pb-6 pt-2 text-white sm:mx-0 sm:mt-0 sm:rounded-3xl sm:px-8 sm:pb-8" style={{ background: "var(--foreground)" }}>
+        {manga.cover_url && (
+          <span aria-hidden="true" className="absolute inset-0 scale-125 opacity-55 blur-2xl" style={{ background: `url(${manga.cover_url}) center/cover no-repeat` }} />
+        )}
+        <span aria-hidden="true" className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(29,36,51,0.2) 0%, rgba(29,36,51,0.88) 100%)" }} />
+        <div className="relative flex flex-col gap-4">
+          <Link href={onShelf ? "/bibliotheque" : "/decouvrir"} className="flex min-h-11 items-center gap-1.5 self-start text-sm font-semibold text-white/85">
+            <AppIcon name="arrow-left" size={16} /> {onShelf ? "Ma collection" : "Retour"}
+          </Link>
+          <div className="flex items-end gap-4 sm:gap-6">
+            <div className="w-32 shrink-0 overflow-hidden rounded-xl shadow-2xl sm:w-44" style={{ aspectRatio: "2/3" }}>
+              <Cover shelf={{ manga_id: manga.id, title: manga.title, cover_url: manga.cover_url }} volume={1} full bare />
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-1 pb-1">
+              <h1 className="text-2xl leading-tight text-white sm:text-4xl">{manga.title}</h1>
+              {manga.author && <p className="text-sm text-white/80">{manga.author}</p>}
+              <p className="text-xs text-white/75">
+                {[
+                  totalVolumes > 0 ? `${totalVolumes} tomes` : null,
+                  manga.status === "completed" ? "terminée" : manga.status === "ongoing" ? "en cours" : null,
+                  manga.is_private ? null : ageLabel({ ...manga, author: null, top_50_rank: null, demographic: manga.demographic }),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            </div>
+          </div>
+          {manga.genres.length > 0 && (
+            <ul className="flex flex-wrap gap-1.5" aria-label="Genres">
+              {manga.genres.slice(0, 4).map((g) => (
+                <li key={g} className="rounded-full px-3 py-1 text-xs font-semibold" style={{ background: "rgba(255,255,255,0.16)" }}>
+                  {cap(GENRE_LABELS[g] ?? g)}
+                </li>
+              ))}
+            </ul>
+          )}
+          {manga.synopsis && <p className="max-w-[65ch] text-sm leading-relaxed text-white/90">{manga.synopsis}</p>}
           {onShelf && (
-            <p className="mt-2 text-lg font-bold">
+            <p className="text-lg font-bold">
               {owned.size} tome{owned.size > 1 ? "s" : ""} chez toi
-              {totalVolumes > 0 && <span className="font-normal" style={{ color: "var(--muted)" }}> sur {totalVolumes}</span>}
+              {totalVolumes > 0 && <span className="font-normal text-white/75"> sur {totalVolumes}</span>}
             </p>
           )}
         </div>
-      </div>
+      </section>
+
+      {/* A series being discovered : two clear choices */}
+      {presence === "absent" && (
+        <div className="grid grid-cols-2 gap-2 sm:max-w-md">
+          {wished ? (
+            <Link href="/envies" className="flex min-h-14 items-center justify-center gap-2 rounded-2xl text-base font-bold" style={{ background: "var(--surface-raised)", color: "var(--gold)" }}>
+              <AppIcon name="star" size={20} filled /> Dans mes envies
+            </Link>
+          ) : (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => run(() => addWishlistItem(formOf({ manga_id: manga.id, volume_number: "1" })), () => setNotice({ text: `${manga.title} est dans tes envies` }))}
+              className="flex min-h-14 items-center justify-center gap-2 rounded-2xl text-base font-bold disabled:opacity-60"
+              style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+            >
+              <AppIcon name="star" size={20} /> Je le veux
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => document.getElementById("grid-title")?.parentElement?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            className="flex min-h-14 items-center justify-center gap-2 rounded-2xl text-base font-bold"
+            style={{ background: "var(--surface-raised)" }}
+          >
+            <AppIcon name="plus" size={20} strokeWidth={2.5} /> Je l&apos;ai déjà
+          </button>
+        </div>
+      )}
 
       {/* Three big actions */}
-      {presence !== "archived" && (
+      {onShelf && (
         <div className="grid grid-cols-3 gap-2 sm:max-w-md">
           {onShelf && (
             <ActionButton
@@ -260,7 +347,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
         </div>
       )}
 
-      {manga.synopsis && <p className="line-clamp-4 max-w-[65ch] text-sm leading-relaxed" style={{ color: "var(--muted)" }}>{manga.synopsis}</p>}
+      {!onShelf && extras}
 
       {presence === "archived" ? (
         <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl p-4 sm:p-5" style={{ background: "var(--surface)", border: "1px dashed var(--border)" }}>
@@ -278,7 +365,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
           </button>
         </section>
       ) : (
-        <section aria-labelledby="grid-title" className="flex flex-col gap-3">
+        <section aria-labelledby="grid-title" className="flex scroll-mt-20 flex-col gap-3">
           <h2 id="grid-title" className="sr-only">Les tomes</h2>
           {onShelf && mode !== "details" && (
             <div className="grid grid-cols-2 rounded-2xl p-1 sm:max-w-sm" style={{ background: "var(--surface-raised)" }} role="group" aria-label="Ce que montre la grille">
@@ -310,16 +397,28 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
             <p className="text-base font-semibold">{hint}</p>
           )}
           <VolumeGrid
-            count={gridCount}
+            count={shownCount}
             mode={mode}
             owned={owned}
             read={read}
             covers={volumeCovers}
             onTap={tapVolume}
-            onExtend={canExtend ? () => setExtra((e) => e + 1) : undefined}
+            onExtend={canExtend && shownCount === gridCount ? () => setExtra((e) => e + 1) : undefined}
           />
+          {shownCount < gridCount && (
+            <button
+              type="button"
+              onClick={() => setShowAll(true)}
+              className="min-h-12 rounded-2xl text-base font-semibold"
+              style={{ background: "var(--surface-raised)" }}
+            >
+              Voir les {gridCount} tomes
+            </button>
+          )}
         </section>
       )}
+
+      {onShelf && extras}
 
       {/* One message at a time, above the tab bar */}
       <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-24 z-40 flex justify-center px-4 md:bottom-6">

@@ -85,6 +85,8 @@ export type Database = {
           audience_age_year: number | null;
           curated: boolean;
           merged_into: string | null;
+          pictures: string[];
+          pictures_checked_at: string | null;
           synopsis: string | null;
           aliases: string[];
           created_by: string | null;
@@ -115,6 +117,8 @@ export type Database = {
           audience_age_year?: number | null;
           curated?: boolean;
           merged_into?: string | null;
+          pictures?: string[];
+          pictures_checked_at?: string | null;
           synopsis?: string | null;
           aliases?: string[];
           created_by?: string | null;
@@ -144,6 +148,8 @@ export type Database = {
           audience_age_year?: number | null;
           curated?: boolean;
           merged_into?: string | null;
+          pictures?: string[];
+          pictures_checked_at?: string | null;
           synopsis?: string | null;
           aliases?: string[];
           created_by?: string | null;
