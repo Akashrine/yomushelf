@@ -6,9 +6,9 @@ import { buildShelves } from "@/lib/collection/reading";
 import { AppShell } from "@/components/app/app-shell";
 import { LibraryHome, type ArchivedSeries, type ShelfCard, type WishPreview } from "@/components/bibliotheque/library-home";
 
-export const metadata: Metadata = { title: "Ma bibliothèque" };
+export const metadata: Metadata = { title: "Ma collection" };
 
-// Home of the app : what to read now, the series, the wishes.
+// Home of the app : the collection as a wall of covers, then the wishes.
 // Everything comes from the server render ; actions refresh it.
 export default async function BibliothequePage() {
   const supabase = await createClient();
@@ -22,7 +22,7 @@ export default async function BibliothequePage() {
     getOwnedVolumes(supabase, user.id),
     getReadings(supabase, user.id),
     supabase.from("profiles").select("username, avatar_initials").eq("id", user.id).single(),
-    supabase.from("wishlist_items").select("manga_id, volume_number, created_at, mangas ( title )").eq("user_id", user.id).order("created_at"),
+    supabase.from("wishlist_items").select("manga_id, volume_number, created_at, mangas ( title, cover_url )").eq("user_id", user.id).order("created_at"),
   ]);
   if (wishesResult.error) throw new Error("Impossible de charger tes envies.");
   const wishes = wishesResult.data ?? [];
@@ -41,7 +41,6 @@ export default async function BibliothequePage() {
     .map((shelf) => ({
       shelf,
       totalVolumes: meta.get(shelf.manga_id)?.total_volumes ?? null,
-      wished: wishes.filter((w) => w.manga_id === shelf.manga_id && w.volume_number != null).map((w) => w.volume_number as number),
       isPrivate: meta.get(shelf.manga_id)?.is_private ?? false,
     }))
     .sort((a, b) => {
@@ -62,11 +61,15 @@ export default async function BibliothequePage() {
     owned: s.owned.length,
   }));
 
-  const wishPreview: WishPreview[] = wishes.slice(0, 6).map((w) => ({
-    manga_id: w.manga_id,
-    title: (w.mangas as unknown as { title: string } | null)?.title ?? meta.get(w.manga_id)?.title ?? "Série",
-    volume_number: w.volume_number,
-  }));
+  const wishPreview: WishPreview[] = wishes.slice(0, 12).map((w) => {
+    const m = w.mangas as unknown as { title: string; cover_url: string | null } | null;
+    return {
+      manga_id: w.manga_id,
+      title: m?.title ?? meta.get(w.manga_id)?.title ?? "Série",
+      cover_url: m?.cover_url ?? null,
+      volume_number: w.volume_number,
+    };
+  });
 
   return (
     <AppShell active="bibliotheque" avatarInitials={profile?.avatar_initials ?? undefined}>
