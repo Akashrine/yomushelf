@@ -199,3 +199,11 @@ h2 {
   }
   .confetti-piece { display: none; }
 }
+
+/* Horizontal rows of covers : swipe, no bar. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

@@ -3,40 +3,23 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getOwnedVolumes, getReadings, getSeriesMeta } from "@/lib/supabase/queries";
 import { loadDiscoveryContext, readerLibrary, withReaderSeries } from "@/lib/supabase/discovery-data";
-import { buildShelves, nextToRead, type Candidate } from "@/lib/collection/reading";
-import { contentAllowed, contentContext, otherUniverses, suggest } from "@/lib/discovery/suggest";
-import { TERRITORIES, type TerritoryKey } from "@/lib/discovery/territories";
+import { GENRE_LABELS, GENRES, contentAllowed, contentContext, otherUniverses, suggest } from "@/lib/discovery/suggest";
 import { buildDeck } from "@/lib/discovery/deck";
 import { AppShell } from "@/components/app/app-shell";
-import { DiscoverView, type ContinueItem, type Selection } from "@/components/decouvrir/discover-view";
+import { DiscoverView, type DiscoverRow, type Selection } from "@/components/decouvrir/discover-view";
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export const metadata: Metadata = { title: "Découvrir" };
 
-// Why this volume, in words built from the reader's own data.
-function continueReason(c: Candidate, lastRead: number | null): string {
-  switch (c.kind) {
-    case "reading":
-      return "Tu l'as commencé.";
-    case "next":
-      return lastRead ? `Tu as lu jusqu'au tome ${lastRead}. Le suivant est chez toi.` : "Il est chez toi, pas encore lu.";
-    case "gap":
-      return `Il est chez toi. Le tome ${c.missing} manque.`;
-    case "skipped":
-      return "Il est chez toi, tu l'as laissé de côté.";
-    case "to_find":
-      return `Tu as lu jusqu'au tome ${lastRead ?? c.volume - 1}. Celui-ci n'est pas chez toi.`;
-  }
-}
-
-export default async function DecouvrirPage({ searchParams }: { searchParams: Promise<{ territoire?: string }> }) {
+export default async function DecouvrirPage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ territoire }, selectionsResult, series, volumes, readings, { data: profile }, discovery] = await Promise.all([
-    searchParams,
+  const [selectionsResult, series, volumes, readings, { data: profile }, discovery] = await Promise.all([
     supabase
       .from("editorial_selections")
       .select("slug, title, description, position, editorial_selection_items ( manga_id, position, note )")
@@ -71,21 +54,6 @@ export default async function DecouvrirPage({ searchParams }: { searchParams: Pr
     ctx
   );
 
-  // Continue a series / read a volume already at home : from the reader's shelf.
-  const continueItems: ContinueItem[] = buildShelves(series.filter((s) => !s.archived_at), volumes, readings)
-    .map((shelf) => ({ shelf, candidate: nextToRead(shelf) }))
-    .filter((x): x is { shelf: (typeof x)["shelf"]; candidate: Candidate } => x.candidate != null)
-    .sort((a, b) => Number(a.candidate.kind === "to_find") - Number(b.candidate.kind === "to_find") || (b.shelf.lastFinished ?? "").localeCompare(a.shelf.lastFinished ?? ""))
-    .slice(0, 6)
-    .map(({ shelf, candidate }) => ({
-      manga_id: shelf.manga_id,
-      title: shelf.title,
-      cover_url: shelf.cover_url,
-      volume: candidate.kind === "gap" ? candidate.available : candidate.volume,
-      reason: continueReason(candidate, shelf.read.length ? Math.max(...shelf.read) : null),
-      toFind: candidate.kind === "to_find",
-    }));
-
   const selections: Selection[] = (selectionsResult.data ?? [])
     .map((s) => ({
       slug: s.slug,
@@ -101,24 +69,43 @@ export default async function DecouvrirPage({ searchParams }: { searchParams: Pr
     }))
     .filter((s) => s.items.length > 0);
 
-  const initialTerritory = TERRITORIES.some((t) => t.key === territoire) ? (territoire as TerritoryKey) : null;
+  // Rows of covers, like a streaming home : personal first, then the
+  // editorial selections, the most read, and one row per genre. Same
+  // content rules everywhere.
+  const allowed = catalogue.filter((c) => contentAllowed(c, ctx));
+  const byRank = [...allowed].sort((a, b) => (a.top_50_rank ?? 999) - (b.top_50_rank ?? 999) || a.title.localeCompare(b.title, "fr"));
+  const liked = new Set(declared.liked);
+  const genreRows: DiscoverRow[] = GENRES.filter((g) => !declared.avoided.includes(g))
+    .map((g) => ({ key: `genre-${g}`, title: cap(GENRE_LABELS[g]), items: byRank.filter((c) => c.genres.includes(g)).slice(0, 15).map((entry) => ({ entry })) }))
+    .filter((r) => r.items.length >= 4)
+    .sort((a, b) => Number(liked.has(b.key.slice(6))) - Number(liked.has(a.key.slice(6))) || b.items.length - a.items.length)
+    .slice(0, 6);
+  const rows: DiscoverRow[] = [
+    { key: "pour-toi", title: "Pour toi", subtitle: suggestions.length ? "D'après ta collection et tes goûts." : null, items: suggestions },
+    ...selections.map((s) => ({ key: s.slug, title: s.title, subtitle: s.description, items: s.items })),
+    { key: "plus-lus", title: "Les plus lus en France", items: byRank.filter((c) => c.top_50_rank != null).slice(0, 15).map((entry) => ({ entry })) },
+    { key: "autre", title: "Un univers différent", subtitle: "Pour sortir de tes habitudes.", items: others },
+    ...genreRows,
+  ];
+
+  const featuredCard = suggestions[0] ?? (deck[0] ? { entry: deck[0].entry, reason: deck[0].reason } : null);
+  const { data: featuredMeta } = featuredCard
+    ? await supabase.from("mangas").select("synopsis").eq("id", featuredCard.entry.id).maybeSingle()
+    : { data: null };
 
   return (
     <AppShell active="decouvrir" avatarInitials={profile?.avatar_initials ?? undefined}>
       <DiscoverView
-        continueItems={continueItems}
+        featured={featuredCard ? { card: featuredCard, synopsis: featuredMeta?.synopsis ?? null } : null}
         deck={deck}
-        suggestions={suggestions}
-        others={others}
-        selections={selections}
-        catalogue={catalogue}
+        rows={rows}
+        catalogue={allowed}
         onShelf={onShelf}
         wished={wished}
         declared={declared}
         scope={scope}
         dismissedCount={dismissed.size}
         hasHistory={library.some((l) => l.read + l.owned > 0 || l.liked != null)}
-        initialTerritory={initialTerritory}
       />
     </AppShell>
   );

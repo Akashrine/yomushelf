@@ -140,7 +140,7 @@ function WishesRow({ wishes, count }: { wishes: WishPreview[]; count: number }) 
           Tout voir <AppIcon name="chevron-right" size={16} />
         </Link>
       </div>
-      <ul className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6">
+      <ul className="no-scrollbar -mx-4 flex snap-x scroll-pl-4 gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:scroll-pl-6 sm:px-6">
         {wishes.map((w) => (
           <li key={`${w.manga_id}-${w.volume_number}`} className="w-24 shrink-0 snap-start sm:w-28">
             <Link href={`/bibliotheque/${w.manga_id}`} className="flex flex-col gap-1.5">
