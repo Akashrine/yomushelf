@@ -207,3 +207,62 @@ h2 {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* ── Landing, manga mode ───────────────────────────────────────────── */
+/* Halftone dots, speed lines, ink-shadowed panels and stickers. Pure CSS :
+   no image weighs on the first paint. */
+.manga-halftone {
+  background-image: radial-gradient(circle, rgba(29, 36, 51, 0.13) 1.2px, transparent 1.6px);
+  background-size: 11px 11px;
+}
+.manga-speedlines {
+  background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(29, 36, 51, 0.09) 0deg 2deg, transparent 2deg 9deg);
+  mask-image: radial-gradient(circle at 50% 50%, transparent 0 18%, #000 60%);
+}
+.manga-panel {
+  background: var(--surface);
+  border: 3px solid #12151d;
+  box-shadow: 6px 6px 0 #12151d;
+}
+.manga-button {
+  border: 3px solid #12151d;
+  box-shadow: 5px 5px 0 #12151d;
+  transition: transform 0.12s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.12s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.manga-button:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 #12151d;
+}
+.manga-button:active {
+  transform: translate(4px, 4px);
+  box-shadow: 1px 1px 0 #12151d;
+}
+.manga-sticker {
+  border: 3px solid #12151d;
+  box-shadow: 3px 3px 0 #12151d;
+}
+.manga-marquee {
+  animation: manga-marquee 40s linear infinite;
+}
+@keyframes manga-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+.manga-marquee-wrap:hover .manga-marquee,
+.manga-marquee-wrap:focus-within .manga-marquee {
+  animation-play-state: paused;
+}
+.manga-pop {
+  animation: manga-pop 2.4s cubic-bezier(0.25, 1, 0.5, 1) 3;
+}
+@keyframes manga-pop {
+  0%, 70%, 100% { transform: rotate(var(--tilt, -8deg)) scale(1); }
+  80% { transform: rotate(var(--tilt, -8deg)) scale(1.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .manga-marquee,
+  .manga-pop {
+    animation: none;
+  }
+}
