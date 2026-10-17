@@ -123,8 +123,8 @@ export function TasteMap({
                 ))}
               </ul>
             )}
-            <Link href={`/decouvrir?territoire=${selected.key}#explorer`} className="mt-3 flex min-h-11 items-center gap-1.5 text-sm font-semibold" style={{ color: "var(--read)" }}>
-              <AppIcon name="compass" size={16} /> Tout voir dans Découvrir
+            <Link href="/decouvrir" className="mt-3 flex min-h-11 items-center gap-1.5 text-sm font-semibold" style={{ color: "var(--read)" }}>
+              <AppIcon name="compass" size={16} /> Plus d&apos;idées dans Découvrir
             </Link>
           </div>
         </div>
