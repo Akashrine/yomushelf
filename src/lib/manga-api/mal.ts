@@ -148,3 +148,15 @@ export async function getMangaRankingMAL(
   };
   return data.data.filter((d) => isAllowedMalEntry(d.node)).map((d) => normalizeMalManga(d.node));
 }
+
+// Illustrations of a series ("En images"), large size. null on API failure.
+export async function getMangaPicturesMAL(malId: number): Promise<string[] | null> {
+  const res = await fetch(`${MAL_BASE}/manga/${malId}?fields=pictures,nsfw,media_type`, {
+    headers: { "X-MAL-CLIENT-ID": getClientId() },
+    cache: "no-store",
+  }).catch(() => null);
+  if (!res?.ok) return null;
+  const node = (await res.json()) as Pick<MALMangaNode, "nsfw" | "media_type"> & { pictures?: { medium?: string; large?: string }[] };
+  if (!isAllowedMalEntry(node)) return [];
+  return (node.pictures ?? []).flatMap((p) => (p.large ?? p.medium ? [(p.large ?? p.medium) as string] : []));
+}

@@ -23,6 +23,11 @@ export async function cacheVolumeCoverToStorage(remoteUrl: string, isbn13: strin
   return cacheImage(remoteUrl, `covers/volumes/${isbn13}`, VOLUME_CACHE);
 }
 
+// "En images" : covers/pictures/<manga id>/<n>, replaced when re-fetched.
+export async function cacheMangaPictureToStorage(remoteUrl: string, mangaId: string, index: number): Promise<string | null> {
+  return cacheImage(remoteUrl, `covers/pictures/${mangaId}/${index}`, SERIES_CACHE);
+}
+
 async function cacheImage(remoteUrl: string, pathWithoutExtension: string, cacheControl: string): Promise<string | null> {
   try {
     const { bytes, contentType } = await fetchImageSafely(remoteUrl);
