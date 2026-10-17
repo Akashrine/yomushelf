@@ -12,12 +12,13 @@ import { useSeriesSearch } from "./use-series-search";
 
 // The short way to add mangas, and the first screen of a new account :
 //   1. tap covers (best sellers) or search, several at once ;
-//   2. one screen : up to which volume, already read (ticked by default) ;
+//   2. one screen : up to which volume (reading is noted later, from the
+//      series page : possession first, a kid never answers two questions) ;
 //   3. done.
 // Gaps, dates, prices and series missing from the catalogue go through the
 // detailed flow (/ajouter?detaille=1).
 
-type Selected = { series: FlowSeries; upTo: number; read: boolean };
+type Selected = { series: FlowSeries; upTo: number };
 type Step = "pick" | "volumes" | "done";
 
 const NETWORK_ERROR = "Impossible de confirmer l'enregistrement. Vérifie ta connexion puis réessaie.";
@@ -40,7 +41,7 @@ export function QuickAdd({ popular, welcome, name }: { popular: FlowSeries[]; we
     setPicks((current) => {
       const next = new Map(current);
       if (next.has(series.key)) next.delete(series.key);
-      else next.set(series.key, { series, upTo: Math.max(1, ...series.owned), read: true });
+      else next.set(series.key, { series, upTo: Math.max(1, ...series.owned) });
       return next;
     });
   }
@@ -66,7 +67,7 @@ export function QuickAdd({ popular, welcome, name }: { popular: FlowSeries[]; we
       const result = await addSeriesToLibrary({
         series: p.series.source,
         owned: p.upTo > 0 ? { mode: "range", from: 1, to: p.upTo } : { mode: "none" },
-        reading: p.read && p.upTo > 0 ? { mode: "all_owned" } : { mode: "none" },
+        reading: { mode: "none" },
         arrived_now: false,
         acquired_on: null,
         acquisition_type: "",
@@ -126,8 +127,8 @@ export function QuickAdd({ popular, welcome, name }: { popular: FlowSeries[]; we
       <section className="mx-auto flex w-full max-w-xl flex-col gap-5 pb-24" aria-labelledby="h-volumes">
         <BackButton onClick={() => setStep("pick")} />
         <div className="flex flex-col gap-1">
-          <h1 id="h-volumes" ref={headingRef} tabIndex={-1} className="text-2xl font-bold outline-none">Tu as quels tomes&nbsp;?</h1>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>Le dernier tome que tu as, en suivant depuis le tome 1.</p>
+          <h1 id="h-volumes" ref={headingRef} tabIndex={-1} className="text-2xl font-bold outline-none">Tu as combien de tomes&nbsp;?</h1>
+          <p className="text-sm" style={{ color: "var(--muted)" }}>Le dernier tome que tu as. Il en manque un&nbsp;? Tu corrigeras sur la page de la série.</p>
         </div>
         <ul className="flex flex-col gap-3">
           {[...picks.values()].map((p) => (
@@ -148,10 +149,6 @@ export function QuickAdd({ popular, welcome, name }: { popular: FlowSeries[]; we
                   max={MAX_VOLUME}
                   onChange={(upTo) => update(p.series.key, { upTo })}
                 />
-                <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm" style={{ opacity: p.upTo > 0 ? 1 : 0.5 }}>
-                  <input type="checkbox" checked={p.read && p.upTo > 0} disabled={p.upTo === 0} onChange={(e) => update(p.series.key, { read: e.target.checked })} className="h-5 w-5" />
-                  Je les ai lus
-                </label>
               </div>
             </li>
           ))}
@@ -295,7 +292,7 @@ function VolumeStepper({ title, value, max, onChange }: { title: string; value: 
         −
       </button>
       <label className="flex flex-col items-center">
-        <span className="text-xs" style={{ color: "var(--muted)" }}>{value === 0 ? "aucun tome" : "jusqu'au tome"}</span>
+        <span className="text-xs" style={{ color: "var(--muted)" }}>{value === 0 ? "aucun tome" : value === 1 ? "seulement le tome" : "du tome 1 au"}</span>
         <input
           type="number"
           inputMode="numeric"
