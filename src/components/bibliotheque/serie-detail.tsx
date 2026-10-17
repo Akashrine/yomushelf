@@ -202,7 +202,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
       {/* Hero */}
       <div className="flex gap-4 sm:gap-6">
         <div className="w-28 shrink-0 overflow-hidden rounded-xl shadow-md sm:w-40" style={{ aspectRatio: "2/3" }}>
-          <Cover shelf={{ manga_id: manga.id, title: manga.title, cover_url: manga.cover_url }} volume={1} full />
+          <Cover shelf={{ manga_id: manga.id, title: manga.title, cover_url: manga.cover_url }} volume={1} full bare />
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h1 className="text-2xl leading-tight sm:text-4xl">{manga.title}</h1>

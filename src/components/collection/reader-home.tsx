@@ -211,11 +211,13 @@ export function Cover({
   volume,
   small,
   full,
+  bare,
 }: {
   shelf: Pick<SeriesShelf, "manga_id" | "title" | "cover_url">;
   volume: number;
   small?: boolean;
   full?: boolean; // fills its container (series cards)
+  bare?: boolean; // no volume number : the caller shows its own badge
 }) {
   const size = full ? { width: "100%", height: "100%" } : small ? { width: 36, height: 50 } : { width: 84, height: 118 };
   if (shelf.cover_url) {
@@ -241,7 +243,7 @@ export function Cover({
       style={{ ...size, background: `linear-gradient(155deg, ${seriesColor(shelf.manga_id)} 0%, color-mix(in srgb, ${seriesColor(shelf.manga_id)} 72%, #1a0f0c) 100%)`, color: "#1a0f0c", boxShadow: "inset -6px 0 0 rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.25), 0 6px 16px rgba(29,36,51,0.18)" }}
     >
       {!small && <span className={`${full ? "text-sm" : "text-[10px]"} uppercase leading-tight`}>{shelf.title}</span>}
-      <span className={`self-end leading-none ${small ? "text-sm" : full ? "text-5xl" : "text-3xl"}`}>{volume}</span>
+      {!bare && <span className={`self-end leading-none ${small ? "text-sm" : full ? "text-5xl" : "text-3xl"}`}>{volume}</span>}
     </span>
   );
 }
