@@ -20,7 +20,9 @@ type IconName =
   | "chart"
   | "search"
   | "archive"
-  | "arrow-left";
+  | "arrow-left"
+  | "heart"
+  | "more";
 
 type Props = {
   name: IconName;
@@ -185,6 +187,20 @@ export function AppIcon({ name, size = 20, className, strokeWidth = 2, filled = 
       return (
         <svg {...common}>
           <path d="M19 12H5M11 6l-6 6 6 6" />
+        </svg>
+      );
+    case "heart":
+      return (
+        <svg {...common} fill={filled ? "currentColor" : "none"}>
+          <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />
+        </svg>
+      );
+    case "more":
+      return (
+        <svg {...common} fill="currentColor" stroke="none">
+          <circle cx="5" cy="12" r="2" />
+          <circle cx="12" cy="12" r="2" />
+          <circle cx="19" cy="12" r="2" />
         </svg>
       );
     case "lock":
