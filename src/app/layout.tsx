@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Geist } from "next/font/google";
+import { Bangers, Geist } from "next/font/google";
 import "./globals.css";
 import { GoogleAnalytics } from "@/components/analytics/google-analytics";
 import { Analytics } from "@vercel/analytics/next";
@@ -10,13 +10,13 @@ const geistSans = Geist({
   display: "swap",
 });
 
-// Display serif for titles (h1, h2 in globals.css). One weight only : the
-// full variable font (118 KB) delayed the landing's first paint on 4G.
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+// Comic display face for titles (h1, h2 in globals.css), the manga design
+// system. One weight exists : about 25 KB.
+const bangers = Bangers({
+  variable: "--font-bangers",
   subsets: ["latin"],
   display: "swap",
-  weight: "600",
+  weight: "400",
 });
 
 export const viewport: Viewport = {
@@ -68,7 +68,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" className={`${geistSans.variable} ${fraunces.variable} h-full`}>
+    <html lang="fr" className={`${geistSans.variable} ${bangers.variable} h-full`}>
       <body className="min-h-full flex flex-col antialiased">
         {children}
         <GoogleAnalytics />

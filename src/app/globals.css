@@ -21,9 +21,14 @@
   --color-gift: var(--gift);
   --color-borrow: var(--borrow);
 
+  /* Manga ink and sticker yellow */
+  --color-ink: var(--ink);
+  --color-pop: var(--pop);
+
   /* Typography */
   --font-sans: var(--font-geist-sans);
-  --font-serif: var(--font-fraunces);
+  --font-serif: var(--font-bangers);
+  --font-display: var(--font-bangers);
   --font-mono: var(--font-geist-mono);
 
   /* Radius */
@@ -58,6 +63,11 @@
   --gift: #8c5a10;
   --borrow: #276f8c;
 
+  /* Manga design system : ink lines and shadows, sticker yellow (always
+     with ink text, 13:1). See docs/design.md. */
+  --ink: var(--ink);
+  --pop: #ffd23f;
+
   /* Feedback */
   --danger: #b3261e;
   --success: #2a7353;
@@ -79,12 +89,16 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Titles in the serif ; body text stays in the sans */
-h1,
-h2 {
-  font-family: var(--font-fraunces), Georgia, serif;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+/* Titles in the comic face ; body text stays in the sans. In @layer base
+   so Tailwind utilities can still adjust a title. */
+@layer base {
+  h1,
+  h2 {
+    font-family: var(--font-bangers), "Arial Black", sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.025em;
+    line-height: 1;
+  }
 }
 
 /* Small letter-spaced label above a title ("V O S   M A N G A S") */
@@ -114,12 +128,6 @@ h2 {
    Every animation is decorative and disabled with reduced motion.
    ───────────────────────────────────────── */
 
-.text-gold-gradient {
-  background: linear-gradient(180deg, #ffe39a 0%, var(--gold) 45%, var(--gold-deep) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
 
 @keyframes spine-drop {
   0% { transform: translateY(-48px); opacity: 0; }
@@ -221,25 +229,44 @@ h2 {
 }
 .manga-panel {
   background: var(--surface);
-  border: 3px solid #12151d;
-  box-shadow: 6px 6px 0 #12151d;
+  border: 3px solid var(--ink);
+  box-shadow: 6px 6px 0 var(--ink);
 }
 .manga-button {
-  border: 3px solid #12151d;
-  box-shadow: 5px 5px 0 #12151d;
+  border: 3px solid var(--ink);
+  box-shadow: 5px 5px 0 var(--ink);
   transition: transform 0.12s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.12s cubic-bezier(0.25, 1, 0.5, 1);
 }
 .manga-button:hover {
   transform: translate(-2px, -2px);
-  box-shadow: 7px 7px 0 #12151d;
+  box-shadow: 7px 7px 0 var(--ink);
 }
 .manga-button:active {
   transform: translate(4px, 4px);
-  box-shadow: 1px 1px 0 #12151d;
+  box-shadow: 1px 1px 0 var(--ink);
+}
+/* Smaller panel for cards in grids and rows (covers, tiles, chips). */
+.manga-panel-sm {
+  border: 2px solid var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+/* Pressable small element : the shadow shrinks under the finger. */
+.manga-press {
+  transition: transform 0.12s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.12s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.manga-press:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .manga-button,
+  .manga-press {
+    transition: none;
+  }
 }
 .manga-sticker {
-  border: 3px solid #12151d;
-  box-shadow: 3px 3px 0 #12151d;
+  border: 3px solid var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
 }
 .manga-marquee {
   animation: manga-marquee 40s linear infinite;
