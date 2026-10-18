@@ -85,9 +85,20 @@ export default function ConfidentialitePage() {
           <section>
             <h2 className="mb-3 text-2xl" style={{ color: "var(--ink)" }}>Cookies et analytics</h2>
             <p>
-              Yomushelf utilise des outils d&apos;analyse anonymes (Vercel Analytics) pour mesurer le trafic.
-              Ces outils ne déposent pas de cookies de tracking et ne permettent pas d&apos;identifier personnellement
-              les visiteurs.
+              Yomushelf ne dépose aucun cookie publicitaire ni de suivi, et n&apos;utilise pas Google Analytics.
+            </p>
+            <p className="mt-3">
+              Pour savoir ce qui marche, on compte des gestes dans l&apos;app (par exemple « une série ajoutée », « une
+              carte passée »), avec la page, le type d&apos;appareil (mobile ou ordinateur) et le site d&apos;où vient la
+              visite (TikTok, Instagram, Google…). Jamais de texte tapé, jamais le titre d&apos;une recherche, jamais
+              d&apos;adresse IP. Pour un visiteur sans compte, rien ne permet de le reconnaître d&apos;une visite à
+              l&apos;autre : le site d&apos;origine est gardé dans l&apos;onglet le temps de la visite, puis effacé. Pour
+              un compte, ces gestes sont rattachés au compte, restent sur nos serveurs en Europe, et sont détachés du
+              compte (donc anonymes) quand il est supprimé.
+            </p>
+            <p className="mt-3">
+              Le nombre de pages vues est aussi mesuré par Vercel Analytics, sans cookie et sans identifier les
+              visiteurs.
             </p>
           </section>
 

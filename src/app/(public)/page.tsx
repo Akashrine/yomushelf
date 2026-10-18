@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LandingDeck } from "@/components/landing/landing-deck";
 import { CoverMarquee } from "@/components/landing/cover-marquee";
+import { PageViewTracker } from "@/components/analytics/page-view-tracker";
+import { TrackedLink } from "@/components/analytics/tracked-link";
 import { getLandingDeck } from "@/lib/landing/covers";
 
 export const revalidate = 60;
@@ -28,15 +30,16 @@ const thumb = (url: string) => `/_next/image?url=${encodeURIComponent(url)}&w=12
 // Bangers has one weight : headings must not inherit the global 600 (faux bold).
 const comicHeading = { fontFamily: "var(--font-bangers)", fontWeight: 400, letterSpacing: "0.025em" } as const;
 
-function Cta({ children = "C'est parti !", big = false }: { children?: React.ReactNode; big?: boolean }) {
+function Cta({ children = "C'est parti !", big = false, position }: { children?: React.ReactNode; big?: boolean; position: "hero" | "final" }) {
   return (
-    <Link
+    <TrackedLink
+      position={position}
       href="/signup"
       className={`manga-button inline-flex items-center justify-center gap-2 rounded-2xl ${big ? "min-h-16 px-9 text-3xl" : "min-h-14 px-7 text-2xl"} ${comic}`}
       style={{ background: "var(--accent)", color: "white" }}
     >
       {children} <span aria-hidden="true">→</span>
-    </Link>
+    </TrackedLink>
   );
 }
 
@@ -68,6 +71,7 @@ export default async function LandingPage() {
         </Link>
       </header>
 
+      <PageViewTracker event="landing_viewed" />
       <main className="flex-1">
         {/* HERO */}
         <section className="manga-halftone relative">
@@ -97,7 +101,7 @@ export default async function LandingPage() {
                 Tous tes tomes en un coup d&apos;œil. Plus jamais de doublon. Ta prochaine pépite en un swipe.
               </p>
               <div className="flex flex-wrap items-center gap-4">
-                <Cta />
+                <Cta position="hero" />
                 <span className="text-sm font-bold">Gratuit · zéro pub</span>
               </div>
             </div>
@@ -184,7 +188,7 @@ export default async function LandingPage() {
               À toi de jouer !
             </h2>
             <p className="text-lg font-medium">Une série suffit pour commencer.</p>
-            <Cta big>Créer mon compte</Cta>
+            <Cta big position="final">Créer mon compte</Cta>
           </div>
         </section>
       </main>

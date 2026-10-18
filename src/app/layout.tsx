@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bangers, Geist } from "next/font/google";
 import "./globals.css";
-import { GoogleAnalytics } from "@/components/analytics/google-analytics";
+import { AnalyticsRoot } from "@/components/analytics/analytics-root";
 import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
@@ -71,7 +71,7 @@ export default function RootLayout({
     <html lang="fr" className={`${geistSans.variable} ${bangers.variable} h-full`}>
       <body className="min-h-full flex flex-col antialiased">
         {children}
-        <GoogleAnalytics />
+        <AnalyticsRoot />
         <Analytics />
       </body>
     </html>

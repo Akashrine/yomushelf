@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { AppIcon } from "@/components/app/app-icon";
+import { track } from "@/lib/analytics";
 
 // "En images" : the series' illustrations in a row ; a tap shows one full
 // screen, with big arrows to flip through them.
@@ -27,7 +28,10 @@ export function PictureRow({ title, pictures }: { title: string; pictures: strin
           <li key={src} className="w-36 shrink-0 snap-start sm:w-44">
             <button
               type="button"
-              onClick={() => setOpen(i)}
+              onClick={() => {
+                if (open == null) track("pictures_opened");
+                setOpen(i);
+              }}
               aria-label={`Voir l'image ${i + 1} sur ${pictures.length} de ${title}`}
               className="manga-panel-sm manga-press relative block w-full overflow-hidden rounded-xl"
               style={{ aspectRatio: "2/3", background: "var(--surface-raised)" }}

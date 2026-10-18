@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
+import { TrackedLink } from "@/components/analytics/tracked-link";
 import { SwipeDeck } from "@/components/decouvrir/swipe-deck";
 import type { DeckCard } from "@/lib/discovery/deck";
 
@@ -31,9 +31,9 @@ export function LandingDeck({ deck }: { deck: DeckCard[] }) {
           </p>
           {wished.length > 0 && <p className="relative text-sm font-medium" style={{ color: "var(--muted)" }}>{wished.map((w) => w.entry.title).join(", ")}</p>}
           <p className="relative text-base font-medium">Crée un compte pour garder tes envies et ranger ta collection.</p>
-          <Link href="/signup" className="manga-button relative flex min-h-14 w-full items-center justify-center rounded-2xl px-6 text-lg font-bold text-white" style={{ background: "var(--accent)" }}>
+          <TrackedLink position="deck_end" href="/signup" className="manga-button relative flex min-h-14 w-full items-center justify-center rounded-2xl px-6 text-lg font-bold text-white" style={{ background: "var(--accent)" }}>
             Créer un compte
-          </Link>
+          </TrackedLink>
           <button type="button" onClick={() => setRound((r) => r + 1)} className="relative min-h-11 px-4 text-sm font-bold underline underline-offset-4" style={{ color: "var(--ink)" }}>
             Recommencer
           </button>
