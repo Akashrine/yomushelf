@@ -5,6 +5,11 @@ import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { resetPassword, signIn, signUp, signInWithGoogle } from "@/app/(public)/auth/actions";
 
+// Primary submit : the accent manga button, one per screen.
+const SUBMIT =
+  "manga-button mt-1 min-h-14 w-full rounded-2xl px-6 text-lg font-bold focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[var(--ink)] disabled:opacity-60";
+const SUBMIT_STYLE = { background: "var(--accent)", color: "var(--accent-foreground)" } as const;
+
 // ─── Shared field ─────────────────────────────────────────────
 function Field({
   label,
@@ -24,7 +29,7 @@ function Field({
   const id = useId();
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium">
+      <label htmlFor={id} className="text-sm font-bold" style={{ color: "var(--ink)" }}>
         {label}
       </label>
       <input
@@ -34,11 +39,11 @@ function Field({
         placeholder={placeholder}
         autoComplete={autoComplete}
         required={required}
-        className="min-h-12 rounded-xl px-4 text-base outline-none transition-all focus:ring-2 focus:ring-[var(--accent)]"
+        className="min-h-12 rounded-xl px-4 text-base outline-none transition-shadow placeholder:text-[var(--muted)] focus-visible:ring-4 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)] motion-reduce:transition-none"
         style={{
-          background: "var(--surface-raised)",
-          border: "1px solid var(--border)",
-          color: "var(--foreground)",
+          background: "white",
+          border: "2px solid var(--ink)",
+          color: "var(--ink)",
         }}
       />
     </div>
@@ -48,7 +53,7 @@ function Field({
 function FormError({ text }: { text?: string }) {
   if (!text) return null;
   return (
-    <p role="alert" className="rounded-lg px-3 py-2 text-sm" style={{ background: "rgba(179,38,30,0.08)", color: "var(--danger)", border: "1px solid rgba(179,38,30,0.35)" }}>
+    <p role="alert" className="rounded-xl px-3 py-2 text-sm font-semibold" style={{ background: "#fbeceb", color: "var(--danger)", border: "2px solid var(--danger)" }}>
       {text}
     </p>
   );
@@ -61,11 +66,10 @@ function GoogleSubmit({ children }: { children: React.ReactNode }) {
     <button
       type="submit"
       disabled={pending}
-      className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl px-4 text-sm font-medium transition-colors disabled:opacity-60"
+      className="manga-panel-sm manga-press flex min-h-12 w-full items-center justify-center gap-3 rounded-2xl px-4 text-base font-bold focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-60"
       style={{
-        background: "var(--surface-raised)",
-        border: "1px solid var(--border)",
-        color: "var(--foreground)",
+        background: "var(--surface)",
+        color: "var(--ink)",
       }}
     >
       {children}
@@ -106,9 +110,9 @@ function GoogleButton({ label }: { label: string }) {
 function Divider() {
   return (
     <div className="flex items-center gap-3">
-      <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
-      <span className="text-xs" style={{ color: "var(--muted)" }}>ou</span>
-      <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+      <div className="h-0.5 flex-1" style={{ background: "var(--ink)" }} />
+      <span className="rounded-full px-2.5 py-0.5 text-xs font-black uppercase tracking-widest" style={{ background: "var(--ink)", color: "var(--pop)" }}>ou</span>
+      <div className="h-0.5 flex-1" style={{ background: "var(--ink)" }} />
     </div>
   );
 }
@@ -142,17 +146,17 @@ export function LoginForm({ notice }: { notice?: string }) {
         <button
           type="submit"
           disabled={pending}
-          className="mt-1 min-h-12 w-full rounded-xl text-sm font-semibold transition-all active:scale-[0.99] disabled:opacity-60"
-          style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+          className={SUBMIT}
+          style={SUBMIT_STYLE}
         >
           {pending ? "Connexion…" : "Se connecter"}
         </button>
 
-        <div className="flex flex-wrap items-center justify-between gap-x-3 text-sm" style={{ color: "var(--muted)" }}>
-          <Link href="/signup" className="flex min-h-11 items-center underline-offset-4 hover:underline">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 text-sm font-semibold" style={{ color: "var(--ink)" }}>
+          <Link href="/signup" className="flex min-h-11 items-center underline decoration-2 underline-offset-4">
             Pas encore de compte ?
           </Link>
-          <Link href="/forgot-password" className="flex min-h-11 items-center underline-offset-4 hover:underline">
+          <Link href="/forgot-password" className="flex min-h-11 items-center underline decoration-2 underline-offset-4">
             Mot de passe oublié ?
           </Link>
         </div>
@@ -168,14 +172,11 @@ export function SignupForm() {
   if (state?.success) {
     return (
       <div
-        className="rounded-xl p-5 text-sm leading-relaxed text-center"
-        style={{
-          background: "var(--surface-raised)",
-          border: "1px solid var(--border)",
-        }}
+        className="manga-panel-sm rounded-2xl p-5 text-center text-sm leading-relaxed"
+        style={{ background: "var(--pop)", color: "var(--ink)" }}
       >
-        <p className="mb-2 text-base font-semibold" role="status">Vérifie tes emails.</p>
-        <p style={{ color: "var(--muted)" }}>
+        <p className="mb-2 font-display text-3xl" role="status">Vérifie tes emails.</p>
+        <p className="font-medium">
           On t&apos;a envoyé un lien de confirmation. Clique dessus pour activer ton compte.
         </p>
       </div>
@@ -214,15 +215,15 @@ export function SignupForm() {
         <button
           type="submit"
           disabled={pending}
-          className="mt-1 min-h-12 w-full rounded-xl text-sm font-semibold transition-all active:scale-[0.99] disabled:opacity-60"
-          style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+          className={SUBMIT}
+          style={SUBMIT_STYLE}
         >
           {pending ? "Création…" : "Créer mon compte"}
         </button>
 
         <p className="text-center text-sm" style={{ color: "var(--muted)" }}>
           Déjà un compte ?{" "}
-          <Link href="/login" className="inline-flex min-h-11 items-center underline underline-offset-4" style={{ color: "var(--foreground)" }}>
+          <Link href="/login" className="inline-flex min-h-11 items-center font-bold underline decoration-2 underline-offset-4" style={{ color: "var(--ink)" }}>
             Se connecter
           </Link>
         </p>
@@ -236,7 +237,7 @@ export function ForgotPasswordForm() {
   const [state, action, pending] = useActionState(resetPassword, {});
   if (state?.success) {
     return (
-      <p role="status" className="rounded-xl p-5 text-sm leading-relaxed" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+      <p role="status" className="manga-panel-sm rounded-2xl p-5 text-sm font-medium leading-relaxed" style={{ background: "var(--pop)", color: "var(--ink)" }}>
         Si un compte existe pour cet email, tu vas recevoir un lien pour choisir un nouveau mot de passe. Pense à regarder tes
         courriers indésirables.
       </p>
@@ -249,12 +250,12 @@ export function ForgotPasswordForm() {
       <button
         type="submit"
         disabled={pending}
-        className="min-h-12 w-full rounded-xl text-sm font-semibold disabled:opacity-60"
-        style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+        className={SUBMIT}
+        style={SUBMIT_STYLE}
       >
         {pending ? "Envoi…" : "Recevoir le lien"}
       </button>
-      <Link href="/login" className="flex min-h-11 items-center justify-center text-sm underline underline-offset-4" style={{ color: "var(--muted)" }}>
+      <Link href="/login" className="flex min-h-11 items-center justify-center text-sm font-semibold underline decoration-2 underline-offset-4" style={{ color: "var(--ink)" }}>
         Retour à la connexion
       </Link>
     </form>

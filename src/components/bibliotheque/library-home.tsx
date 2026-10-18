@@ -37,9 +37,16 @@ export function LibraryHome({ name, cards, archived, wishes, wishCount }: Props)
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-1">
-        {name && <p className="eyebrow">Salut {name}</p>}
-        <h1 className="text-3xl sm:text-4xl">Ma collection</h1>
-        <p className="text-sm" style={{ color: "var(--muted)" }}>
+        {name && (
+          <p
+            className="manga-sticker mb-2 self-start rounded-full px-3 py-0.5 text-xs font-black uppercase tracking-widest"
+            style={{ background: "var(--ink)", color: "var(--pop)", transform: "rotate(-2deg)" }}
+          >
+            Salut {name}
+          </p>
+        )}
+        <h1 className="text-4xl sm:text-5xl" style={{ color: "var(--ink)" }}>Ma collection</h1>
+        <p className="mt-1 text-sm font-semibold" style={{ color: "var(--muted)" }}>
           {cards.length} série{cards.length > 1 ? "s" : ""} · {volumes} tome{volumes > 1 ? "s" : ""}
         </p>
       </header>
@@ -55,13 +62,13 @@ export function LibraryHome({ name, cards, archived, wishes, wishCount }: Props)
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Chercher une série"
-            className="min-h-12 w-full rounded-2xl pl-11 pr-3 text-base outline-none focus:ring-2"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+            className="min-h-12 w-full rounded-2xl pl-11 pr-3 text-base focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+            style={{ background: "var(--surface)", color: "var(--foreground)", border: "2px solid var(--ink)", boxShadow: "3px 3px 0 var(--ink)" }}
           />
         </label>
       )}
 
-      <ul className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 lg:grid-cols-5">
+      <ul className="grid grid-cols-3 gap-x-3.5 gap-y-6 sm:grid-cols-4 lg:grid-cols-5">
         {visible.map((c) => (
           <li key={c.shelf.manga_id}>
             <Poster card={c} />
@@ -71,13 +78,17 @@ export function LibraryHome({ name, cards, archived, wishes, wishCount }: Props)
           <li>
             <Link
               href="/ajouter"
-              className="flex w-full flex-col items-center justify-center gap-2 rounded-xl text-sm font-bold transition-transform active:scale-95"
-              style={{ aspectRatio: "2/3", border: "2px dashed var(--border)", color: "var(--accent)" }}
+              className="manga-halftone flex w-full flex-col items-center justify-center gap-3 rounded-xl transition-transform motion-safe:active:scale-95"
+              style={{ aspectRatio: "2/3", border: "3px dashed var(--ink)", backgroundColor: "var(--surface)", color: "var(--ink)" }}
             >
-              <span className="flex h-12 w-12 items-center justify-center rounded-full" style={{ background: "var(--surface-raised)" }}>
-                <AppIcon name="plus" size={26} strokeWidth={2.5} />
+              <span
+                className="manga-sticker flex h-14 w-14 items-center justify-center rounded-2xl"
+                style={{ background: "var(--pop)", color: "var(--ink)", transform: "rotate(-4deg)" }}
+                aria-hidden="true"
+              >
+                <AppIcon name="plus" size={30} strokeWidth={3} />
               </span>
-              Ajouter
+              <span className="font-display text-xl font-normal leading-none tracking-wide">Ajouter</span>
             </Link>
           </li>
         )}
@@ -99,18 +110,26 @@ function Poster({ card }: { card: ShelfCard }) {
   const complete = total != null && owned >= total;
   return (
     <Link href={`/bibliotheque/${s.slug}`} className="group flex flex-col gap-1.5" aria-label={`${s.title}, ${owned} tome${owned > 1 ? "s" : ""}${total ? ` sur ${total}` : ""}`}>
-      <span className="relative block w-full transition-transform group-active:scale-95" style={{ aspectRatio: "2/3" }}>
-        <Cover shelf={s} volume={Math.max(1, ...s.owned)} full bare />
+      <span className="relative block w-full" style={{ aspectRatio: "2/3" }}>
+        <span className="manga-panel-sm manga-press block h-full w-full overflow-hidden rounded-xl" style={{ background: "var(--surface-raised)" }}>
+          <Cover shelf={s} volume={Math.max(1, ...s.owned)} full bare />
+        </span>
         <span
-          className="absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
-          style={complete ? { background: "var(--success)", color: "white" } : { background: "rgba(29,36,51,0.82)", color: "white" }}
+          className="manga-sticker absolute -bottom-2 -right-1.5 flex items-center gap-1 rounded-lg px-2 py-0.5 text-sm font-black tabular-nums"
+          style={{
+            background: complete ? "var(--success)" : "var(--ink)",
+            color: "white",
+            borderWidth: 2,
+            boxShadow: "2px 2px 0 var(--ink)",
+            transform: "rotate(-3deg)",
+          }}
         >
-          {complete && <AppIcon name="check" size={12} strokeWidth={3} />}
+          {complete && <AppIcon name="check" size={13} strokeWidth={3} />}
           {owned}
-          {total ? <span className="font-medium opacity-75">/{total}</span> : null}
+          {total ? <span className="font-semibold">/{total}</span> : null}
         </span>
       </span>
-      <span className="line-clamp-2 text-sm font-semibold leading-snug">{s.title}</span>
+      <span className="mt-1 line-clamp-2 text-sm font-bold leading-snug" style={{ color: "var(--ink)" }}>{s.title}</span>
     </Link>
   );
 }
@@ -118,12 +137,16 @@ function Poster({ card }: { card: ShelfCard }) {
 function WishesRow({ wishes, count }: { wishes: WishPreview[]; count: number }) {
   if (count === 0) {
     return (
-      <section className="flex flex-col items-start gap-3 rounded-3xl p-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-        <h2 className="flex items-center gap-2 text-xl">
-          <span style={{ color: "var(--gold)" }}><AppIcon name="star" size={20} filled /></span> Mes envies
+      <section className="manga-panel flex flex-col items-start gap-3 rounded-3xl p-5">
+        <h2 className="flex items-center gap-3 text-2xl sm:text-3xl" style={{ color: "var(--ink)" }}>
+          <StarSticker /> Mes envies
         </h2>
         <p className="text-sm" style={{ color: "var(--muted)" }}>Trouve ta prochaine série dans Découvrir.</p>
-        <Link href="/decouvrir" className="flex min-h-11 items-center gap-2 rounded-full px-4 text-sm font-bold" style={{ background: "var(--surface-raised)" }}>
+        <Link
+          href="/decouvrir"
+          className="manga-panel-sm manga-press flex min-h-12 items-center gap-2 rounded-2xl px-5 text-base font-bold"
+          style={{ background: "var(--surface)", color: "var(--ink)" }}
+        >
           <AppIcon name="compass" size={18} /> Découvrir
         </Link>
       </section>
@@ -132,32 +155,55 @@ function WishesRow({ wishes, count }: { wishes: WishPreview[]; count: number }) 
   return (
     <section aria-labelledby="h-wishes" className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 id="h-wishes" className="flex items-center gap-2 text-xl">
-          <span style={{ color: "var(--gold)" }}><AppIcon name="star" size={20} filled /></span>
-          Mes envies <span className="font-sans text-base font-normal" style={{ color: "var(--muted)" }}>{count}</span>
+        <h2 id="h-wishes" className="flex items-center gap-3 text-2xl sm:text-3xl" style={{ color: "var(--ink)" }}>
+          <StarSticker />
+          Mes envies
+          <span
+            className="manga-sticker rounded-lg px-2 py-0.5 font-sans text-sm font-black tabular-nums tracking-normal"
+            style={{ background: "var(--ink)", color: "var(--pop)", borderWidth: 2, boxShadow: "2px 2px 0 var(--ink)" }}
+          >
+            {count}
+          </span>
         </h2>
-        <Link href="/envies" className="flex min-h-11 items-center gap-1 text-sm font-semibold" style={{ color: "var(--accent)" }}>
+        <Link href="/envies" className="flex min-h-11 items-center gap-1 px-1 text-sm font-bold" style={{ color: "var(--accent)" }}>
           Tout voir <AppIcon name="chevron-right" size={16} />
         </Link>
       </div>
-      <ul className="no-scrollbar -mx-4 flex snap-x scroll-pl-4 gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:scroll-pl-6 sm:px-6">
+      <ul className="no-scrollbar -mx-4 flex snap-x scroll-pl-4 gap-3.5 overflow-x-auto px-4 pb-3 pt-1 sm:-mx-6 sm:scroll-pl-6 sm:px-6">
         {wishes.map((w) => (
           <li key={`${w.manga_id}-${w.volume_number}`} className="w-24 shrink-0 snap-start sm:w-28">
             <Link href={`/bibliotheque/${w.manga_id}`} className="flex flex-col gap-1.5">
               <span className="relative block w-full" style={{ aspectRatio: "2/3" }}>
-                <Cover shelf={{ manga_id: w.manga_id, title: w.title, cover_url: w.cover_url }} volume={w.volume_number ?? 1} full bare />
+                <span className="manga-panel-sm manga-press block h-full w-full overflow-hidden rounded-xl" style={{ background: "var(--surface-raised)" }}>
+                  <Cover shelf={{ manga_id: w.manga_id, title: w.title, cover_url: w.cover_url }} volume={w.volume_number ?? 1} full bare />
+                </span>
                 {w.volume_number != null && (
-                  <span className="absolute bottom-1.5 right-1.5 rounded-full px-2 py-0.5 text-xs font-bold text-white" style={{ background: "rgba(29,36,51,0.82)" }}>
+                  <span
+                    className="manga-sticker absolute -bottom-2 -right-1.5 rounded-lg px-2 py-0.5 text-xs font-black tabular-nums"
+                    style={{ background: "var(--pop)", color: "var(--ink)", borderWidth: 2, boxShadow: "2px 2px 0 var(--ink)", transform: "rotate(-3deg)" }}
+                  >
                     T{w.volume_number}
                   </span>
                 )}
               </span>
-              <span className="line-clamp-2 text-xs font-semibold leading-snug">{w.title}</span>
+              <span className="mt-1 line-clamp-2 text-xs font-bold leading-snug" style={{ color: "var(--ink)" }}>{w.title}</span>
             </Link>
           </li>
         ))}
       </ul>
     </section>
+  );
+}
+
+function StarSticker() {
+  return (
+    <span
+      aria-hidden="true"
+      className="manga-sticker inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+      style={{ background: "var(--pop)", color: "var(--ink)", borderWidth: 2, boxShadow: "2px 2px 0 var(--ink)", transform: "rotate(-6deg)" }}
+    >
+      <AppIcon name="star" size={18} filled />
+    </span>
   );
 }
 
@@ -181,8 +227,8 @@ function ArchivedList({ archived }: { archived: ArchivedSeries[] }) {
   }
 
   return (
-    <details className="rounded-2xl p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-      <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold">
+    <details className="manga-panel-sm rounded-2xl p-4" style={{ background: "var(--surface)" }}>
+      <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-bold" style={{ color: "var(--ink)" }}>
         <AppIcon name="archive" size={18} /> Séries retirées · {archived.length}
       </summary>
       <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
@@ -190,7 +236,7 @@ function ArchivedList({ archived }: { archived: ArchivedSeries[] }) {
       </p>
       <ul className="mt-3 flex flex-col gap-2">
         {archived.map((a) => (
-          <li key={a.manga_id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl px-3 py-2" style={{ background: "var(--surface-raised)" }}>
+          <li key={a.manga_id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl px-3 py-2" style={{ background: "var(--surface-raised)", border: "2px solid var(--ink)" }}>
             <span className="text-sm">
               <strong>{a.title}</strong> <span style={{ color: "var(--muted)" }}>· {a.owned} tomes</span>
             </span>
@@ -199,8 +245,8 @@ function ArchivedList({ archived }: { archived: ArchivedSeries[] }) {
               onClick={() => restore(a.manga_id)}
               disabled={isPending}
               aria-label={`Remettre ${a.title} dans ma collection`}
-              className="min-h-11 rounded-xl px-3 text-sm font-semibold disabled:opacity-60"
-              style={{ border: "1px solid var(--border)" }}
+              className="manga-panel-sm manga-press min-h-11 rounded-xl px-4 text-sm font-bold disabled:opacity-60"
+              style={{ background: "var(--surface)", color: "var(--ink)" }}
             >
               La remettre
             </button>

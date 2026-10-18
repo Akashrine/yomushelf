@@ -67,8 +67,8 @@ export function ReadUpTo({
     });
   }
 
-  const field = "min-h-11 rounded-xl px-3 text-base outline-none focus:ring-2";
-  const fieldStyle = { background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" };
+  const field = "min-h-12 rounded-xl px-3 text-base outline-none focus:ring-2 focus:ring-[var(--accent)]";
+  const fieldStyle = { background: "var(--background)", border: "2px solid var(--ink)", color: "var(--foreground)" };
   const changed = done ? done.added.length + done.upgraded.length : 0;
 
   return (
@@ -80,11 +80,11 @@ export function ReadUpTo({
             {compact ? "" : <> de <strong>{title}</strong></>} seront notés comme lus, sans date. Ceux déjà lus gardent leur date. Tu
             pourras annuler juste après.
           </p>
-          <div className="grid grid-cols-2 gap-2 sm:max-w-sm">
-            <button type="button" onClick={() => setConfirming(false)} disabled={isPending} className="min-h-11 rounded-xl text-sm font-semibold" style={{ background: "var(--background)", border: "1px solid var(--border)" }}>
+          <div className="grid grid-cols-2 gap-3 sm:max-w-sm">
+            <button type="button" onClick={() => setConfirming(false)} disabled={isPending} className="manga-panel-sm manga-press min-h-12 rounded-xl text-base font-bold" style={{ background: "var(--surface)", color: "var(--ink)" }}>
               Retour
             </button>
-            <button type="button" onClick={submit} disabled={isPending} className="min-h-11 rounded-xl text-sm font-bold text-white" style={{ background: "linear-gradient(135deg, var(--read), var(--read-deep))" }}>
+            <button type="button" onClick={submit} disabled={isPending} className="manga-button min-h-12 rounded-xl text-base font-bold disabled:opacity-60" style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}>
               {isPending ? "J'enregistre…" : "Oui, noter"}
             </button>
           </div>
@@ -105,7 +105,7 @@ export function ReadUpTo({
             J&apos;ai lu jusqu&apos;au tome
             <input type="number" min={1} max={500} inputMode="numeric" value={upTo} onChange={(e) => setUpTo(e.target.value)} className={`${field} w-24 tabular-nums`} style={fieldStyle} />
           </label>
-          <button type="button" onClick={() => setConfirming(true)} disabled={!valid || isPending} className="min-h-11 rounded-xl px-4 text-sm font-bold disabled:opacity-40" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+          <button type="button" onClick={() => setConfirming(true)} disabled={!valid || isPending} className="manga-panel-sm manga-press min-h-12 rounded-xl px-5 text-base font-bold disabled:opacity-40" style={{ background: "var(--surface)", color: "var(--ink)" }}>
             Continuer
           </button>
         </div>
@@ -114,7 +114,7 @@ export function ReadUpTo({
       <div aria-live="polite">
         {done && (
           <p className="flex flex-wrap items-center gap-2 text-sm" role="status">
-            <span style={{ color: "var(--read)" }}>
+            <span className="font-semibold" style={{ color: "var(--success)" }}>
               {changed === 0
                 ? `Les tomes 1 à ${done.upTo} étaient déjà lus.`
                 : `${compact ? "" : `${done.title} : `}${changed} tome${changed > 1 ? "s" : ""} noté${changed > 1 ? "s" : ""} comme lu${changed > 1 ? "s" : ""}.`}

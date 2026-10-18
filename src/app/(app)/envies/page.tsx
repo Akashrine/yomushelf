@@ -64,8 +64,17 @@ export default async function EnviesPage() {
 
   return (
     <AppShell active="bibliotheque" avatarInitials={profile?.avatar_initials ?? undefined}>
-      <h1 className="text-2xl font-bold sm:text-3xl">Mes envies</h1>
-      <p className="mb-5 mt-1 text-sm" style={{ color: "var(--muted)" }}>
+      <h1 className="flex items-center gap-3 text-4xl sm:text-5xl" style={{ color: "var(--ink)" }}>
+        <span
+          aria-hidden="true"
+          className="manga-sticker inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-2xl leading-none"
+          style={{ background: "var(--pop)", color: "var(--ink)", transform: "rotate(-6deg)" }}
+        >
+          ★
+        </span>
+        Mes envies
+      </h1>
+      <p className="mb-6 mt-3 max-w-prose text-sm" style={{ color: "var(--muted)" }}>
         Les tomes que tu aimerais avoir. Un prix « ≈ » est une estimation tirée de ce que tu as payé : ce n&apos;est pas une dépense.
       </p>
       <WishlistView items={items} series={series} />

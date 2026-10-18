@@ -65,7 +65,7 @@
 
   /* Manga design system : ink lines and shadows, sticker yellow (always
      with ink text, 13:1). See docs/design.md. */
-  --ink: var(--ink);
+  --ink: #12151d;
   --pop: #ffd23f;
 
   /* Feedback */
@@ -216,6 +216,9 @@ body {
   display: none;
 }
 
+/* Manga design system (docs/design.md). In @layer components so Tailwind
+   utilities (focus rings, backgrounds) can still override a class. */
+@layer components {
 /* ── Landing, manga mode ───────────────────────────────────────────── */
 /* Halftone dots, speed lines, ink-shadowed panels and stickers. Pure CSS :
    no image weighs on the first paint. */
@@ -292,4 +295,5 @@ body {
   .manga-pop {
     animation: none;
   }
+}
 }
