@@ -9,6 +9,7 @@ import { addSeriesToLibrary } from "@/app/(app)/ajouter/actions";
 import { MAX_VOLUME } from "@/lib/collection/schema";
 import { hitToSeries, type FlowSeries } from "./add-flow";
 import { useSeriesSearch } from "./use-series-search";
+import { track } from "@/lib/analytics";
 
 // The short way to add mangas, and the first screen of a new account :
 //   1. tap covers (best sellers) or search, several at once ;
@@ -86,6 +87,7 @@ export function QuickAdd({ popular, welcome, name }: { popular: FlowSeries[]; we
     setAdded((a) => ({ series: a.series + series, volumes: a.volumes + volumes }));
     setFailed(errors);
     setPicks(kept);
+    if (series > 0) track("quick_add_done", { series, volumes, welcome });
     if (errors.length === 0) setStep("done");
     router.refresh();
   }

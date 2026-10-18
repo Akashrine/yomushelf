@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { logServerEvent } from "@/lib/server/analytics";
 
 const OTP_TYPES = new Set(["signup", "recovery", "email_change", "email", "invite", "magiclink"]);
 
@@ -20,8 +21,11 @@ export async function GET(request: NextRequest) {
 
   const supabase = await createClient();
   if (tokenHash && type && OTP_TYPES.has(type)) {
-    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: type as EmailOtpType });
-    if (!error) return NextResponse.redirect(`${origin}${next}`);
+    const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: type as EmailOtpType });
+    if (!error) {
+      if (type === "signup" || type === "email") await logServerEvent("email_confirmed", {}, { accountCreatedAt: data.user?.created_at });
+      return NextResponse.redirect(`${origin}${next}`);
+    }
     return NextResponse.redirect(`${origin}/login?error=link_invalid`);
   }
   if (code) {

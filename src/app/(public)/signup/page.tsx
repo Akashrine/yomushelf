@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SignupForm } from "@/components/auth/auth-form";
+import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 
 export const metadata: Metadata = {
   title: "Créer un compte",
@@ -11,6 +12,7 @@ export default function SignupPage() {
   return (
     <div className="manga-halftone relative flex min-h-screen flex-col items-center justify-center overflow-x-hidden px-4 py-16" style={{ color: "var(--ink)" }}>
       <span aria-hidden="true" className="manga-speedlines pointer-events-none absolute inset-0" />
+      <PageViewTracker event="signup_viewed" />
       <div className="relative flex w-full max-w-sm flex-col gap-8">
         <Link href="/" className="flex min-h-11 items-center justify-center gap-2 font-display text-3xl tracking-wide">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg text-xl" style={{ background: "var(--ink)", color: "var(--pop)" }} aria-hidden="true">

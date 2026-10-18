@@ -4,6 +4,7 @@ import { useActionState, useId } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { resetPassword, signIn, signUp, signInWithGoogle } from "@/app/(public)/auth/actions";
+import { SourceField } from "@/components/analytics/source-field";
 
 // Primary submit : the accent manga button, one per screen.
 const SUBMIT =
@@ -81,6 +82,7 @@ function GoogleSubmit({ children }: { children: React.ReactNode }) {
 function GoogleButton({ label }: { label: string }) {
   return (
     <form action={signInWithGoogle}>
+      <SourceField />
       <GoogleSubmit>
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
           <path
@@ -188,6 +190,7 @@ export function SignupForm() {
       <GoogleButton label="S'inscrire avec Google" />
       <Divider />
       <form action={action} className="flex flex-col gap-4">
+        <SourceField />
         <Field
           label="Pseudo (facultatif)"
           name="username"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useOptimistic, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AppIcon } from "@/components/app/app-icon";
@@ -18,6 +18,7 @@ import { addWishlistItem } from "@/app/(app)/envies/actions";
 import { lastKnownPrice, nextVolumeToBuy, type OwnedVolume } from "@/lib/collection/value";
 import type { Reading } from "@/lib/collection/reading";
 import { gapBelow, rangeLabel } from "@/lib/collection/fill";
+import { track } from "@/lib/analytics";
 import { GENRE_LABELS, ageLabel } from "@/lib/discovery/suggest";
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -143,6 +144,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
       return;
     }
     setNotice(null);
+    track("volume_toggled", { action: (mode === "tomes" ? owned : read).has(n) ? "remove" : "add", tab: mode });
     if (mode === "tomes") {
       if (owned.has(n)) {
         setPrompt(null);
@@ -169,6 +171,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
 
   function acceptPrompt(p: FillPrompt) {
     setPrompt(null);
+    track("fill_prompt_answered", { answer: "yes", tab: p.kind === "lectures" ? "lectures" : "tomes", volumes: p.to - p.from + 1 });
     const nums = Array.from({ length: p.to - p.from + 1 }, (_, i) => p.from + i);
     if (p.kind === "tomes") {
       runToggle("owned", { nums, on: true }, () =>
@@ -182,6 +185,13 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
   function act(intent: ReadingIntent, volume: number) {
     reading.run(intent, { mangaId: manga.id, title: manga.title, volume }, () => setOpenVolume(null));
   }
+
+  // once per series, with the presence seen on arrival (an add on this page
+  // changes it, which is not a second visit)
+  const arrival = useRef(presence);
+  useEffect(() => {
+    track("series_viewed", { presence: arrival.current });
+  }, [manga.id]);
 
   const closeSheet = useCallback(() => setOpenVolume(null), []);
   function handleSaved(event: VolumeSavedEvent) {
@@ -214,7 +224,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
           <ul className="no-scrollbar -mx-4 flex snap-x scroll-pl-4 gap-4 overflow-x-auto px-4 pb-3 pt-1 sm:-mx-6 sm:scroll-pl-6 sm:px-6">
             {similar.map((c) => (
               <li key={c.id} className="w-28 shrink-0 snap-start sm:w-32">
-                <Link href={`/bibliotheque/${c.id}`} className="flex flex-col gap-2">
+                <Link href={`/bibliotheque/${c.id}`} onClick={() => track("similar_clicked")} className="flex flex-col gap-2">
                   <span className="manga-panel-sm manga-press relative block w-full overflow-hidden rounded-xl" style={{ aspectRatio: "2/3" }}>
                     <Cover shelf={{ manga_id: c.id, title: c.title, cover_url: c.cover_url }} volume={1} full bare />
                     {c.onShelf && (
@@ -317,7 +327,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
             <button
               type="button"
               disabled={isPending}
-              onClick={() => run(() => addWishlistItem(formOf({ manga_id: manga.id, volume_number: "1" })), () => setNotice({ text: `${manga.title} est dans tes envies` }))}
+              onClick={() => run(() => addWishlistItem(formOf({ manga_id: manga.id, volume_number: "1" })), () => { track("wish_added", { from: "serie" }); setNotice({ text: `${manga.title} est dans tes envies` }); })}
               className="manga-button flex min-h-14 items-center justify-center gap-2 rounded-2xl text-lg font-bold disabled:opacity-60"
               style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
             >
@@ -364,9 +374,10 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
                 on={false}
                 disabled={isPending}
                 onClick={() =>
-                  run(() => addWishlistItem(formOf({ manga_id: manga.id, volume_number: String(wishTarget) })), () =>
-                    setNotice({ text: `Tome ${wishTarget} dans tes envies` })
-                  )
+                  run(() => addWishlistItem(formOf({ manga_id: manga.id, volume_number: String(wishTarget) })), () => {
+                    track("wish_added", { from: "serie" });
+                    setNotice({ text: `Tome ${wishTarget} dans tes envies` });
+                  })
                 }
               />
             ))}
@@ -465,7 +476,10 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
             <div className="grid grid-cols-[1fr_1.4fr] gap-3">
               <button
                 type="button"
-                onClick={() => setPrompt(null)}
+                onClick={() => {
+                  track("fill_prompt_answered", { answer: "no", tab: prompt.kind === "lectures" ? "lectures" : "tomes", volumes: prompt.to - prompt.from + 1 });
+                  setPrompt(null);
+                }}
                 className="manga-panel-sm manga-press min-h-14 rounded-2xl text-lg font-bold"
                 style={{ background: "var(--surface)", color: "var(--ink)" }}
               >

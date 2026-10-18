@@ -1,42 +1,51 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { trackEvent } from "./analytics";
+import { describe, expect, it } from "vitest";
+import { BatchSchema, cleanPath, sourceFrom, validateEvents } from "./analytics-catalogue";
 
-describe("trackEvent", () => {
-  beforeEach(() => {
-    delete (window as { gtag?: unknown }).gtag;
+describe("validateEvents", () => {
+  it("keeps known events with their declared properties", () => {
+    expect(validateEvents([{ name: "deck_swiped", props: { choice: "wish" } }])).toEqual([{ name: "deck_swiped", properties: { choice: "wish" } }]);
   });
 
-  it("calls window.gtag when available", () => {
-    const gtag = vi.fn();
-    (window as { gtag?: unknown }).gtag = gtag;
+  it("drops unknown events, unknown properties and wrong values", () => {
+    expect(
+      validateEvents([
+        { name: "made_up", props: {} },
+        { name: "deck_swiped", props: { choice: "wish", query: "naruto" } },
+        { name: "deck_swiped", props: { choice: "love" } },
+        { name: "toString", props: {} },
+      ])
+    ).toEqual([]);
+  });
+});
 
-    trackEvent("test_event", { foo: "bar" });
-
-    expect(gtag).toHaveBeenCalledWith("event", "test_event", { foo: "bar" });
+describe("BatchSchema", () => {
+  it("refuses more than 10 events at once", () => {
+    const events = Array.from({ length: 11 }, () => ({ name: "deck_opened", props: {} }));
+    expect(BatchSchema.safeParse({ events }).success).toBe(false);
   });
 
-  it("is a noop when gtag is not loaded", () => {
-    expect(() => trackEvent("test_event")).not.toThrow();
+  it("refuses a source or a path that could carry free text", () => {
+    expect(BatchSchema.safeParse({ events: [{ name: "deck_opened" }], context: { src: "Mon Fils Léo" } }).success).toBe(false);
+    expect(BatchSchema.safeParse({ events: [{ name: "deck_opened" }], context: { path: "/x?q=secret" } }).success).toBe(false);
+  });
+});
+
+describe("sourceFrom", () => {
+  it("prefers utm_source, then the referrer's site", () => {
+    expect(sourceFrom("?utm_source=TikTok", "https://www.instagram.com/", "www.yomushelf.com")).toBe("tiktok");
+    expect(sourceFrom("", "https://l.instagram.com/?u=x", "www.yomushelf.com")).toBe("instagram");
+    expect(sourceFrom("", "https://www.google.fr/", "www.yomushelf.com")).toBe("google");
+    expect(sourceFrom("", "https://forum.example.org/t/1", "www.yomushelf.com")).toBe("forum.example.org");
   });
 
-  it("passes params as-is", () => {
-    const gtag = vi.fn();
-    (window as { gtag?: unknown }).gtag = gtag;
-
-    trackEvent("wrapped_card_viewed", { year: 2025, card_index: 3 });
-
-    expect(gtag).toHaveBeenCalledWith("event", "wrapped_card_viewed", {
-      year: 2025,
-      card_index: 3,
-    });
+  it("counts the site itself and no referrer as direct", () => {
+    expect(sourceFrom("", "", "www.yomushelf.com")).toBe("direct");
+    expect(sourceFrom("", "https://yomushelf.com/login", "www.yomushelf.com")).toBe("direct");
   });
+});
 
-  it("fires with no params when omitted", () => {
-    const gtag = vi.fn();
-    (window as { gtag?: unknown }).gtag = gtag;
-
-    trackEvent("profile_made_public");
-
-    expect(gtag).toHaveBeenCalledWith("event", "profile_made_public", undefined);
+describe("cleanPath", () => {
+  it("removes series ids", () => {
+    expect(cleanPath("/bibliotheque/021acb54-f7e7-4f75-9618-3716f1b03eb3")).toBe("/bibliotheque/id");
   });
 });

@@ -11,6 +11,7 @@ import { GENRE_LABELS, GENRES, ageLabel, matchesFilters, type CatalogueEntry, ty
 import type { DeckCard } from "@/lib/discovery/deck";
 import { titleKey } from "@/lib/manga-api/merge";
 import { SwipeDeck } from "./swipe-deck";
+import { track } from "@/lib/analytics";
 
 export type DiscoverCard = { entry: CatalogueEntry; reason?: string; note?: string | null };
 export type Selection = { slug: string; title: string; description: string | null; items: DiscoverCard[] };
@@ -109,7 +110,11 @@ export function DiscoverView({ featured, deck, rows, catalogue, onShelf, wished,
           <input
             type="search"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              // once per search, never the text typed
+              if (e.target.value.trim().length >= 2 && query.trim().length < 2) track("discover_searched");
+              setQuery(e.target.value);
+            }}
             placeholder="Un titre, un auteur…"
             autoComplete="off"
             className="manga-panel-sm min-h-14 w-full rounded-2xl pl-12 pr-4 text-base font-medium outline-none placeholder:text-muted focus-visible:ring-4 focus-visible:ring-accent"
@@ -125,7 +130,10 @@ export function DiscoverView({ featured, deck, rows, catalogue, onShelf, wished,
                 key={a.label}
                 type="button"
                 aria-pressed={on}
-                onClick={() => setMaxAge(a.value)}
+                onClick={() => {
+                  track("discover_filtered", { age: a.value == null ? "all" : (String(a.value) as "8" | "10" | "12" | "14") });
+                  setMaxAge(a.value);
+                }}
                 className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-bold ${on ? "manga-panel-sm manga-press" : ""}`}
                 style={on ? { background: "var(--pop)", color: "var(--ink)" } : { background: "var(--surface)", color: "var(--ink)", border: "2px solid var(--ink)" }}
               >
@@ -167,7 +175,15 @@ export function DiscoverView({ featured, deck, rows, catalogue, onShelf, wished,
               onShelf={shelfSet.has(featured.card.entry.id)}
               pending={isPending && pendingId === featured.card.entry.id}
               onWish={() =>
-                run(featured.card.entry.id, () => addWishlistItem(form({ manga_id: featured.card.entry.id, volume_number: "1" })), `${featured.card.entry.title} est dans tes envies.`)
+                run(
+                  featured.card.entry.id,
+                  () =>
+                    addWishlistItem(form({ manga_id: featured.card.entry.id, volume_number: "1" })).then((r) => {
+                      if (r.success) track("wish_added", { from: "decouvrir_hero" });
+                      return r;
+                    }),
+                  `${featured.card.entry.title} est dans tes envies.`
+                )
               }
             />
           )}
@@ -175,7 +191,10 @@ export function DiscoverView({ featured, deck, rows, catalogue, onShelf, wished,
           {deck.length > 0 && (
             <button
               type="button"
-              onClick={() => setPlaying(true)}
+              onClick={() => {
+                track("deck_opened");
+                setPlaying(true);
+              }}
               className="manga-button flex min-h-24 items-center gap-4 rounded-3xl p-4 text-left"
               style={{ background: "var(--accent)", color: "white" }}
             >

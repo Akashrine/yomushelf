@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AppIcon } from "@/components/app/app-icon";
 import { Cover } from "@/components/collection/reader-home";
 import { addWishlistItem, undoSeriesWish } from "@/app/(app)/envies/actions";
 import { dismissSuggestion, restoreSuggestions } from "@/app/(app)/decouvrir/actions";
 import { ageLabel } from "@/lib/discovery/suggest";
+import { track } from "@/lib/analytics";
 import type { DeckCard } from "@/lib/discovery/deck";
 
 // One series at a time, simple enough for a child :
@@ -66,7 +67,15 @@ export function SwipeDeck({
   const top = queue[0];
   const next = queue[1];
 
+  // The demo on the landing counts as played to the end once empty.
+  const finished = !top && done.size > 0;
+  useEffect(() => {
+    if (demo && finished) track("demo_completed", { wishes: wishedHere.length });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demo, finished]);
+
   function save(card: DeckCard, choice: Choice) {
+    track(demo ? "demo_swiped" : "deck_swiped", { choice: choice === "dismiss" ? "pass" : choice });
     if (choice === "wish") setWishedHere((w) => [...w, card]);
     if (choice === "skip") return;
     if (demo) {

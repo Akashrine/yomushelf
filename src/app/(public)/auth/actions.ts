@@ -3,6 +3,13 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { logServerEvent } from "@/lib/server/analytics";
+
+// The visit's source (SourceField), same rules as the client catalogue.
+const sourceOf = (formData: FormData) => {
+  const raw = formData.get("src");
+  return typeof raw === "string" && /^[a-z0-9_.-]{1,40}$/.test(raw) ? raw : null;
+};
 
 const LoginSchema = z.object({
   email: z.string().email("Email invalide."),
@@ -78,17 +85,20 @@ export async function signUp(
     return { error: "Erreur lors de l'inscription. Réessaie." };
   }
 
+  await logServerEvent("account_created", { method: "email" }, { accountCreatedAt: data.user?.created_at, src: sourceOf(formData) });
+
   // No email confirmation required : the account is ready and signed in.
   if (data.session) redirect("/bibliotheque");
   return { success: true };
 }
 
-export async function signInWithGoogle() {
+export async function signInWithGoogle(formData: FormData) {
+  const src = sourceOf(formData);
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback${src ? `?src=${src}` : ""}`,
       queryParams: { access_type: "offline", prompt: "consent" },
     },
   });
