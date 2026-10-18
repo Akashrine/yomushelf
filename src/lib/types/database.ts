@@ -11,6 +11,8 @@ export type AcquisitionType = "bought" | "gift" | "borrowed" | "other";
 export type ReadingStatus = "reading" | "read";
 export type Demographic = "kodomo" | "shonen" | "shojo" | "seinen" | "josei";
 export type WishlistPriority = "high" | "low";
+export type AgeBand = "under_15" | "15_plus";
+export type HeardFrom = "ami" | "parent" | "librairie" | "mediatheque_cdi" | "salon" | "reseaux" | "google" | "autre";
 
 export type Database = {
   public: {
@@ -30,6 +32,10 @@ export type Database = {
           bio: string | null;
           public_slug: string | null;
           sharing_locked: boolean;
+          age_band: AgeBand | null;
+          age_band_set_at: string | null;
+          heard_from: HeardFrom | null;
+          parent_consent_at: string | null;
         };
         Insert: {
           id: string;
@@ -44,6 +50,10 @@ export type Database = {
           avoided_genres?: string[];
           bio?: string | null;
           public_slug?: string | null;
+          age_band?: AgeBand | null;
+          age_band_set_at?: string | null;
+          heard_from?: HeardFrom | null;
+          parent_consent_at?: string | null;
         };
         Update: {
           id?: string;
@@ -58,6 +68,43 @@ export type Database = {
           avoided_genres?: string[];
           bio?: string | null;
           public_slug?: string | null;
+          age_band?: AgeBand | null;
+          age_band_set_at?: string | null;
+          heard_from?: HeardFrom | null;
+          parent_consent_at?: string | null;
+        };
+        Relationships: [];
+      };
+      parental_consents: {
+        Row: {
+          user_id: string;
+          parent_email: string;
+          token_hash: string;
+          expires_at: string;
+          sent_count: number;
+          last_sent_at: string;
+          confirmed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          parent_email: string;
+          token_hash: string;
+          expires_at: string;
+          sent_count?: number;
+          last_sent_at?: string;
+          confirmed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          parent_email?: string;
+          token_hash?: string;
+          expires_at?: string;
+          sent_count?: number;
+          last_sent_at?: string;
+          confirmed_at?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };

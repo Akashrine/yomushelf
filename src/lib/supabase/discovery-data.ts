@@ -16,6 +16,7 @@ export type DiscoveryContext = {
   wished: string[];
   declared: DeclaredTastes;
   scope: DiscoveryScope;
+  scopeLocked: boolean; // under 15 : the youth selection, set with the parent's consent
 };
 
 // What discovery may propose : editorial (curated) shared series, never a
@@ -26,7 +27,7 @@ export async function loadDiscoveryContext(supabase: Supabase, userId: string): 
     supabase.from("mangas").select(CATALOGUE_SELECT).is("created_by", null).is("merged_into", null).eq("curated", true),
     supabase.from("discovery_dismissals").select("manga_id").eq("user_id", userId),
     supabase.from("wishlist_items").select("manga_id").eq("user_id", userId),
-    supabase.from("profiles").select("liked_genres, avoided_genres, discovery_scope").eq("id", userId).single(),
+    supabase.from("profiles").select("liked_genres, avoided_genres, discovery_scope, age_band").eq("id", userId).single(),
   ]);
   if (catalogue.error || dismissals.error || wishes.error || profile.error) {
     throw new Error("Impossible de charger les découvertes.");
@@ -37,6 +38,7 @@ export async function loadDiscoveryContext(supabase: Supabase, userId: string): 
     wished: [...new Set((wishes.data ?? []).map((w) => w.manga_id))],
     declared: { liked: profile.data?.liked_genres ?? [], avoided: profile.data?.avoided_genres ?? [] },
     scope: profile.data?.discovery_scope === "youth_verified" ? "youth_verified" : "all",
+    scopeLocked: profile.data?.age_band === "under_15",
   };
 }
 

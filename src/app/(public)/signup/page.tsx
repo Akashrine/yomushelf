@@ -34,6 +34,9 @@ export default function SignupPage() {
             <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
               Gratuit. Pas de CB. Prêt en 2 minutes.
             </p>
+            <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
+              Moins de 15 ans ? On demandera l&apos;accord d&apos;un parent.
+            </p>
           </div>
           <SignupForm />
         </div>

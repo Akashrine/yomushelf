@@ -20,6 +20,13 @@ export const EVENTS = {
   signup_viewed: z.object({}),
   account_created: z.object({ method: z.enum(["email", "google"]) }),
   email_confirmed: z.object({}),
+  age_answered: z.object({ band: z.enum(["under_15", "15_plus"]) }),
+  heard_from_answered: z.object({
+    answer: z.enum(["ami", "parent", "librairie", "mediatheque_cdi", "salon", "reseaux", "google", "autre"]),
+  }),
+  parent_consent_requested: z.object({}),
+  parent_consent_given: z.object({}),
+  parent_consent_refused: z.object({ when: z.enum(["pending", "given"]) }),
   // App
   app_opened: z.object({ screen: z.enum(["collection", "decouvrir", "serie", "ajouter", "univers", "autre"]) }),
   quick_add_done: z.object({ series: count, volumes: count, welcome: z.boolean() }),
