@@ -120,8 +120,8 @@ export function WishlistView({ items, series }: Props) {
   return (
     <div className="flex flex-col gap-5">
       {items.length === 0 && (
-        <p className="rounded-3xl p-6 text-center" style={{ background: "var(--surface)", border: "1px dashed var(--border)" }}>
-          <span className="block text-lg font-bold">Ta liste d&apos;envies est vide.</span>
+        <p className="manga-panel rounded-3xl p-6 text-center">
+          <span className="block font-display text-3xl font-normal leading-none tracking-wide" style={{ color: "var(--ink)" }}>Ta liste d&apos;envies est vide.</span>
           <span className="mt-1 block text-sm" style={{ color: "var(--muted)" }}>
             Note ici les tomes que tu aimerais avoir, avec leur prix.
           </span>
@@ -129,11 +129,13 @@ export function WishlistView({ items, series }: Props) {
       )}
 
       {nextOnes.length > 0 && (
-        <section aria-labelledby="h-prochains" className="rounded-3xl p-4" style={{ background: "rgba(248,192,74,0.08)", border: "1px solid rgba(248,192,74,0.3)" }}>
-          <h2 id="h-prochains" className="text-base font-bold">Mes prochains tomes</h2>
-          <ul className="mt-2 flex flex-wrap gap-2 text-sm">
+        <section aria-labelledby="h-prochains" className="manga-panel rounded-3xl p-4 sm:p-5" style={{ background: "radial-gradient(circle, rgba(29,36,51,0.13) 1.2px, transparent 1.6px) 0 0 / 11px 11px, var(--pop)", color: "var(--ink)" }}>
+          <h2 id="h-prochains" className="flex items-center gap-2 text-2xl sm:text-3xl">
+            <AppIcon name="star" size={22} filled /> Mes prochains tomes
+          </h2>
+          <ul className="mt-3 flex flex-wrap gap-2 text-sm">
             {nextOnes.map((i) => (
-              <li key={i.id} className="rounded-full px-3 py-1.5 font-semibold" style={{ background: "var(--surface)" }}>
+              <li key={i.id} className="rounded-full px-3 py-1.5 font-bold" style={{ background: "var(--surface)", color: "var(--ink)", border: "2px solid var(--ink)" }}>
                 {seriesById.get(i.manga_id)?.title ?? "Série"} · tome {i.volume_number}
               </li>
             ))}
@@ -146,8 +148,8 @@ export function WishlistView({ items, series }: Props) {
         {(error || notice) && (
           <div
             role={error ? "alert" : "status"}
-            className="pointer-events-auto flex max-w-md items-center gap-2 rounded-2xl py-1 pl-4 pr-1 text-sm font-semibold shadow-lg"
-            style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", color: error ? "var(--accent-hover)" : "var(--foreground)" }}
+            className="manga-panel pointer-events-auto flex max-w-md items-center gap-2 rounded-2xl py-1 pl-4 pr-1 text-sm font-bold"
+            style={{ color: error ? "var(--danger)" : "var(--ink)" }}
           >
             <span className="py-2">{error ?? notice?.text}</span>
             {!error && notice?.undo && (
@@ -167,32 +169,31 @@ export function WishlistView({ items, series }: Props) {
         return (
           <section
             key={g.manga_id}
-            className="rounded-3xl p-4 sm:p-5"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+            className="manga-panel rounded-3xl p-4 sm:p-5"
           >
-            <Link href={`/bibliotheque/${g.manga_id}`} className="flex items-center gap-3">
+            <Link href={`/bibliotheque/${g.manga_id}`} className="flex min-h-11 items-center gap-3">
               <span
-                className="shrink-0 overflow-hidden rounded-lg"
+                className="manga-panel-sm shrink-0 overflow-hidden rounded-lg"
                 style={{
-                  width: 44,
+                  width: 48,
                   aspectRatio: "2/3",
                   background: s?.cover_url
                     ? `url(${s.cover_url}) center/cover no-repeat, var(--surface-raised)`
-                    : "linear-gradient(160deg,#3a2a12 0%,#1a120a 100%)",
+                    : "radial-gradient(circle, rgba(18,21,29,0.16) 1px, transparent 1.4px) 0 0 / 8px 8px, var(--pop)",
                 }}
                 aria-hidden="true"
               />
-              <h2 className="min-w-0 flex-1 truncate text-lg font-bold">{s?.title ?? "Série"}</h2>
+              <h2 className="min-w-0 flex-1 truncate py-1 text-2xl sm:text-3xl" style={{ color: "var(--ink)" }}>{s?.title ?? "Série"}</h2>
             </Link>
 
-            <ul className="mt-3 flex flex-col gap-2">
+            <ul className="mt-4 flex flex-col gap-3">
               {g.items.map((item) => (
                 <li
                   key={item.id}
                   className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl px-3 py-2.5"
-                  style={{ background: "var(--surface-raised)" }}
+                  style={{ background: "var(--surface-raised)", border: "2px solid var(--ink)" }}
                 >
-                  <span className="font-bold">
+                  <span className="font-display text-xl font-normal leading-none tracking-wide" style={{ color: "var(--ink)" }}>
                     {item.volume_number != null ? `Tome ${item.volume_number}` : "Toute la série"}
                   </span>
                   <span
@@ -219,8 +220,8 @@ export function WishlistView({ items, series }: Props) {
                         onClick={() => togglePriority(item)}
                         disabled={isPending}
                         aria-pressed={item.priority === "high"}
-                        className="flex min-h-11 items-center gap-1 rounded-xl px-3 text-sm font-semibold disabled:opacity-50"
-                        style={item.priority === "high" ? { background: "rgba(248,192,74,0.18)", color: "var(--gold)" } : { color: "var(--muted)", border: "1px solid var(--border)" }}
+                        className="manga-panel-sm manga-press flex min-h-11 items-center gap-1 rounded-xl px-3 text-sm font-bold disabled:opacity-50"
+                        style={item.priority === "high" ? { background: "var(--pop)", color: "var(--ink)" } : { background: "var(--surface)", color: "var(--ink)" }}
                       >
                         <AppIcon name="star" size={15} filled={item.priority === "high"} /> {item.priority === "high" ? "Prochain" : "Mettre en prochain"}
                       </button>
@@ -228,8 +229,8 @@ export function WishlistView({ items, series }: Props) {
                     {item.volume_number == null && (
                       <Link
                         href={`/ajouter?serie=${item.manga_id}`}
-                        className="flex min-h-11 items-center rounded-xl px-3 text-sm font-bold text-white"
-                        style={{ background: "linear-gradient(135deg, var(--read), var(--read-deep))" }}
+                        className="manga-panel-sm manga-press flex min-h-11 items-center rounded-xl px-4 text-sm font-bold"
+                        style={{ background: "var(--accent)", color: "white" }}
                       >
                         J&apos;ai eu des tomes
                       </Link>
@@ -243,8 +244,8 @@ export function WishlistView({ items, series }: Props) {
                             setAcquiring({ id: item.id, how: "bought" });
                           }}
                           disabled={isPending}
-                          className="min-h-11 rounded-xl px-3 text-sm font-bold text-white transition-transform active:scale-95 disabled:opacity-50"
-                          style={{ background: "linear-gradient(135deg, var(--read), var(--read-deep))" }}
+                          className="manga-panel-sm manga-press min-h-11 rounded-xl px-4 text-sm font-bold disabled:opacity-50"
+                          style={{ background: "var(--accent)", color: "white" }}
                         >
                           Acheté !
                         </button>
@@ -255,8 +256,8 @@ export function WishlistView({ items, series }: Props) {
                             setAcquiring({ id: item.id, how: "gift" });
                           }}
                           disabled={isPending}
-                          className="flex min-h-11 items-center gap-1 rounded-xl px-3 text-sm font-bold transition-transform active:scale-95 disabled:opacity-50"
-                          style={{ background: "rgba(248,192,74,0.14)", color: "var(--gold)" }}
+                          className="manga-panel-sm manga-press flex min-h-11 items-center gap-1 rounded-xl px-3 text-sm font-bold disabled:opacity-50"
+                          style={{ background: "var(--pop)", color: "var(--ink)" }}
                         >
                           <AppIcon name="gift" size={15} /> Offert
                         </button>
@@ -267,7 +268,7 @@ export function WishlistView({ items, series }: Props) {
                       onClick={() => remove(item)}
                       disabled={isPending}
                       aria-label={item.volume_number != null ? `Retirer le tome ${item.volume_number} de tes envies` : `Retirer ${s?.title ?? "cette série"} de tes envies`}
-                      className="flex h-11 w-11 items-center justify-center rounded-full"
+                      className="flex h-11 w-11 items-center justify-center rounded-xl transition-colors hover:bg-[var(--surface)]"
                       style={{ color: "var(--muted)" }}
                     >
                       <AppIcon name="trash" size={17} />
@@ -288,15 +289,20 @@ export function WishlistView({ items, series }: Props) {
                           onChange={(e) => setPaid(e.target.value.replace(/[^\d.,]/g, ""))}
                           inputMode="decimal"
                           placeholder={item.target_price != null ? String(item.target_price).replace(".", ",") : "7,20"}
-                          className="min-h-11 w-28 rounded-xl px-3 text-base tabular-nums outline-none focus:ring-2"
-                          style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+                          className="min-h-11 w-28 rounded-xl px-3 text-base tabular-nums outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2"
+                          style={{ background: "var(--surface)", border: "2px solid var(--ink)", color: "var(--foreground)" }}
                           autoFocus
                         />
                       </label>
-                      <button type="submit" disabled={isPending} className="min-h-11 rounded-xl px-4 text-sm font-bold text-white disabled:opacity-60" style={{ background: "linear-gradient(135deg, var(--read), var(--read-deep))" }}>
+                      <button
+                        type="submit"
+                        disabled={isPending}
+                        className="manga-panel-sm manga-press min-h-12 rounded-xl px-4 text-sm font-bold disabled:opacity-60"
+                        style={{ background: "var(--accent)", color: "white" }}
+                      >
                         {acquiring.how === "gift" ? "C'est un cadeau !" : "Je l'ai acheté"}
                       </button>
-                      <button type="button" onClick={() => setAcquiring(null)} className="min-h-11 rounded-xl px-3 text-sm" style={{ color: "var(--muted)" }}>
+                      <button type="button" onClick={() => setAcquiring(null)} className="min-h-12 rounded-xl px-3 text-sm font-semibold underline underline-offset-4" style={{ color: "var(--muted)" }}>
                         Annuler
                       </button>
                       <p className="w-full text-xs" style={{ color: "var(--muted)" }}>
@@ -337,7 +343,7 @@ function AddWishForm({
 
   if (series.length === 0) {
     return (
-      <p className="rounded-3xl p-5 text-center text-sm" style={{ background: "var(--surface)", color: "var(--muted)" }}>
+      <p className="rounded-3xl p-5 text-center text-sm" style={{ background: "var(--surface)", color: "var(--muted)", border: "3px dashed var(--ink)" }}>
         Ajoute d&apos;abord une série à ta bibliothèque pour noter tes envies.
       </p>
     );
@@ -360,18 +366,24 @@ function AddWishForm({
     onSubmit(fd, current.title, volume);
   }
 
-  const field = "min-h-11 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2";
-  const fieldStyle = { background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" };
+  const field = "min-h-12 rounded-xl px-3 py-2.5 text-base outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2";
+  const fieldStyle = { background: "var(--background)", border: "2px solid var(--ink)", color: "var(--foreground)" };
 
   return (
     <form
       onSubmit={submit}
       className="rounded-3xl p-5"
-      style={{ background: "var(--surface)", border: "1px dashed rgba(248,192,74,0.35)" }}
+      style={{ background: "var(--surface)", border: "3px dashed var(--ink)" }}
       aria-labelledby="add-wish-title"
     >
-      <h2 id="add-wish-title" className="mb-4 flex items-center gap-2 text-base font-bold">
-        <span style={{ color: "var(--gold)" }}><AppIcon name="plus" size={18} /></span>
+      <h2 id="add-wish-title" className="mb-4 flex items-center gap-3 text-2xl sm:text-3xl" style={{ color: "var(--ink)" }}>
+        <span
+          aria-hidden="true"
+          className="manga-sticker inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+          style={{ background: "var(--pop)", color: "var(--ink)", borderWidth: 2, boxShadow: "2px 2px 0 var(--ink)", transform: "rotate(-6deg)" }}
+        >
+          <AppIcon name="plus" size={20} strokeWidth={3} />
+        </span>
         Ajouter une envie
       </h2>
       <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
@@ -403,8 +415,8 @@ function AddWishForm({
       <button
         type="submit"
         disabled={disabled || !volume}
-        className="mt-4 min-h-12 w-full rounded-2xl px-5 text-sm font-bold disabled:opacity-50 sm:w-auto"
-        style={{ background: "linear-gradient(135deg, var(--gold), var(--gold-deep))", color: "white" }}
+        className="manga-button mt-5 min-h-14 w-full rounded-2xl px-6 text-lg font-bold disabled:opacity-50 sm:w-auto"
+        style={{ background: "var(--pop)", color: "var(--ink)" }}
       >
         Ajouter à mes envies
       </button>

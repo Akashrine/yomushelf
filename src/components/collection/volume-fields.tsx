@@ -62,15 +62,16 @@ export function VolumeFields({ value, onChange, suggestedPrice, disabled }: Prop
                 aria-pressed={on}
                 // Tapping the selected choice again clears it.
                 onClick={() => onChange({ ...value, acquisition: on ? null : opt.value })}
-                className="flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-3 text-sm font-semibold transition-all active:scale-95"
+                // Chosen = ink-bordered manga tile tinted with its colour ; the others stay flat.
+                className={`manga-press flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-3 text-sm font-bold ${on ? "manga-panel-sm" : ""}`}
                 style={{
-                  background: on ? `color-mix(in srgb, ${opt.color} 16%, transparent)` : "var(--background)",
-                  border: `1.5px solid ${on ? opt.color : "var(--border)"}`,
+                  background: on ? `color-mix(in srgb, ${opt.color} 16%, var(--surface))` : "var(--background)",
+                  border: on ? undefined : "2px solid var(--border)",
                   color: on ? opt.color : "var(--muted)",
                 }}
               >
                 <AppIcon name={opt.icon} size={22} />
-                <span style={{ color: on ? "var(--foreground)" : undefined }}>{opt.label}</span>
+                <span style={{ color: on ? "var(--ink)" : undefined }}>{opt.label}</span>
               </button>
             );
           })}
@@ -79,7 +80,10 @@ export function VolumeFields({ value, onChange, suggestedPrice, disabled }: Prop
 
       {/* A borrowed volume goes back : no price */}
       {value.acquisition === "borrowed" ? (
-        <p className="rounded-xl px-4 py-3 text-sm" style={{ background: "rgba(94,200,242,0.08)", color: "var(--borrow)" }}>
+        <p
+          className="rounded-xl px-4 py-3 text-sm font-semibold"
+          style={{ background: "color-mix(in srgb, var(--borrow) 8%, var(--surface))", color: "var(--borrow)", border: "2px dashed var(--borrow)" }}
+        >
           Un tome emprunté se rend. Ta lecture, elle, reste comptée.
         </p>
       ) : !priceOpen ? (
@@ -87,8 +91,8 @@ export function VolumeFields({ value, onChange, suggestedPrice, disabled }: Prop
           type="button"
           disabled={disabled}
           onClick={() => setPriceOpen(true)}
-          className="flex min-h-11 items-center gap-2 self-start rounded-xl px-3 text-sm font-semibold"
-          style={{ border: "1px dashed var(--border)", color: "var(--muted)" }}
+          className="manga-press flex min-h-12 items-center gap-2 self-start rounded-xl px-4 text-sm font-bold"
+          style={{ border: "2px dashed #5b6170", color: "#5b6170" }}
         >
           <AppIcon name="plus" size={16} />
           Ajouter son prix (facultatif)
@@ -102,8 +106,8 @@ export function VolumeFields({ value, onChange, suggestedPrice, disabled }: Prop
             className="flex items-center rounded-xl px-4 focus-within:ring-2"
             style={{
               background: "var(--background)",
-              border: "1px solid var(--border)",
-              ["--tw-ring-color" as string]: "var(--gold)",
+              border: "2px solid var(--ink)",
+              ["--tw-ring-color" as string]: "var(--accent)",
             }}
           >
             <input
@@ -131,16 +135,17 @@ export function VolumeFields({ value, onChange, suggestedPrice, disabled }: Prop
                   type="button"
                   disabled={disabled}
                   onClick={() => onChange({ ...value, price: formatted })}
-                  className="min-h-11 rounded-lg px-3 py-1.5 text-sm font-semibold tabular-nums transition-transform active:scale-95"
+                  // Chosen price = yellow sticker with ink text (never grey on yellow).
+                  className={`manga-press min-h-11 rounded-lg px-3 py-1.5 text-sm font-bold tabular-nums ${active ? "manga-panel-sm" : ""}`}
                   style={{
-                    background: active ? "rgba(248,192,74,0.16)" : "var(--surface-raised)",
-                    border: `1px solid ${active ? "var(--gold)" : "var(--border)"}`,
-                    color: active ? "var(--gold)" : "var(--foreground)",
+                    background: active ? "var(--pop)" : "var(--surface-raised)",
+                    border: active ? undefined : "2px solid var(--border)",
+                    color: active ? "var(--ink)" : "var(--foreground)",
                   }}
                 >
                   {formatted} €
                   {p === suggestedPrice && (
-                    <span className="ml-1 text-[10px] font-medium" style={{ color: "var(--muted)" }}>
+                    <span className="ml-1 text-[11px] font-semibold" style={{ color: active ? "var(--ink)" : "var(--muted)" }}>
                       comme le dernier
                     </span>
                   )}
@@ -172,7 +177,7 @@ export function AlreadyReadField({
 }) {
   const options = [
     { value: "none", label: "Pas encore", icon: "moon", color: "var(--sleep)" },
-    { value: "read_earlier", label: "Oui, déjà lu", icon: "check", color: "var(--read)" },
+    { value: "read_earlier", label: "Oui, déjà lu", icon: "check", color: "var(--success)" },
   ] as const;
   return (
     <fieldset disabled={disabled}>
@@ -186,11 +191,11 @@ export function AlreadyReadField({
               type="button"
               aria-pressed={on}
               onClick={() => onChange(opt.value)}
-              className="flex min-h-14 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition-all active:scale-95"
+              className={`manga-press flex min-h-14 items-center justify-center gap-2 rounded-xl px-3 text-sm font-bold ${on ? "manga-panel-sm" : ""}`}
               style={{
-                background: on ? `color-mix(in srgb, ${opt.color} 16%, transparent)` : "var(--background)",
-                border: `1.5px solid ${on ? opt.color : "var(--border)"}`,
-                color: on ? "var(--foreground)" : "var(--muted)",
+                background: on ? `color-mix(in srgb, ${opt.color} 16%, var(--surface))` : "var(--background)",
+                border: on ? undefined : "2px solid var(--border)",
+                color: on ? "var(--ink)" : "var(--muted)",
               }}
             >
               <span style={{ color: opt.color }}>

@@ -26,25 +26,27 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const { error } = await searchParams;
   const notice = error ? CALLBACK_ERRORS[error] ?? "La connexion n'a pas abouti. Réessaie." : undefined;
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-16">
-      <div className="w-full max-w-sm flex flex-col gap-8">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 justify-center">
-          <span className="text-2xl font-bold" style={{ color: "var(--accent)" }}>漫</span>
-          <span className="text-base font-semibold">Yomushelf</span>
+    <div className="manga-halftone relative flex min-h-screen flex-col items-center justify-center overflow-x-hidden px-4 py-16" style={{ color: "var(--ink)" }}>
+      <span aria-hidden="true" className="manga-speedlines pointer-events-none absolute inset-0" />
+      <div className="relative flex w-full max-w-sm flex-col gap-8">
+        <Link href="/" className="flex min-h-11 items-center justify-center gap-2 font-display text-3xl tracking-wide">
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg text-xl" style={{ background: "var(--ink)", color: "var(--pop)" }} aria-hidden="true">
+            漫
+          </span>
+          Yomushelf
         </Link>
 
-        {/* Card */}
-        <div
-          className="rounded-2xl p-7 flex flex-col gap-6"
-          style={{
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-          }}
-        >
-          <div className="flex flex-col gap-1">
-            <h1 className="text-xl font-bold tracking-tight">Content de te revoir.</h1>
-            <p className="text-sm" style={{ color: "var(--muted)" }}>
+        <div className="manga-panel relative flex flex-col gap-6 rounded-3xl p-6 pt-8 sm:p-7 sm:pt-9">
+          <span
+            aria-hidden="true"
+            className="manga-sticker absolute -top-5 right-5 rounded-xl px-3 py-0.5 font-display text-xl tracking-wide"
+            style={{ background: "var(--pop)", color: "var(--ink)", transform: "rotate(6deg)" }}
+          >
+            Yo !
+          </span>
+          <div className="flex flex-col gap-2">
+            <h1 className="text-4xl leading-none">Content de te revoir.</h1>
+            <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
               Connecte-toi à ta bibliothèque.
             </p>
           </div>

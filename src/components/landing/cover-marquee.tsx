@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
-const INK = "#12151d";
-const POP = "#ffd23f";
+const INK = "var(--ink)";
+const POP = "var(--pop)";
 const WORDS = ["BAM!", "+1 TOME", "ドドド", "COLLEC'"];
 
 // The covers band : scrolls on its own, pauses on hover, focus or with

@@ -120,13 +120,13 @@ function MainCard({
   return (
     <section
       aria-labelledby="main-card-label"
-      className="rise-in flex flex-col gap-4 rounded-3xl p-4 sm:p-6"
-      style={{
-        background: "radial-gradient(120% 90% at 0% 0%, rgba(255,106,61,0.18) 0%, transparent 60%), var(--surface)",
-        border: "1px solid var(--border)",
-      }}
+      className="manga-panel rise-in flex flex-col gap-4 rounded-3xl p-4 sm:p-6"
     >
-      <p id="main-card-label" className="text-sm font-bold uppercase tracking-[0.1em]" style={{ color: "var(--read)" }}>
+      <p
+        id="main-card-label"
+        className="manga-sticker self-start rounded-xl px-3 py-1 font-display text-xl font-normal leading-none tracking-wide"
+        style={{ background: "var(--ink)", color: "var(--pop)", transform: "rotate(-2deg)" }}
+      >
         {isReading
           ? "Tu lis…"
           : candidate.kind === "skipped"
@@ -139,14 +139,14 @@ function MainCard({
       <Link href={`/bibliotheque/${shelf.slug}`} className="flex items-center gap-4">
         <Cover shelf={shelf} volume={volume} />
         <div className="min-w-0">
-          <p className="text-xl font-extrabold leading-tight sm:text-2xl">{shelf.title}</p>
-          <p className="text-3xl font-black leading-tight sm:text-4xl">Tome {volume}</p>
-          <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>{where}</p>
+          <p className="font-display text-2xl font-normal leading-none tracking-wide sm:text-3xl" style={{ color: "var(--ink)" }}>{shelf.title}</p>
+          <p className="mt-1 font-display text-4xl font-normal leading-none tracking-wide sm:text-5xl" style={{ color: "var(--accent)" }}>Tome {volume}</p>
+          <p className="mt-2 text-xs font-semibold" style={{ color: "var(--muted)" }}>{where}</p>
         </div>
       </Link>
 
       {candidate.kind === "gap" && (
-        <p className="rounded-xl px-3 py-2.5 text-sm" style={{ background: "rgba(248,192,74,0.1)", border: "1px dashed rgba(248,192,74,0.45)" }}>
+        <p className="rounded-xl px-3 py-2.5 text-sm" style={{ background: "var(--pop)", color: "var(--ink)", border: "2px dashed var(--ink)" }}>
           Le <strong>tome {candidate.missing}</strong>{" "}n&apos;est pas sur ton étagère.
         </p>
       )}
@@ -185,8 +185,8 @@ function MainCard({
               key={x.shelf.manga_id}
               type="button"
               onClick={() => onPick(x.shelf.manga_id)}
-              className="min-h-11 rounded-full px-3 font-semibold"
-              style={{ background: "var(--surface-raised)", color: "var(--foreground)", border: "1px solid var(--border)" }}
+              className="manga-panel-sm manga-press min-h-11 rounded-full px-4 font-bold"
+              style={{ background: "var(--surface)", color: "var(--ink)" }}
             >
               {x.shelf.title} {x.volume}
             </button>
@@ -220,15 +220,23 @@ export function Cover({
   bare?: boolean; // no volume number : the caller shows its own badge
 }) {
   const size = full ? { width: "100%", height: "100%" } : small ? { width: 36, height: 50 } : { width: 84, height: 118 };
+  // Ink frame like manga-panel-sm. A `full` cover fills a frame drawn by its
+  // caller (a manga-panel-sm tile), so it carries no outer border of its own.
+  const frame: React.CSSProperties = full
+    ? {}
+    : { border: "2px solid var(--ink)", boxShadow: small ? "2px 2px 0 var(--ink)" : "3px 3px 0 var(--ink)" };
   if (shelf.cover_url) {
     return (
       <span
         aria-hidden="true"
         className="relative block shrink-0 overflow-hidden rounded-lg"
-        style={{ ...size, background: `url(${shelf.cover_url}) center/cover no-repeat, var(--surface-raised)`, boxShadow: "0 6px 16px rgba(29,36,51,0.18)" }}
+        style={{ ...size, ...frame, background: `url(${shelf.cover_url}) center/cover no-repeat, var(--surface-raised)` }}
       >
         {!small && !full && (
-          <span className="absolute bottom-1 right-1 rounded-md px-1.5 text-sm font-black" style={{ background: "rgba(0,0,0,0.7)" }}>
+          <span
+            className="absolute bottom-1 right-1 rounded-md px-1.5 font-display text-base font-normal leading-tight tracking-wide"
+            style={{ background: "var(--ink)", color: "white" }}
+          >
             {volume}
           </span>
         )}
@@ -236,14 +244,22 @@ export function Cover({
     );
   }
   // No picture : a drawn cover with the title and the number, still readable.
+  // Comic look : series colour, halftone dots, an ink spine, Bangers lettering.
+  const color = seriesColor(shelf.manga_id);
   return (
     <span
       aria-hidden="true"
-      className={`flex shrink-0 flex-col justify-between overflow-hidden rounded-lg font-black ${full ? "rounded-xl p-3" : "p-1.5"}`}
-      style={{ ...size, background: `linear-gradient(155deg, ${seriesColor(shelf.manga_id)} 0%, color-mix(in srgb, ${seriesColor(shelf.manga_id)} 72%, #1a0f0c) 100%)`, color: "#1a0f0c", boxShadow: "inset -6px 0 0 rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.25), 0 6px 16px rgba(29,36,51,0.18)" }}
+      className={`flex shrink-0 flex-col justify-between overflow-hidden font-display font-normal tracking-wide ${full ? "rounded-xl p-3 pl-4" : "rounded-lg p-1.5 pl-2"}`}
+      style={{
+        ...size,
+        ...frame,
+        background: `radial-gradient(circle, rgba(18,21,29,0.16) 1px, transparent 1.4px) 0 0 / 8px 8px, linear-gradient(155deg, ${color} 0%, color-mix(in srgb, ${color} 84%, #12151d) 100%)`,
+        color: "#12151d",
+        boxShadow: `inset ${small ? 3 : full ? 6 : 5}px 0 0 #12151d${frame.boxShadow ? `, ${frame.boxShadow}` : ""}`,
+      }}
     >
-      {!small && <span className={`${full ? "text-sm" : "text-[10px]"} uppercase leading-tight`}>{shelf.title}</span>}
-      {!bare && <span className={`self-end leading-none ${small ? "text-sm" : full ? "text-5xl" : "text-3xl"}`}>{volume}</span>}
+      {!small && <span className={`${full ? "text-base" : "text-[11px]"} uppercase leading-none`}>{shelf.title}</span>}
+      {!bare && <span className={`self-end leading-none ${small ? "text-base" : full ? "text-6xl" : "text-4xl"}`}>{volume}</span>}
     </span>
   );
 }
@@ -300,7 +316,7 @@ function ChooseSheet({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
-      style={{ background: "rgba(0,0,0,0.72)" }}
+      style={{ background: "rgba(18,21,29,0.6)" }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
@@ -308,12 +324,11 @@ function ChooseSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="sheet-up flex max-h-[85dvh] w-full flex-col gap-3 rounded-t-3xl p-5 pb-8 sm:max-w-md sm:rounded-3xl"
-        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+        className="manga-panel sheet-up flex max-h-[85dvh] w-full flex-col gap-4 rounded-t-3xl p-5 pb-8 sm:max-w-md sm:rounded-3xl"
       >
-        <div className="mx-auto h-1 w-10 rounded-full sm:hidden" style={{ background: "var(--border)" }} />
-        <h2 id={titleId} className="text-xl font-bold">Quel tome tu veux lire ?</h2>
-        <ul className="-mx-1 flex flex-col gap-2 overflow-y-auto px-1">
+        <div className="mx-auto h-1.5 w-12 rounded-full sm:hidden" style={{ background: "var(--ink)" }} />
+        <h2 id={titleId} className="text-3xl" style={{ color: "var(--ink)" }}>Quel tome tu veux lire ?</h2>
+        <ul className="-mx-1 flex flex-col gap-3 overflow-y-auto px-1 pb-1 pr-2">
           {rows.map((shelf) => {
             const c = nextToRead(shelf);
             const volume = c ? candidateVolume(c) : null;
@@ -323,13 +338,13 @@ function ChooseSheet({
                   type="button"
                   disabled={!c}
                   onClick={() => onPick(shelf.manga_id)}
-                  className="flex min-h-14 w-full items-center gap-3 rounded-2xl p-2 pr-3 text-left disabled:opacity-50"
-                  style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+                  className="manga-panel-sm manga-press flex min-h-14 w-full items-center gap-3 rounded-2xl p-2 pr-3 text-left disabled:opacity-50"
+                  style={{ background: "var(--surface)", color: "var(--ink)" }}
                 >
                   {volume != null ? (
                     <Cover shelf={shelf} volume={volume} small />
                   ) : (
-                    <span className="flex h-[50px] w-9 shrink-0 items-center justify-center rounded-lg" style={{ background: "var(--background)", color: "var(--read)" }}>
+                    <span className="flex h-[50px] w-9 shrink-0 items-center justify-center rounded-lg" style={{ background: "var(--success)", color: "white", border: "2px solid var(--ink)" }}>
                       <AppIcon name="check" size={18} strokeWidth={3} />
                     </span>
                   )}
@@ -339,15 +354,20 @@ function ChooseSheet({
                       {volume != null ? `Tome ${volume}` : shelf.owned.length === 0 ? "Aucun tome chez toi" : "Tout lu pour l'instant"}
                     </span>
                   </span>
-                  {c?.kind === "reading" && <Chip color="var(--read)">En cours</Chip>}
-                  {c?.kind === "gap" && <Chip color="var(--gold)">Tome {c.missing} manquant</Chip>}
+                  {c?.kind === "reading" && <Chip bg="var(--accent)" fg="white">En cours</Chip>}
+                  {c?.kind === "gap" && <Chip bg="var(--pop)" fg="var(--ink)">Tome {c.missing} manquant</Chip>}
                 </button>
               </li>
             );
           })}
         </ul>
         <div className="flex items-center justify-end gap-2">
-          <button type="button" onClick={onClose} className="min-h-11 rounded-xl px-4 text-sm font-semibold" style={{ background: "var(--surface-raised)" }}>
+          <button
+            type="button"
+            onClick={onClose}
+            className="manga-panel-sm manga-press min-h-12 rounded-2xl px-5 text-base font-bold"
+            style={{ background: "var(--surface)", color: "var(--ink)" }}
+          >
             Fermer
           </button>
         </div>
@@ -356,9 +376,9 @@ function ChooseSheet({
   );
 }
 
-function Chip({ color, children }: { color: string; children: React.ReactNode }) {
+function Chip({ bg, fg, children }: { bg: string; fg: string; children: React.ReactNode }) {
   return (
-    <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ color, background: `color-mix(in srgb, ${color} 16%, transparent)` }}>
+    <span className="shrink-0 rounded-full px-2 py-0.5 text-xs font-black" style={{ color: fg, background: bg, border: "2px solid var(--ink)" }}>
       {children}
     </span>
   );
@@ -370,8 +390,8 @@ function Primary({ onClick, disabled, children }: { onClick: () => void; disable
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="min-h-14 flex-1 rounded-2xl px-4 text-lg font-extrabold text-white transition-transform active:scale-[0.98] disabled:opacity-60"
-      style={{ background: "linear-gradient(135deg, var(--read), var(--read-deep))", boxShadow: "0 10px 30px rgba(255,106,61,0.25)" }}
+      className="manga-button min-h-14 flex-1 rounded-2xl px-6 text-lg font-bold disabled:opacity-60"
+      style={{ background: "var(--accent)", color: "white" }}
     >
       {children}
     </button>
@@ -384,8 +404,8 @@ function Secondary({ onClick, disabled, children }: { onClick: () => void; disab
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="min-h-12 rounded-2xl px-4 text-sm font-semibold disabled:opacity-60 sm:flex-1"
-      style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+      className="manga-panel-sm manga-press min-h-12 rounded-2xl px-4 text-base font-bold disabled:opacity-60 sm:flex-1"
+      style={{ background: "var(--surface)", color: "var(--ink)" }}
     >
       {children}
     </button>
@@ -404,19 +424,19 @@ function EmptyState({
   done?: boolean;
 }) {
   return (
-    <section className="rounded-3xl p-8 text-center" style={{ background: "var(--surface)", border: "1px dashed var(--border)" }}>
+    <section className="manga-panel rounded-3xl p-8 text-center">
       <span
-        className="inline-flex h-14 w-14 items-center justify-center rounded-2xl"
-        style={{ background: done ? "rgba(46,125,91,0.12)" : "rgba(192,83,47,0.12)", color: done ? "var(--success)" : "var(--read)" }}
+        className="manga-sticker inline-flex h-16 w-16 items-center justify-center rounded-2xl"
+        style={{ background: done ? "var(--success)" : "var(--pop)", color: done ? "white" : "var(--ink)", transform: "rotate(-4deg)" }}
       >
-        <AppIcon name={done ? "check" : "books"} size={28} strokeWidth={done ? 3 : 2} />
+        <AppIcon name={done ? "check" : "books"} size={30} strokeWidth={done ? 3 : 2} />
       </span>
-      <p className="mt-4 text-xl font-bold">{title}</p>
-      <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>{text}</p>
+      <p className="mt-5 font-display text-3xl font-normal leading-none tracking-wide" style={{ color: "var(--ink)" }}>{title}</p>
+      <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>{text}</p>
       <Link
         href={cta.href}
-        className="mt-6 inline-flex min-h-12 items-center rounded-2xl px-5 text-sm font-bold text-white"
-        style={{ background: "linear-gradient(135deg, var(--read), var(--read-deep))" }}
+        className="manga-button mt-6 inline-flex min-h-14 items-center rounded-2xl px-6 text-lg font-bold"
+        style={{ background: "var(--accent)", color: "white" }}
       >
         {cta.label}
       </Link>

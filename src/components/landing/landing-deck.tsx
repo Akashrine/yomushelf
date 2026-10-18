@@ -21,16 +21,20 @@ export function LandingDeck({ deck }: { deck: DeckCard[] }) {
       deck={cards}
       demo
       renderEnd={(wished) => (
-        <div className="flex w-full max-w-[340px] flex-col items-center gap-4 rounded-3xl p-8 text-center" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 18px 40px rgba(29,36,51,0.12)" }}>
-          <p className="font-serif text-2xl font-semibold">
+        <div className="manga-panel relative flex w-full max-w-[340px] flex-col items-center gap-4 overflow-hidden rounded-3xl p-8 text-center" style={{ color: "var(--ink)" }}>
+          <span aria-hidden="true" className="manga-speedlines pointer-events-none absolute inset-0" />
+          <p
+            className="manga-sticker relative rounded-2xl px-4 py-1 font-display text-4xl leading-tight tracking-wide"
+            style={{ background: wished.length > 0 ? "var(--pop)" : "var(--surface)", color: "var(--ink)", transform: "rotate(-2deg)" }}
+          >
             {wished.length > 0 ? `${wished.length} envie${wished.length > 1 ? "s" : ""} !` : "Rien ne t'a tenté ?"}
           </p>
-          {wished.length > 0 && <p className="text-sm" style={{ color: "var(--muted)" }}>{wished.map((w) => w.entry.title).join(", ")}</p>}
-          <p className="text-sm">Crée un compte pour garder tes envies et ranger ta collection.</p>
-          <Link href="/signup" className="flex min-h-12 w-full items-center justify-center rounded-2xl px-6 text-base font-bold text-white" style={{ background: "var(--accent)" }}>
+          {wished.length > 0 && <p className="relative text-sm font-medium" style={{ color: "var(--muted)" }}>{wished.map((w) => w.entry.title).join(", ")}</p>}
+          <p className="relative text-base font-medium">Crée un compte pour garder tes envies et ranger ta collection.</p>
+          <Link href="/signup" className="manga-button relative flex min-h-14 w-full items-center justify-center rounded-2xl px-6 text-lg font-bold text-white" style={{ background: "var(--accent)" }}>
             Créer un compte
           </Link>
-          <button type="button" onClick={() => setRound((r) => r + 1)} className="min-h-11 text-sm font-semibold underline" style={{ color: "var(--muted)" }}>
+          <button type="button" onClick={() => setRound((r) => r + 1)} className="relative min-h-11 px-4 text-sm font-bold underline underline-offset-4" style={{ color: "var(--ink)" }}>
             Recommencer
           </button>
         </div>

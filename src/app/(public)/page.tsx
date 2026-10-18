@@ -1,15 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Bangers } from "next/font/google";
 import { LandingDeck } from "@/components/landing/landing-deck";
 import { CoverMarquee } from "@/components/landing/cover-marquee";
 import { getLandingDeck } from "@/lib/landing/covers";
 
 export const revalidate = 60;
-
-// Comic display face for the landing only : one weight, loaded on this
-// route alone, so the app keeps its paper typography.
-const bangers = Bangers({ subsets: ["latin"], weight: "400", display: "swap", variable: "--font-bangers" });
 
 const TITLE = "Yomushelf : ta collec' de mangas, mode main character";
 const DESCRIPTION =
@@ -26,8 +21,8 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION, images: [OG_IMAGE] },
 };
 
-const INK = "#12151d";
-const POP = "#ffd23f"; // sticker yellow, always with ink text
+const INK = "var(--ink)";
+const POP = "var(--pop)"; // sticker yellow, always with ink text
 const comic = "font-[family-name:var(--font-bangers)] tracking-wide";
 const thumb = (url: string) => `/_next/image?url=${encodeURIComponent(url)}&w=128&q=75`;
 // Bangers has one weight : headings must not inherit the global 600 (faux bold).
@@ -62,7 +57,7 @@ export default async function LandingPage() {
   const covers = deck.flatMap((d) => (d.entry.cover_url ? [{ title: d.entry.title, url: d.entry.cover_url, total: d.entry.total_volumes, completed: d.entry.status === "completed" }] : []));
 
   return (
-    <div className={`${bangers.variable} flex min-h-screen flex-col overflow-x-hidden`} style={{ color: INK }}>
+    <div className={`flex min-h-screen flex-col overflow-x-hidden`} style={{ color: INK }}>
       <header className="relative z-10 flex items-center justify-between px-5 py-4 sm:px-10">
         <span className={`flex items-center gap-2 text-2xl ${comic}`}>
           <span className="flex h-9 w-9 items-center justify-center rounded-lg text-lg" style={{ background: INK, color: POP }} aria-hidden="true">漫</span>

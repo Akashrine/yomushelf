@@ -37,7 +37,7 @@ export function SeriesMenu({ open, onClose, manga, onShelf, liked, pending, run,
   }, [open]);
 
   const notFor = liked === false;
-  const row = "flex min-h-12 w-full items-center gap-3 rounded-2xl px-4 text-left text-base font-semibold";
+  const row = "manga-panel-sm manga-press flex min-h-14 w-full items-center gap-3 rounded-2xl px-4 text-left text-base font-bold disabled:opacity-60";
 
   return (
     <dialog
@@ -45,13 +45,19 @@ export function SeriesMenu({ open, onClose, manga, onShelf, liked, pending, run,
       onClose={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
       aria-label={`Options pour ${manga.title}`}
-      className="m-0 mt-auto w-full max-w-none rounded-t-3xl p-0 backdrop:bg-black/40 sm:m-auto sm:max-w-md sm:rounded-3xl"
-      style={{ background: "var(--surface)", color: "var(--foreground)" }}
+      className="manga-panel m-0 mt-auto w-full max-w-none rounded-t-3xl p-0 backdrop:bg-[rgba(18,21,29,0.6)] sm:m-auto sm:max-w-md sm:rounded-3xl"
+      style={{ background: "var(--surface)", color: "var(--ink)" }}
     >
-      <div className="flex flex-col gap-1 p-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <div className="flex items-center justify-between px-2 pb-1">
-          <p className="font-serif text-lg font-semibold">{manga.title}</p>
-          <button type="button" onClick={onClose} aria-label="Fermer" className="flex h-11 w-11 items-center justify-center rounded-xl">
+      <div className="flex flex-col gap-3 p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <div className="flex items-center justify-between gap-3 pb-1 pl-1">
+          <p className="min-w-0 font-display text-2xl leading-none">{manga.title}</p>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fermer"
+            className="manga-panel-sm manga-press flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+            style={{ background: "var(--surface)" }}
+          >
             <AppIcon name="close" size={20} />
           </button>
         </div>
@@ -60,6 +66,7 @@ export function SeriesMenu({ open, onClose, manga, onShelf, liked, pending, run,
           <button
             type="button"
             className={row}
+            style={{ background: "var(--surface)" }}
             onClick={() => {
               onEditVolumes();
               onClose();
@@ -72,6 +79,7 @@ export function SeriesMenu({ open, onClose, manga, onShelf, liked, pending, run,
         <button
           type="button"
           className={row}
+          style={{ background: notFor ? "var(--surface-raised)" : "var(--surface)" }}
           disabled={pending}
           aria-pressed={notFor}
           onClick={() =>
@@ -97,11 +105,11 @@ function PrivateEntryForm({ manga, pending, run, onDone }: { manga: Props["manga
   const [title, setTitle] = useState(manga.title);
   const [author, setAuthor] = useState(manga.author ?? "");
   const [total, setTotal] = useState(manga.total_volumes ? String(manga.total_volumes) : "");
-  const input = "min-h-11 w-full rounded-xl px-3 text-base font-normal outline-none focus:ring-2";
-  const inputStyle = { background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" };
+  const input = "min-h-12 w-full rounded-xl px-3 text-base font-normal outline-none focus:ring-2 focus:ring-[var(--accent)]";
+  const inputStyle = { background: "var(--background)", border: "2px solid var(--ink)", color: "var(--foreground)" };
   return (
-    <details className="rounded-2xl px-4">
-      <summary className="flex min-h-12 cursor-pointer items-center gap-3 text-base font-semibold">Modifier ma fiche</summary>
+    <details className="rounded-2xl px-4" style={{ border: "2px solid var(--ink)" }}>
+      <summary className="flex min-h-14 cursor-pointer items-center gap-3 text-base font-bold">Modifier ma fiche</summary>
       <form
         className="flex flex-col gap-3 pb-3"
         onSubmit={(e) => {
@@ -122,7 +130,7 @@ function PrivateEntryForm({ manga, pending, run, onDone }: { manga: Props["manga
           <input value={total} onChange={(e) => setTotal(e.target.value.replace(/\D/g, ""))} inputMode="numeric" className={input} style={inputStyle} />
         </label>
         <p className="text-xs" style={{ color: "var(--muted)" }}>Visible par toi seul. Rien n&apos;est ajouté au catalogue commun.</p>
-        <button type="submit" disabled={pending || !title.trim()} className="min-h-11 self-start rounded-xl px-4 text-sm font-bold disabled:opacity-60" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+        <button type="submit" disabled={pending || !title.trim()} className="manga-panel-sm manga-press min-h-12 self-start rounded-xl px-5 text-base font-bold disabled:opacity-60" style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}>
           Enregistrer la fiche
         </button>
       </form>
@@ -136,56 +144,56 @@ function RemoveOptions({ title, mangaId, pending, run }: { title: string; mangaI
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [typed, setTyped] = useState("");
-  const row = "flex min-h-12 w-full items-center gap-3 rounded-2xl px-4 text-left text-base font-semibold";
+  const row = "manga-panel-sm manga-press flex min-h-14 w-full items-center gap-3 rounded-2xl px-4 text-left text-base font-bold disabled:opacity-60";
 
   return (
     <>
       {confirmArchive ? (
-        <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: "var(--surface-raised)" }}>
+        <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: "var(--surface-raised)", border: "2px solid var(--ink)" }}>
           <p className="text-sm">La série quitte ta collection. Tes tomes sont gardés : tu pourras la remettre.</p>
           <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => setConfirmArchive(false)} className="min-h-11 rounded-xl text-sm font-semibold" style={{ border: "1px solid var(--border)" }}>
+            <button type="button" onClick={() => setConfirmArchive(false)} className="manga-panel-sm manga-press min-h-12 rounded-xl text-base font-bold" style={{ background: "var(--surface)" }}>
               Non
             </button>
             <button
               type="button"
               disabled={pending}
               onClick={() => run(() => archiveSeries(formOf({ manga_id: mangaId })), () => router.push("/bibliotheque"))}
-              className="min-h-11 rounded-xl text-sm font-bold disabled:opacity-60"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+              className="manga-panel-sm manga-press min-h-12 rounded-xl text-base font-bold disabled:opacity-60"
+              style={{ background: "var(--surface)" }}
             >
               Oui, la retirer
             </button>
           </div>
         </div>
       ) : (
-        <button type="button" onClick={() => setConfirmArchive(true)} className={row}>
+        <button type="button" onClick={() => setConfirmArchive(true)} className={row} style={{ background: "var(--surface)" }}>
           <AppIcon name="archive" size={20} /> Retirer de ma collection
         </button>
       )}
 
       {deleting ? (
-        <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: "var(--surface-raised)" }}>
+        <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: "var(--surface-raised)", border: "2px solid var(--ink)" }}>
           <p className="text-sm">Efface la série, ses tomes, tes lectures et tes envies. On ne peut pas revenir en arrière.</p>
           <label className="text-sm">
             Écris <strong>{title}</strong> pour confirmer
             <input
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
-              className="mt-1 min-h-11 w-full rounded-xl px-3 text-base outline-none focus:ring-2"
-              style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+              className="mt-1 min-h-12 w-full rounded-xl px-3 text-base outline-none focus:ring-2 focus:ring-[var(--accent)]"
+              style={{ background: "var(--background)", border: "2px solid var(--ink)", color: "var(--foreground)" }}
               autoComplete="off"
             />
           </label>
           <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => { setDeleting(false); setTyped(""); }} className="min-h-11 rounded-xl text-sm font-semibold" style={{ border: "1px solid var(--border)" }}>
+            <button type="button" onClick={() => { setDeleting(false); setTyped(""); }} className="manga-panel-sm manga-press min-h-12 rounded-xl text-base font-bold" style={{ background: "var(--surface)" }}>
               Annuler
             </button>
             <button
               type="button"
               disabled={pending || typed.trim().toLowerCase() !== title.trim().toLowerCase()}
               onClick={() => run(() => deleteSeriesPermanently(formOf({ manga_id: mangaId, confirm_title: typed })), () => router.push("/bibliotheque"))}
-              className="min-h-11 rounded-xl text-sm font-bold text-white disabled:opacity-40"
+              className="manga-panel-sm manga-press min-h-12 rounded-xl text-base font-bold text-white disabled:opacity-40"
               style={{ background: "var(--danger)" }}
             >
               Supprimer
@@ -193,7 +201,7 @@ function RemoveOptions({ title, mangaId, pending, run }: { title: string; mangaI
           </div>
         </div>
       ) : (
-        <button type="button" onClick={() => setDeleting(true)} className={row} style={{ color: "var(--danger)" }}>
+        <button type="button" onClick={() => setDeleting(true)} className={row} style={{ background: "var(--surface)", color: "var(--danger)" }}>
           <AppIcon name="trash" size={20} /> Supprimer définitivement
         </button>
       )}

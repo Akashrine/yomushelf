@@ -176,7 +176,7 @@ export function VolumeSheet({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
-      style={{ background: "rgba(0,0,0,0.72)" }}
+      style={{ background: "rgba(18,21,29,0.6)" }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
@@ -185,16 +185,16 @@ export function VolumeSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="sheet-up max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl p-5 pb-8 outline-none sm:max-w-md sm:rounded-3xl sm:p-6"
-        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+        className="manga-panel sheet-up max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl p-5 pb-8 outline-none sm:max-w-md sm:rounded-3xl sm:p-6"
+        style={{ color: "var(--ink)" }}
       >
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full sm:hidden" style={{ background: "var(--border)" }} />
+        <div className="mx-auto mb-4 h-1.5 w-12 rounded-full sm:hidden" style={{ background: "var(--ink)" }} />
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+            <p className="text-sm font-semibold" style={{ color: "var(--muted)" }}>
               {seriesTitle}
             </p>
-            <h2 id={titleId} className="text-2xl font-bold">
+            <h2 id={titleId} className="mt-1 text-4xl">
               Tome {volumeNumber}
             </h2>
           </div>
@@ -202,19 +202,19 @@ export function VolumeSheet({
             type="button"
             onClick={onClose}
             aria-label="Fermer"
-            className="flex h-11 w-11 items-center justify-center rounded-full"
-            style={{ background: "var(--surface-raised)", color: "var(--muted)" }}
+            className="manga-panel-sm manga-press flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+            style={{ background: "var(--surface)", color: "var(--ink)" }}
           >
-            <AppIcon name="close" size={18} />
+            <AppIcon name="close" size={20} />
           </button>
         </div>
 
         {/* ── Reading ───────────────────────── */}
-        <section aria-label="Ta lecture" className="flex flex-col gap-2">
+        <section aria-label="Ta lecture" className="flex flex-col gap-3">
           {readingStatus === "read" ? (
             <>
               <p className="flex items-center gap-2 text-base font-bold">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full" style={{ background: "var(--read)", color: "white" }}>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full" style={{ background: "var(--success)", color: "white", border: "2px solid var(--ink)" }}>
                   <AppIcon name="check" size={16} strokeWidth={3} />
                 </span>
                 Tu l&apos;as lu
@@ -233,11 +233,11 @@ export function VolumeSheet({
                       value={finishedOn}
                       max={today}
                       onChange={(e) => setFinishedOn(e.target.value)}
-                      className="min-h-11 rounded-xl px-3 text-base outline-none focus:ring-2"
-                      style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+                      className="min-h-12 rounded-xl px-3 text-base outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                      style={{ background: "var(--background)", border: "2px solid var(--ink)", color: "var(--foreground)" }}
                     />
                   </label>
-                  <button type="button" onClick={saveReadingDate} disabled={busy} className="min-h-11 rounded-xl px-4 text-sm font-bold disabled:opacity-60" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+                  <button type="button" onClick={saveReadingDate} disabled={busy} className="manga-panel-sm manga-press min-h-12 rounded-xl px-4 text-sm font-bold disabled:opacity-60" style={{ background: "var(--surface)" }}>
                     Enregistrer la date
                   </button>
                 </div>
@@ -272,9 +272,9 @@ export function VolumeSheet({
         </section>
 
         {/* ── At home ───────────────────────── */}
-        <section aria-label="Chez toi" className="mt-6 border-t pt-5" style={{ borderColor: "var(--border)" }}>
+        <section aria-label="Chez toi" className="mt-6 border-t-2 border-dashed pt-5" style={{ borderColor: "var(--ink)" }}>
           {!atHomeOpen ? (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
               <p className="text-sm" style={{ color: "var(--muted)" }}>
                 Ce tome n&apos;est pas sur ton étagère.
               </p>
@@ -297,8 +297,8 @@ export function VolumeSheet({
                   max={today}
                   onChange={(e) => setAcquiredAt(e.target.value)}
                   disabled={busy}
-                  className="min-h-11 w-48 rounded-xl px-3 text-base font-normal outline-none focus:ring-2"
-                  style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+                  className="min-h-12 w-48 rounded-xl px-3 text-base font-normal outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                  style={{ background: "var(--background)", border: "2px solid var(--ink)", color: "var(--foreground)" }}
                 />
               </label>
               {!existing && !reading && (
@@ -315,20 +315,20 @@ export function VolumeSheet({
                 type="button"
                 onClick={handleSave}
                 disabled={busy}
-                className="min-h-12 w-full rounded-2xl py-3.5 text-base font-bold transition-transform active:scale-[0.98] disabled:opacity-60"
-                style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+                className="manga-panel-sm manga-press min-h-12 w-full rounded-2xl py-3.5 text-base font-bold disabled:opacity-60"
+                style={{ background: "var(--surface-raised)", color: "var(--ink)" }}
               >
                 {isPending ? "J'enregistre…" : existing ? "Enregistrer" : "Ajouter à mon étagère"}
               </button>
 
               {existing &&
                 (confirmRemove ? (
-                  <div className="rounded-xl p-3 text-sm" style={{ background: "var(--background)", border: "1px solid var(--border)" }}>
+                  <div className="rounded-2xl p-4 text-sm" style={{ background: "var(--background)", border: "2px solid var(--ink)" }}>
                     <p className="font-semibold">Il n&apos;est plus chez toi ?</p>
                     <p className="mt-1" style={{ color: "var(--muted)" }}>
                       {readingStatus === "read" ? "Ta lecture reste comptée." : "Il sortira de ton étagère."}
                     </p>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="mt-3 grid grid-cols-2 gap-3">
                       <SecondaryButton onClick={() => setConfirmRemove(false)} disabled={busy}>
                         Non, il est là
                       </SecondaryButton>
@@ -363,11 +363,8 @@ function PrimaryButton({ onClick, disabled, children }: { onClick: () => void; d
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="min-h-12 w-full rounded-2xl py-3.5 text-base font-bold text-white transition-transform active:scale-[0.98] disabled:opacity-60"
-      style={{
-        background: "linear-gradient(135deg, var(--read) 0%, var(--read-deep) 100%)",
-        boxShadow: "0 10px 30px rgba(255,106,61,0.25)",
-      }}
+      className="manga-button min-h-14 w-full rounded-2xl px-6 text-lg font-bold disabled:opacity-60"
+      style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
     >
       {children}
     </button>
@@ -380,8 +377,8 @@ function SecondaryButton({ onClick, disabled, children }: { onClick: () => void;
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-semibold disabled:opacity-60"
-      style={{ background: "var(--background)", border: "1px solid var(--border)" }}
+      className="manga-panel-sm manga-press flex min-h-12 w-full items-center justify-center gap-1.5 rounded-xl px-3 text-base font-semibold disabled:opacity-60"
+      style={{ background: "var(--surface)", color: "var(--ink)" }}
     >
       {children}
     </button>

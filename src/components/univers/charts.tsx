@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
-// Small, single-series charts for "Mon univers". One hue per chart, thin
-// marks with rounded data ends on a recessive baseline, a tooltip on
+// Small, single-series charts for "Mon univers". One hue per chart, marks
+// drawn with an ink stroke like a comic panel, on an ink baseline, a tooltip on
 // pointer hover. The drawing is decorative ; "Voir les chiffres" gives the
 // values as a table for keyboard and screen readers.
 
@@ -32,7 +32,7 @@ export function MonthBars({
 
   if (max === 0) {
     return (
-      <p className="rounded-xl px-3 py-6 text-center text-sm" style={{ background: "var(--background)", color: "var(--muted)" }}>
+      <p className="rounded-xl px-3 py-6 text-center text-sm font-medium" style={{ background: "var(--background)", color: "var(--muted)", border: "2px dashed var(--ink)" }}>
         Rien sur les 12 derniers mois.
       </p>
     );
@@ -42,7 +42,7 @@ export function MonthBars({
     <div>
       <div className="relative">
       <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full" aria-hidden="true" focusable="false">
-        <line x1={0} x2={W} y1={H - bottom} y2={H - bottom} stroke="var(--border)" strokeWidth={1} />
+        <line x1={0} x2={W} y1={H - bottom} y2={H - bottom} stroke="var(--ink)" strokeWidth={2.5} strokeLinecap="round" />
         {data.map((d, i) => {
           const h = d.value === 0 ? 0 : Math.max(4, (d.value / max) * plotH);
           const x = i * slot + (slot - barW) / 2;
@@ -54,6 +54,9 @@ export function MonthBars({
                 <path
                   d={`M${x},${H - bottom} V${y + 4} Q${x},${y} ${x + 4},${y} H${x + barW - 4} Q${x + barW},${y} ${x + barW},${y + 4} V${H - bottom} Z`}
                   fill={color}
+                  stroke="var(--ink)"
+                  strokeWidth={2}
+                  strokeLinejoin="round"
                   opacity={active == null || on ? 1 : 0.45}
                   pointerEvents="none"
                 />
@@ -63,14 +66,14 @@ export function MonthBars({
                 y={H - 6}
                 textAnchor="middle"
                 fontSize={12}
-                fill={on ? "var(--foreground)" : "var(--muted)"}
+                fill={on ? "var(--ink)" : "var(--muted)"}
                 fontWeight={on ? 700 : 500}
                 pointerEvents="none"
               >
                 {d.label}
               </text>
               {on && (
-                <text x={i * slot + slot / 2} y={Math.max(14, y - 8)} textAnchor="middle" fontSize={13} fontWeight={800} fill="var(--foreground)" pointerEvents="none">
+                <text x={i * slot + slot / 2} y={Math.max(14, y - 8)} textAnchor="middle" fontSize={14} fontWeight={800} fill="var(--ink)" pointerEvents="none">
                   {d.display}
                 </text>
               )}
@@ -87,13 +90,13 @@ export function MonthBars({
       </div>
       </div>
       <details className="mt-1 text-sm">
-        <summary className="flex min-h-11 cursor-pointer items-center" style={{ color: "var(--muted)" }}>Voir les chiffres</summary>
+        <summary className="flex min-h-11 cursor-pointer items-center font-bold underline decoration-2 underline-offset-4" style={{ color: "var(--ink)" }}>Voir les chiffres</summary>
         <table className="mt-1 w-full text-left text-sm">
           <caption className="sr-only">{title}</caption>
           <thead>
             <tr>
-              <th scope="col" className="py-1 font-semibold">Mois</th>
-              <th scope="col" className="py-1 text-right font-semibold">{unitLabel}</th>
+              <th scope="col" className="py-1 font-bold" style={{ borderBottom: "2px solid var(--ink)" }}>Mois</th>
+              <th scope="col" className="py-1 text-right font-bold" style={{ borderBottom: "2px solid var(--ink)" }}>{unitLabel}</th>
             </tr>
           </thead>
           <tbody>
@@ -126,10 +129,10 @@ export function ShareBars({
       {shown.map((d) => (
         <li key={d.key} className="grid grid-cols-[minmax(6.5rem,auto)_minmax(0,1fr)_3rem] items-center gap-3 text-sm">
           <span className="font-semibold first-letter:uppercase">{d.label}</span>
-          <span className="h-3 overflow-hidden rounded-full" style={{ background: "var(--background)" }} aria-hidden="true">
-            <span className="block h-full rounded-full" style={{ width: `${(d.share / top) * 100}%`, background: color }} />
+          <span className="h-4 overflow-hidden rounded-full" style={{ background: "var(--background)", border: "2px solid var(--ink)" }} aria-hidden="true">
+            <span className="block h-full rounded-full" style={{ width: `${(d.share / top) * 100}%`, background: color, borderRight: d.share > 0 && d.share < top ? "2px solid var(--ink)" : undefined }} />
           </span>
-          <span className="text-right tabular-nums" style={{ color: "var(--muted)" }}>{Math.round(d.share * 100)} %</span>
+          <span className="text-right font-semibold tabular-nums" style={{ color: "var(--ink)" }}>{Math.round(d.share * 100)} %</span>
         </li>
       ))}
     </ul>

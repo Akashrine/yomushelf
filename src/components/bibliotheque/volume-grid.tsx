@@ -19,10 +19,14 @@ type Props = {
 // The volumes themselves are the buttons : one tap adds or removes (Mes
 // tomes) or marks read (Mes lectures). One colour per meaning, plus an
 // icon so it never relies on colour alone : terracotta = chez toi,
-// green = lu, dashed = pas encore.
+// green = lu, dashed = pas encore. Filled tiles are ink-bordered manga
+// panels ; missing ones are dashed outlines on the paper.
+// Dashed outline and number of a volume not there yet (6:1 on paper).
+const MISSING = "#5b6170";
+
 export function VolumeGrid({ count, mode, owned, read, covers, onTap, onExtend }: Props) {
   return (
-    <ul className="grid grid-cols-4 gap-2.5 min-[420px]:grid-cols-5 sm:grid-cols-7 lg:grid-cols-9">
+    <ul className="grid grid-cols-4 gap-3 min-[420px]:grid-cols-5 sm:grid-cols-7 lg:grid-cols-9">
       {Array.from({ length: count }, (_, i) => i + 1).map((n) => (
         <li key={n}>
           <Tile number={n} mode={mode} atHome={owned.has(n)} isRead={read.has(n)} cover={owned.has(n) ? covers[n] : undefined} onTap={() => onTap(n)} />
@@ -34,8 +38,8 @@ export function VolumeGrid({ count, mode, owned, read, covers, onTap, onExtend }
             type="button"
             onClick={onExtend}
             aria-label="Afficher le tome suivant"
-            className="flex w-full items-center justify-center rounded-xl transition-transform active:scale-95"
-            style={{ aspectRatio: "2 / 3", border: "1.5px dashed var(--border)", color: "var(--muted)" }}
+            className="manga-press flex w-full items-center justify-center rounded-xl"
+            style={{ aspectRatio: "2 / 3", border: `2px dashed ${MISSING}`, color: MISSING }}
           >
             <AppIcon name="plus" size={22} />
           </button>
@@ -67,11 +71,12 @@ function Tile({
     : `Tome ${number}, ${atHome ? "chez toi" : "pas chez toi"}`;
 
   const fill = reading ? "var(--success)" : "var(--accent)";
+  // on : manga-panel-sm gives the ink border and hard shadow
   const style: React.CSSProperties = on
-    ? { background: fill, color: "white", border: `2px solid ${fill}` }
+    ? { background: fill, color: "white" }
     : reading && atHome
-      ? { background: "var(--surface)", color: "var(--foreground)", border: "2px solid var(--border)" }
-      : { background: "transparent", color: "var(--muted)", border: "1.5px dashed var(--border)" };
+      ? { background: "var(--surface)", color: "var(--ink)", border: `2px solid ${MISSING}` }
+      : { background: "transparent", color: MISSING, border: `2px dashed ${MISSING}` };
 
   return (
     <button
@@ -79,13 +84,13 @@ function Tile({
       onClick={onTap}
       aria-label={label}
       aria-pressed={mode === "details" ? undefined : on}
-      className="relative flex w-full flex-col items-center justify-center overflow-hidden rounded-xl text-xl font-bold tabular-nums transition-transform active:scale-95"
+      className={`manga-press relative flex w-full flex-col items-center justify-center overflow-hidden rounded-xl font-display text-3xl leading-none ${on ? "manga-panel-sm" : ""}`}
       style={{ ...style, aspectRatio: "2 / 3" }}
     >
       {cover && !reading ? (
         <>
           <Image src={cover} alt="" fill sizes="(min-width: 1024px) 100px, 25vw" className="object-cover object-top" />
-          <span className="absolute inset-x-0 bottom-0 py-0.5 text-center text-sm font-bold text-white" style={{ background: "rgba(29,36,51,0.78)" }}>
+          <span className="absolute inset-x-0 bottom-0 py-0.5 text-center text-lg leading-tight text-white" style={{ background: "var(--ink)", borderTop: "2px solid var(--ink)" }}>
             {number}
           </span>
         </>
@@ -93,7 +98,7 @@ function Tile({
         number
       )}
       {on && (
-        <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full" style={{ background: "white", color: fill }}>
+        <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full" style={{ background: "white", color: fill, border: "1.5px solid var(--ink)" }}>
           <AppIcon name="check" size={13} strokeWidth={3.5} />
         </span>
       )}

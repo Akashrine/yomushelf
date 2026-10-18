@@ -210,21 +210,21 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
 
       {similar.length > 0 && (
         <section aria-labelledby="h-similar" className="flex flex-col gap-3">
-          <h2 id="h-similar" className="text-xl sm:text-2xl">Dans le même genre</h2>
-          <ul className="no-scrollbar -mx-4 flex snap-x scroll-pl-4 gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:scroll-pl-6 sm:px-6">
+          <h2 id="h-similar" className="text-2xl sm:text-3xl">Dans le même genre</h2>
+          <ul className="no-scrollbar -mx-4 flex snap-x scroll-pl-4 gap-4 overflow-x-auto px-4 pb-3 pt-1 sm:-mx-6 sm:scroll-pl-6 sm:px-6">
             {similar.map((c) => (
               <li key={c.id} className="w-28 shrink-0 snap-start sm:w-32">
-                <Link href={`/bibliotheque/${c.id}`} className="flex flex-col gap-1.5">
-                  <span className="relative block w-full" style={{ aspectRatio: "2/3" }}>
+                <Link href={`/bibliotheque/${c.id}`} className="flex flex-col gap-2">
+                  <span className="manga-panel-sm manga-press relative block w-full overflow-hidden rounded-xl" style={{ aspectRatio: "2/3" }}>
                     <Cover shelf={{ manga_id: c.id, title: c.title, cover_url: c.cover_url }} volume={1} full bare />
                     {c.onShelf && (
-                      <span className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full" style={{ background: "var(--accent)", color: "white" }}>
+                      <span className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full" style={{ background: "var(--accent)", color: "white", border: "2px solid var(--ink)" }}>
                         <AppIcon name="check" size={15} strokeWidth={3} />
                         <span className="sr-only">Chez toi</span>
                       </span>
                     )}
                   </span>
-                  <span className="line-clamp-2 text-sm font-semibold leading-snug">{c.title}</span>
+                  <span className="line-clamp-2 text-sm font-bold leading-snug" style={{ color: "var(--ink)" }}>{c.title}</span>
                 </Link>
               </li>
             ))}
@@ -237,23 +237,39 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
   return (
     <div className="flex flex-col gap-6">
       {/* Hero : the cover, blown up and blurred behind it */}
-      <section className="relative -mx-4 -mt-4 overflow-hidden px-4 pb-6 pt-2 text-white sm:mx-0 sm:mt-0 sm:rounded-3xl sm:px-8 sm:pb-8" style={{ background: "var(--foreground)" }}>
+      {/* Framed like a manga panel : ink border, hard shadow from sm up */}
+      <section
+        className="relative -mx-4 -mt-4 overflow-hidden px-4 pb-6 pt-2 text-white sm:mx-0 sm:mt-0 border-b-[3px] sm:rounded-3xl sm:border-[3px] sm:px-8 sm:pb-8 sm:shadow-[6px_6px_0_var(--ink)]"
+        style={{ background: "var(--ink)", borderColor: "var(--ink)" }}
+      >
         {manga.cover_url && (
-          <span aria-hidden="true" className="absolute inset-0 scale-125 opacity-55 blur-2xl" style={{ background: `url(${manga.cover_url}) center/cover no-repeat` }} />
+          <span aria-hidden="true" className="absolute inset-0 scale-125 opacity-50 blur-2xl" style={{ background: `url(${manga.cover_url}) center/cover no-repeat` }} />
         )}
-        <span aria-hidden="true" className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(29,36,51,0.2) 0%, rgba(29,36,51,0.88) 100%)" }} />
+        <span aria-hidden="true" className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(18,21,29,0.25) 0%, rgba(18,21,29,0.9) 100%)" }} />
+        {/* Light halftone dots over the dark panel */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{ backgroundImage: "radial-gradient(circle, rgba(255,250,242,0.09) 1.2px, transparent 1.6px)", backgroundSize: "11px 11px" }}
+        />
         <div className="relative flex flex-col gap-4">
-          <Link href={onShelf ? "/bibliotheque" : "/decouvrir"} className="flex min-h-11 items-center gap-1.5 self-start text-sm font-semibold text-white/85">
+          <Link
+            href={onShelf ? "/bibliotheque" : "/decouvrir"}
+            className="mt-1 flex min-h-11 items-center gap-1.5 self-start rounded-xl px-3 text-sm font-bold text-white"
+            style={{ border: "2px solid rgba(255,250,242,0.75)", background: "rgba(18,21,29,0.45)" }}
+          >
             <AppIcon name="arrow-left" size={16} /> {onShelf ? "Ma collection" : "Retour"}
           </Link>
           <div className="flex items-end gap-4 sm:gap-6">
-            <div className="w-32 shrink-0 overflow-hidden rounded-xl shadow-2xl sm:w-44" style={{ aspectRatio: "2/3" }}>
+            <div className="manga-panel-sm w-32 shrink-0 overflow-hidden rounded-xl sm:w-44" style={{ aspectRatio: "2/3", boxShadow: "5px 5px 0 var(--pop)" }}>
               <Cover shelf={{ manga_id: manga.id, title: manga.title, cover_url: manga.cover_url }} volume={1} full bare />
             </div>
-            <div className="flex min-w-0 flex-1 flex-col gap-1 pb-1">
-              <h1 className="text-2xl leading-tight text-white sm:text-4xl">{manga.title}</h1>
-              {manga.author && <p className="text-sm text-white/80">{manga.author}</p>}
-              <p className="text-xs text-white/75">
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5 pb-1">
+              <h1 className="text-4xl leading-[0.95] text-white sm:text-5xl" style={{ textShadow: "3px 3px 0 var(--ink)", overflowWrap: "anywhere" }}>
+                {manga.title}
+              </h1>
+              {manga.author && <p className="text-sm font-semibold text-white/90">{manga.author}</p>}
+              <p className="text-xs text-white/80">
                 {[
                   totalVolumes > 0 ? `${totalVolumes} tomes` : null,
                   manga.status === "completed" ? "terminée" : manga.status === "ongoing" ? "en cours" : null,
@@ -267,7 +283,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
           {manga.genres.length > 0 && (
             <ul className="flex flex-wrap gap-1.5" aria-label="Genres">
               {manga.genres.slice(0, 4).map((g) => (
-                <li key={g} className="rounded-full px-3 py-1 text-xs font-semibold" style={{ background: "rgba(255,255,255,0.16)" }}>
+                <li key={g} className="rounded-full px-3 py-1 text-xs font-bold" style={{ background: "var(--surface)", color: "var(--ink)", border: "2px solid var(--ink)" }}>
                   {cap(GENRE_LABELS[g] ?? g)}
                 </li>
               ))}
@@ -275,9 +291,12 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
           )}
           {manga.synopsis && <p className="max-w-[65ch] text-sm leading-relaxed text-white/90">{manga.synopsis}</p>}
           {onShelf && (
-            <p className="text-lg font-bold">
-              {owned.size} tome{owned.size > 1 ? "s" : ""} chez toi
-              {totalVolumes > 0 && <span className="font-normal text-white/75"> sur {totalVolumes}</span>}
+            <p
+              className="manga-sticker flex items-baseline gap-1.5 self-start rounded-xl px-3 py-1 text-base font-bold"
+              style={{ background: "var(--pop)", color: "var(--ink)", transform: "rotate(-1.5deg)" }}
+            >
+              <span className="font-display font-normal text-3xl leading-none">{owned.size}</span> tome{owned.size > 1 ? "s" : ""} chez toi
+              {totalVolumes > 0 && <span className="font-semibold"> sur {totalVolumes}</span>}
             </p>
           )}
         </div>
@@ -285,9 +304,13 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
 
       {/* A series being discovered : two clear choices */}
       {presence === "absent" && (
-        <div className="grid grid-cols-2 gap-2 sm:max-w-md">
+        <div className="grid grid-cols-2 gap-3 sm:max-w-md">
           {wished ? (
-            <Link href="/envies" className="flex min-h-14 items-center justify-center gap-2 rounded-2xl text-base font-bold" style={{ background: "var(--surface-raised)", color: "var(--gold)" }}>
+            <Link
+              href="/envies"
+              className="manga-panel-sm manga-press flex min-h-14 items-center justify-center gap-2 rounded-2xl text-base font-bold"
+              style={{ background: "var(--pop)", color: "var(--ink)" }}
+            >
               <AppIcon name="star" size={20} filled /> Dans mes envies
             </Link>
           ) : (
@@ -295,7 +318,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
               type="button"
               disabled={isPending}
               onClick={() => run(() => addWishlistItem(formOf({ manga_id: manga.id, volume_number: "1" })), () => setNotice({ text: `${manga.title} est dans tes envies` }))}
-              className="flex min-h-14 items-center justify-center gap-2 rounded-2xl text-base font-bold disabled:opacity-60"
+              className="manga-button flex min-h-14 items-center justify-center gap-2 rounded-2xl text-lg font-bold disabled:opacity-60"
               style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
             >
               <AppIcon name="star" size={20} /> Je le veux
@@ -304,8 +327,8 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
           <button
             type="button"
             onClick={() => document.getElementById("grid-title")?.parentElement?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            className="flex min-h-14 items-center justify-center gap-2 rounded-2xl text-base font-bold"
-            style={{ background: "var(--surface-raised)" }}
+            className="manga-panel-sm manga-press flex min-h-14 items-center justify-center gap-2 rounded-2xl text-base font-bold"
+            style={{ background: "var(--surface)", color: "var(--ink)" }}
           >
             <AppIcon name="plus" size={20} strokeWidth={2.5} /> Je l&apos;ai déjà
           </button>
@@ -314,7 +337,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
 
       {/* Three big actions */}
       {onShelf && (
-        <div className="grid grid-cols-3 gap-2 sm:max-w-md">
+        <div className="grid grid-cols-3 gap-3 sm:max-w-md">
           {onShelf && (
             <ActionButton
               icon="heart"
@@ -326,7 +349,11 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
           )}
           {wishTarget != null &&
             (wished ? (
-              <Link href="/envies" className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl text-xs font-semibold" style={{ background: "var(--surface-raised)", color: "var(--gold)" }}>
+              <Link
+                href="/envies"
+                className="manga-panel-sm manga-press flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-center text-[13px] font-bold leading-tight"
+                style={{ background: "var(--pop)", color: "var(--ink)" }}
+              >
                 <AppIcon name="star" size={22} filled />
                 Dans mes envies
               </Link>
@@ -350,16 +377,16 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
       {!onShelf && extras}
 
       {presence === "archived" ? (
-        <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl p-4 sm:p-5" style={{ background: "var(--surface)", border: "1px dashed var(--border)" }}>
-          <p className="text-sm">
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-3xl p-4 sm:p-5" style={{ background: "var(--surface)", border: "2px dashed #5b6170" }}>
+          <p className="text-base">
             <strong>Tu as retiré cette série de ta collection.</strong> <span style={{ color: "var(--muted)" }}>Tes tomes sont gardés.</span>
           </p>
           <button
             type="button"
             onClick={() => run(() => restoreSeries(formOf({ manga_id: manga.id })), () => setNotice({ text: `${manga.title} est de retour dans ta collection.` }))}
             disabled={isPending}
-            className="min-h-11 rounded-xl px-4 text-sm font-bold disabled:opacity-60"
-            style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+            className="manga-button min-h-12 rounded-2xl px-5 text-base font-bold disabled:opacity-60"
+            style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
           >
             La remettre
           </button>
@@ -368,7 +395,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
         <section aria-labelledby="grid-title" className="flex scroll-mt-20 flex-col gap-3">
           <h2 id="grid-title" className="sr-only">Les tomes</h2>
           {onShelf && mode !== "details" && (
-            <div className="grid grid-cols-2 rounded-2xl p-1 sm:max-w-sm" style={{ background: "var(--surface-raised)" }} role="group" aria-label="Ce que montre la grille">
+            <div className="grid grid-cols-2 gap-2 sm:max-w-sm" role="group" aria-label="Ce que montre la grille">
               {(["tomes", "lectures"] as const).map((m) => (
                 <button
                   key={m}
@@ -378,8 +405,13 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
                     setMode(m);
                     setPrompt(null);
                   }}
-                  className="min-h-11 rounded-xl text-sm font-bold"
-                  style={mode === m ? { background: "var(--surface)", boxShadow: "0 1px 3px rgba(29,36,51,0.12)" } : { color: "var(--muted)" }}
+                  // Selected tab = filled ink, pressed in (no shadow) ; the other one stands out, ready to tap.
+                  className={`min-h-12 rounded-xl text-base font-bold ${mode === m ? "" : "manga-panel-sm manga-press"}`}
+                  style={
+                    mode === m
+                      ? { background: "var(--ink)", color: "var(--pop)", border: "2px solid var(--ink)" }
+                      : { background: "var(--surface)", color: "var(--ink)" }
+                  }
                 >
                   {m === "tomes" ? "Mes tomes" : `Mes lectures${read.size ? ` · ${read.size}` : ""}`}
                 </button>
@@ -387,14 +419,14 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
             </div>
           )}
           {mode === "details" ? (
-            <div className="flex items-center justify-between gap-3 rounded-2xl px-4 py-2" style={{ background: "var(--surface-raised)" }}>
-              <p className="text-sm font-semibold">Touche un tome pour voir ses détails.</p>
-              <button type="button" onClick={() => setMode("tomes")} className="min-h-11 rounded-xl px-3 text-sm font-bold" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+            <div className="manga-panel-sm flex items-center justify-between gap-3 rounded-2xl px-4 py-2" style={{ background: "var(--pop)", color: "var(--ink)" }}>
+              <p className="text-base font-bold">Touche un tome pour voir ses détails.</p>
+              <button type="button" onClick={() => setMode("tomes")} className="min-h-11 shrink-0 rounded-xl px-4 text-sm font-bold" style={{ background: "var(--ink)", color: "white" }}>
                 Terminé
               </button>
             </div>
           ) : (
-            <p className="text-base font-semibold">{hint}</p>
+            <p className="text-base font-bold" style={{ color: "var(--ink)" }}>{hint}</p>
           )}
           <VolumeGrid
             count={shownCount}
@@ -409,8 +441,8 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
             <button
               type="button"
               onClick={() => setShowAll(true)}
-              className="min-h-12 rounded-2xl text-base font-semibold"
-              style={{ background: "var(--surface-raised)" }}
+              className="manga-panel-sm manga-press min-h-12 rounded-2xl text-base font-bold"
+              style={{ background: "var(--surface)", color: "var(--ink)" }}
             >
               Voir les {gridCount} tomes
             </button>
@@ -423,16 +455,28 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
       {/* One message at a time, above the tab bar */}
       <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-24 z-40 flex justify-center px-4 md:bottom-6">
         {prompt ? (
-          <div role="dialog" aria-label="Ajouter les tomes d'avant" className="pointer-events-auto flex w-full max-w-md flex-col gap-3 rounded-3xl p-4 shadow-xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-            <p className="text-lg font-bold">
+          // A comic speech bubble : ink panel, tail at the bottom left
+          <div role="dialog" aria-label="Ajouter les tomes d'avant" className="manga-panel pointer-events-auto relative flex w-full max-w-md flex-col gap-4 rounded-3xl p-4 pb-5">
+            <BubbleTail />
+            <p className="text-xl font-bold leading-snug" style={{ color: "var(--ink)" }}>
               Tu as aussi {prompt.kind === "lectures" ? "lu " : ""}
               {rangeLabel(prompt)}&nbsp;?
             </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setPrompt(null)} className="min-h-12 rounded-2xl text-base font-semibold" style={{ background: "var(--surface-raised)" }}>
+            <div className="grid grid-cols-[1fr_1.4fr] gap-3">
+              <button
+                type="button"
+                onClick={() => setPrompt(null)}
+                className="manga-panel-sm manga-press min-h-14 rounded-2xl text-lg font-bold"
+                style={{ background: "var(--surface)", color: "var(--ink)" }}
+              >
                 Non
               </button>
-              <button type="button" onClick={() => acceptPrompt(prompt)} className="min-h-12 rounded-2xl text-base font-bold text-white" style={{ background: prompt.kind === "lectures" ? "var(--success)" : "var(--accent)" }}>
+              <button
+                type="button"
+                onClick={() => acceptPrompt(prompt)}
+                className="manga-button min-h-14 rounded-2xl text-xl font-bold text-white"
+                style={{ background: prompt.kind === "lectures" ? "var(--success)" : "var(--accent)" }}
+              >
                 Oui
               </button>
             </div>
@@ -441,9 +485,10 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
           (error || notice) && (
             <div
               role={error ? "alert" : "status"}
-              className="pointer-events-auto flex max-w-md items-center gap-2 rounded-2xl py-1 pl-4 pr-1 text-sm font-semibold shadow-lg"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)", color: error ? "var(--danger)" : "var(--foreground)" }}
+              className="manga-panel pointer-events-auto relative flex max-w-md items-center gap-2 rounded-2xl py-1 pl-4 pr-1 text-base font-bold"
+              style={{ color: error ? "var(--danger)" : "var(--ink)" }}
             >
+              <BubbleTail />
               <span className="py-2">{error ?? notice?.text}</span>
               {!error && notice?.undo && (
                 <button
@@ -452,13 +497,13 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
                     notice.undo?.();
                     setNotice(null);
                   }}
-                  className="min-h-11 rounded-xl px-3 font-bold underline"
-                  style={{ color: "var(--accent)" }}
+                  className="manga-panel-sm manga-press min-h-11 shrink-0 rounded-xl px-3 text-sm font-bold"
+                  style={{ background: "var(--surface)", color: "var(--accent)" }}
                 >
                   Annuler
                 </button>
               )}
-              <button type="button" onClick={() => { setError(null); setNotice(null); }} aria-label="Fermer le message" className="flex h-11 w-11 shrink-0 items-center justify-center">
+              <button type="button" onClick={() => { setError(null); setNotice(null); }} aria-label="Fermer le message" className="flex h-11 w-11 shrink-0 items-center justify-center" style={{ color: "var(--ink)" }}>
                 <AppIcon name="close" size={16} />
               </button>
             </div>
@@ -504,11 +549,23 @@ function ActionButton({ icon, label, on, disabled, onClick }: { icon: "heart" | 
       onClick={onClick}
       disabled={disabled}
       aria-pressed={icon === "more" ? undefined : on}
-      className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl text-xs font-semibold transition-transform active:scale-95 disabled:opacity-60"
-      style={{ background: "var(--surface-raised)", color: on ? "var(--accent)" : "var(--foreground)" }}
+      className="manga-panel-sm manga-press flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-center text-[13px] font-bold leading-tight disabled:opacity-60"
+      style={on ? { background: "var(--accent)", color: "var(--accent-foreground)" } : { background: "var(--surface)", color: "var(--ink)" }}
     >
       <AppIcon name={icon} size={22} filled={on} />
       {label}
     </button>
+  );
+}
+
+// Speech-bubble tail for the floating messages : a square turned 45°,
+// half hidden inside the panel so its border joins the panel's.
+function BubbleTail() {
+  return (
+    <span
+      aria-hidden="true"
+      className="pointer-events-none absolute -bottom-2.75 left-8 h-5 w-5 rotate-45"
+      style={{ background: "var(--surface)", borderRight: "3px solid var(--ink)", borderBottom: "3px solid var(--ink)" }}
+    />
   );
 }
