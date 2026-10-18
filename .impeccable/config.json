@@ -1,0 +1,16 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/components/bibliotheque/serie-detail.tsx"
+        ],
+        "createdAt": "2026-10-18T09:35:52.819Z"
+      }
+    ]
+  }
+}
