@@ -5,7 +5,20 @@ import { cleanPath, sourceFrom, type EventName, type EventProps } from "./analyt
 // with the visit's source and the route ; nothing identifies the visitor.
 
 const SOURCE_KEY = "ys_src";
-const queue: { name: string; props: Record<string, unknown> }[] = [];
+export const OPT_OUT_KEY = "ys_optout";
+const queue: { name: string; props: Record<string, unknown>; path: string }[] = [];
+
+// "Ne pas être mesuré" (privacy page), Do Not Track or Global Privacy
+// Control : nothing is sent at all.
+export function measurementRefused(): boolean {
+  try {
+    if (localStorage.getItem(OPT_OUT_KEY) === "1") return true;
+  } catch {
+    // storage blocked : fall through to the browser signals
+  }
+  const nav = navigator as Navigator & { globalPrivacyControl?: boolean };
+  return nav.doNotTrack === "1" || nav.globalPrivacyControl === true;
+}
 let timer: ReturnType<typeof setTimeout> | null = null;
 
 // Last events must leave before the tab goes away.
@@ -18,7 +31,8 @@ if (typeof window !== "undefined") {
 
 // First touch of this browsing session (sessionStorage : gone when the tab
 // closes). Called once at app start ; later pages reuse it.
-export function captureSource(): string {
+export function captureSource(): string | undefined {
+  if (measurementRefused()) return undefined;
   try {
     const known = sessionStorage.getItem(SOURCE_KEY);
     if (known) return known;
@@ -45,7 +59,6 @@ function flush() {
     events: queue.splice(0, 10),
     context: {
       src: currentSource(),
-      path: cleanPath(location.pathname),
       device: matchMedia("(max-width: 767px)").matches ? "mobile" : "desktop",
     },
   });
@@ -58,14 +71,15 @@ function flush() {
 // Properties are checked against the catalogue here (types) and again by
 // /api/events (values).
 export function track<N extends EventName>(name: N, props?: EventProps<N>) {
-  if (typeof window === "undefined") return;
-  queue.push({ name, props: (props ?? {}) as Record<string, unknown> });
+  if (typeof window === "undefined" || measurementRefused()) return;
+  // the route when it happened, not when the batch leaves
+  queue.push({ name, props: (props ?? {}) as Record<string, unknown>, path: cleanPath(location.pathname) });
   if (!timer) timer = setTimeout(flush, 400);
 }
 
 // Older call sites (Wrapped).
 export function trackEvent(name: EventName, params?: Record<string, string | number | boolean>) {
-  if (typeof window === "undefined") return;
-  queue.push({ name, props: params ?? {} });
+  if (typeof window === "undefined" || measurementRefused()) return;
+  queue.push({ name, props: params ?? {}, path: cleanPath(location.pathname) });
   if (!timer) timer = setTimeout(flush, 400);
 }

@@ -85,7 +85,7 @@ export async function signUp(
     return { error: "Erreur lors de l'inscription. Réessaie." };
   }
 
-  await logServerEvent("account_created", { method: "email" }, { userId: data.user?.id, src: sourceOf(formData) });
+  await logServerEvent("account_created", { method: "email" }, { accountCreatedAt: data.user?.created_at, src: sourceOf(formData) });
 
   // No email confirmation required : the account is ready and signed in.
   if (data.session) redirect("/bibliotheque");

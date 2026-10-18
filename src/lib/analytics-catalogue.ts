@@ -1,10 +1,12 @@
 import { z } from "zod";
 
 // Every event Yomushelf records, and the only properties each may carry.
-// First-party, cookieless, no identifier for anonymous visitors, no free
+// First-party, cookieless, never tied to a person (no user id, no
+// visitor id, no IP), no free
 // text (never a search query or a title typed by a child). An event or a
 // property not listed here is refused by /api/events.
 
+const path = z.string().max(80).regex(/^\/[\w\-/]*$/);
 const source = z.string().regex(/^[a-z0-9_.-]{1,40}$/); // tiktok, instagram, direct, google…
 const count = z.number().int().min(0).max(10_000);
 
@@ -24,7 +26,7 @@ export const EVENTS = {
   volume_toggled: z.object({ action: z.enum(["add", "remove"]), tab: z.enum(["tomes", "lectures"]) }),
   fill_prompt_answered: z.object({ answer: z.enum(["yes", "no"]), tab: z.enum(["tomes", "lectures"]), volumes: count }),
   series_viewed: z.object({ presence: z.enum(["on_shelf", "archived", "absent"]) }),
-  wish_added: z.object({ from: z.enum(["serie", "decouvrir_hero", "deck"]) }),
+  wish_added: z.object({ from: z.enum(["serie", "decouvrir_hero"]) }),
   deck_opened: z.object({}),
   deck_swiped: z.object({ choice: z.enum(["wish", "pass", "skip"]) }),
   discover_filtered: z.object({ age: z.enum(["all", "8", "10", "12", "14"]) }),
@@ -43,27 +45,39 @@ export type EventProps<N extends EventName> = z.infer<(typeof EVENTS)[N]>;
 // What every event may add about where the visit came from.
 export const ContextSchema = z.object({
   src: source.optional(), // first-touch source of this browsing session
-  path: z.string().max(80).regex(/^\/[\w\-/]*$/).optional(), // route, ids stripped
+  path: path.optional(), // route, ids stripped
   device: z.enum(["mobile", "desktop"]).optional(),
 });
 
 export const BatchSchema = z.object({
   events: z
-    .array(z.object({ name: z.string().max(40), props: z.record(z.string(), z.unknown()).default({}) }))
+    .array(z.object({ name: z.string().max(40), props: z.record(z.string(), z.unknown()).default({}), path: path.optional() }))
     .min(1)
     .max(10),
   context: ContextSchema.default({}),
 });
 
-export type ValidEvent = { name: EventName; properties: Record<string, unknown> };
+export type ValidEvent = { name: EventName; properties: Record<string, unknown>; path?: string };
 
 // Keeps the known events with their declared properties only.
-export function validateEvents(raw: { name: string; props: Record<string, unknown> }[]): ValidEvent[] {
+export function validateEvents(raw: { name: string; props: Record<string, unknown>; path?: string }[]): ValidEvent[] {
   return raw.flatMap((e) => {
     if (!Object.hasOwn(EVENTS, e.name)) return [];
     const parsed = EVENTS[e.name as EventName].strict().safeParse(e.props);
-    return parsed.success ? [{ name: e.name as EventName, properties: parsed.data as Record<string, unknown> }] : [];
+    if (!parsed.success) return [];
+    return [{ name: e.name as EventName, properties: parsed.data as Record<string, unknown>, ...(e.path ? { path: e.path } : {}) }];
   });
+}
+
+// "2026-W42" : the week an account was created. Lets retention be read per
+// sign-up cohort without tying any event to a person.
+export function isoWeek(date: Date): string {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 
 // "/bibliotheque/021acb54-…" → "/bibliotheque/id" : no series id in events.

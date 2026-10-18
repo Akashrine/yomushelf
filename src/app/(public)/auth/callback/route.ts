@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   const user = data.user;
   if (user && Date.now() - new Date(user.created_at).getTime() < 60_000) {
     const src = searchParams.get("src");
-    await logServerEvent("account_created", { method: "google" }, { userId: user.id, src: src && /^[a-z0-9_.-]{1,40}$/.test(src) ? src : null });
+    await logServerEvent("account_created", { method: "google" }, { accountCreatedAt: user.created_at, src: src && /^[a-z0-9_.-]{1,40}$/.test(src) ? src : null });
   }
 
   return NextResponse.redirect(`${origin}${next}`);

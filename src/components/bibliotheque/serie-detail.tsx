@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useOptimistic, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AppIcon } from "@/components/app/app-icon";
@@ -186,9 +186,12 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
     reading.run(intent, { mangaId: manga.id, title: manga.title, volume }, () => setOpenVolume(null));
   }
 
+  // once per series, with the presence seen on arrival (an add on this page
+  // changes it, which is not a second visit)
+  const arrival = useRef(presence);
   useEffect(() => {
-    track("series_viewed", { presence });
-  }, [manga.id, presence]);
+    track("series_viewed", { presence: arrival.current });
+  }, [manga.id]);
 
   const closeSheet = useCallback(() => setOpenVolume(null), []);
   function handleSaved(event: VolumeSavedEvent) {

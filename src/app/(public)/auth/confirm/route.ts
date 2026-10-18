@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   if (tokenHash && type && OTP_TYPES.has(type)) {
     const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: type as EmailOtpType });
     if (!error) {
-      if (type === "signup" || type === "email") await logServerEvent("email_confirmed", {}, { userId: data.user?.id });
+      if (type === "signup" || type === "email") await logServerEvent("email_confirmed", {}, { accountCreatedAt: data.user?.created_at });
       return NextResponse.redirect(`${origin}${next}`);
     }
     return NextResponse.redirect(`${origin}/login?error=link_invalid`);

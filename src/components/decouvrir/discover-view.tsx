@@ -175,8 +175,15 @@ export function DiscoverView({ featured, deck, rows, catalogue, onShelf, wished,
               onShelf={shelfSet.has(featured.card.entry.id)}
               pending={isPending && pendingId === featured.card.entry.id}
               onWish={() =>
-                (track("wish_added", { from: "decouvrir_hero" }),
-                run(featured.card.entry.id, () => addWishlistItem(form({ manga_id: featured.card.entry.id, volume_number: "1" })), `${featured.card.entry.title} est dans tes envies.`))
+                run(
+                  featured.card.entry.id,
+                  () =>
+                    addWishlistItem(form({ manga_id: featured.card.entry.id, volume_number: "1" })).then((r) => {
+                      if (r.success) track("wish_added", { from: "decouvrir_hero" });
+                      return r;
+                    }),
+                  `${featured.card.entry.title} est dans tes envies.`
+                )
               }
             />
           )}

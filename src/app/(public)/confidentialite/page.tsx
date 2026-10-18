@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { MeasurementToggle } from "@/components/analytics/measurement-toggle";
 
 export const metadata: Metadata = {
   title: "Politique de confidentialité",
@@ -19,7 +20,7 @@ export default function ConfidentialitePage() {
         </Link>
 
         <h1 className="mb-3 text-4xl sm:text-5xl">Politique de confidentialité</h1>
-        <p className="text-sm mb-10" style={{ color: "var(--muted)" }}>Dernière mise à jour : avril 2026</p>
+        <p className="text-sm mb-10" style={{ color: "var(--muted)" }}>Dernière mise à jour : octobre 2026</p>
 
         <div className="manga-panel flex flex-col gap-8 rounded-3xl p-5 text-[0.95rem] leading-relaxed sm:p-8" style={{ color: "var(--foreground)" }}>
           <section>
@@ -39,7 +40,7 @@ export default function ConfidentialitePage() {
             <ul className="flex flex-col gap-1.5 list-disc list-inside">
               <li>Vous informer de l&apos;ouverture de Yomushelf au public</li>
               <li>Gérer votre compte et votre collection (après lancement)</li>
-              <li>Améliorer le service (analytics anonymes)</li>
+              <li>Améliorer le service (mesure d&apos;audience anonyme, voir plus bas)</li>
             </ul>
             <p className="mt-2">
               Votre email ne sera jamais utilisé à des fins publicitaires ni cédé à des tiers.
@@ -88,14 +89,19 @@ export default function ConfidentialitePage() {
               Yomushelf ne dépose aucun cookie publicitaire ni de suivi, et n&apos;utilise pas Google Analytics.
             </p>
             <p className="mt-3">
-              Pour savoir ce qui marche, on compte des gestes dans l&apos;app (par exemple « une série ajoutée », « une
-              carte passée »), avec la page, le type d&apos;appareil (mobile ou ordinateur) et le site d&apos;où vient la
-              visite (TikTok, Instagram, Google…). Jamais de texte tapé, jamais le titre d&apos;une recherche, jamais
-              d&apos;adresse IP. Pour un visiteur sans compte, rien ne permet de le reconnaître d&apos;une visite à
-              l&apos;autre : le site d&apos;origine est gardé dans l&apos;onglet le temps de la visite, puis effacé. Pour
-              un compte, ces gestes sont rattachés au compte, restent sur nos serveurs en Europe, et sont détachés du
-              compte (donc anonymes) quand il est supprimé.
+              Pour savoir ce qui marche, on compte des gestes anonymes dans l&apos;app (par exemple « une série
+              ajoutée », « une carte passée »), avec la page, le type d&apos;appareil (mobile ou ordinateur) et le site
+              d&apos;où vient la visite (TikTok, Instagram, Google…). Ces mesures ne sont jamais rattachées à une
+              personne : ni compte, ni identifiant, ni adresse IP, ni texte tapé. Pour un compte, on garde seulement
+              la semaine de création du compte, pour savoir si les nouveaux venus reviennent. Le site d&apos;origine
+              est gardé dans l&apos;onglet le temps de la visite, puis effacé. Les mesures sont supprimées au bout de
+              13 mois.
             </p>
+            <p className="mt-3">
+              Tu peux refuser ces mesures sur cet appareil, à tout moment. Elles sont aussi coupées si ton navigateur
+              envoie le signal « Do Not Track » ou « Global Privacy Control ».
+            </p>
+            <MeasurementToggle />
             <p className="mt-3">
               Le nombre de pages vues est aussi mesuré par Vercel Analytics, sans cookie et sans identifier les
               visiteurs.
