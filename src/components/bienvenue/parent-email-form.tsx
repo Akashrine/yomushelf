@@ -19,6 +19,9 @@ export function ParentEmailForm() {
           required
           autoComplete="off"
           placeholder="parent@email.fr"
+          defaultValue={state?.value}
+          key={state?.value}
+          aria-invalid={state?.error ? true : undefined}
           aria-describedby={state?.error ? `${id}-error` : undefined}
           className="min-h-12 rounded-xl px-4 text-base outline-none placeholder:text-[var(--muted)] focus-visible:ring-4 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)]"
           style={{ background: "white", border: "2px solid var(--ink)", color: "var(--ink)" }}

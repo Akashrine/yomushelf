@@ -42,9 +42,10 @@ export default async function AccordPage({ params, searchParams }: { params: Pro
 
   const who = consent.username ? `Ton enfant (pseudo « ${consent.username} »)` : "Ton enfant";
   const expired = consent.expired;
-  const error = query.erreur === "1" && (
+  const error = (query.erreur === "accord" || query.erreur === "suppression") && (
     <p role="alert" className="rounded-xl px-3 py-2 text-sm font-semibold" style={{ background: "#fbeceb", color: "var(--danger)", border: "2px solid var(--danger)" }}>
-      Le compte n&apos;a pas pu être supprimé. Réessaie dans quelques minutes.
+      {query.erreur === "accord" ? "Ton accord n'a pas pu être enregistré." : "Le compte n'a pas pu être supprimé."} Réessaie dans quelques
+      minutes.
     </p>
   );
 
@@ -85,6 +86,7 @@ export default async function AccordPage({ params, searchParams }: { params: Pro
   if (expired) {
     return (
       <Frame title="Ce lien a expiré.">
+        {error}
         <p>Le compte sans accord va être supprimé. Ton enfant peut en créer un nouveau et te renvoyer une demande.</p>
         <Link href={`/accord/${token}?refuser=1`} className={LINK}>
           Supprimer le compte tout de suite

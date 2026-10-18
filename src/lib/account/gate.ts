@@ -33,3 +33,9 @@ export function maskEmail(email: string): string {
   if (!domain) return "***";
   return `${local.slice(0, 1)}***@${domain}`;
 }
+
+// "1er novembre", "14 novembre" (Paris time)
+export function frenchDate(date: Date): string {
+  const parts = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" }).formatToParts(date);
+  return parts.map((p) => (p.type === "day" && p.value === "1" ? "1er" : p.value)).join("");
+}

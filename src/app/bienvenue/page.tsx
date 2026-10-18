@@ -2,13 +2,29 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { accountGate, serviceClient } from "@/lib/server/consent";
-import { CONSENT_DAYS, HEARD_FROM, maskEmail } from "@/lib/account/gate";
+import { CONSENT_DAYS, HEARD_FROM, frenchDate, maskEmail, type GateStep } from "@/lib/account/gate";
 import { chooseAgeBand, chooseHeardFrom, restartAge } from "./actions";
 import { signOut } from "@/app/(public)/auth/actions";
 import { ParentEmailForm } from "@/components/bienvenue/parent-email-form";
 import { ResendForm } from "@/components/bienvenue/resend-form";
 
-export const metadata: Metadata = { title: "Bienvenue", robots: { index: false } };
+// One title per step : the route announcer reads it to screen readers.
+const TITLES: Record<GateStep, string> = {
+  age: "Ton âge",
+  source: "Comment tu as connu Yomushelf",
+  parent: "Accord d'un parent",
+  pending: "On attend ton parent",
+  ready: "Bienvenue",
+};
+
+export async function generateMetadata(): Promise<Metadata> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const step = user ? await accountGate(supabase, user.id) : "age";
+  return { title: TITLES[step], robots: { index: false } };
+}
 
 const CHOICE =
   "manga-panel-sm manga-press flex min-h-14 w-full items-center justify-center rounded-2xl px-4 text-center text-base font-bold focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]";
@@ -16,7 +32,7 @@ const LINK = "inline-flex min-h-11 items-center text-sm font-semibold underline 
 
 // Asked once, after sign-up (email or Google) : age, source, then a
 // parent's consent under 15. The app layout sends here until it is done.
-export default async function BienvenuePage({ searchParams }: { searchParams: Promise<{ changer?: string; envoye?: string }> }) {
+export default async function BienvenuePage({ searchParams }: { searchParams: Promise<{ changer?: string; envoye?: string; verifie?: string }> }) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -97,6 +113,11 @@ export default async function BienvenuePage({ searchParams }: { searchParams: Pr
                 text="Avant 15 ans, la loi demande qu'un parent dise oui. Écris son email : on lui envoie un lien."
               />
               <ParentEmailForm />
+              {step === "pending" && (
+                <a href="/bienvenue" className={LINK}>
+                  Annuler, garder l&apos;adresse d&apos;avant
+                </a>
+              )}
               <p className="text-sm" style={{ color: "var(--muted)" }}>
                 Ton parent est à côté de toi ? Il peut confirmer tout de suite depuis son téléphone.
               </p>
@@ -109,13 +130,18 @@ export default async function BienvenuePage({ searchParams }: { searchParams: Pr
                 title="On attend ton parent."
                 text={`Email envoyé à ${pending.email}. Dès que ton parent a dit oui, ta bibliothèque s'ouvre.`}
               />
+              {params.verifie === "1" && (
+                <p role="status" className="rounded-xl px-3 py-2 text-sm font-bold" style={{ background: "var(--surface)", color: "var(--ink)", border: "2px solid var(--ink)" }}>
+                  Pas encore d&apos;accord. Demande à ton parent d&apos;ouvrir l&apos;email et de toucher « Je donne mon accord ».
+                </p>
+              )}
               {params.envoye === "1" && (
                 <p role="status" className="rounded-xl px-3 py-2 text-sm font-bold" style={{ background: "var(--pop)", color: "var(--ink)", border: "2px solid var(--ink)" }}>
                   C&apos;est parti. Pense à regarder les courriers indésirables.
                 </p>
               )}
               {/* A full page load : the gate is read again on the server. */}
-              <a href="/bienvenue" className={`manga-button ${CHOICE}`} style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}>
+              <a href="/bienvenue?verifie=1" className={`manga-button ${CHOICE}`} style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}>
                 C&apos;est bon, j&apos;ai l&apos;accord
               </a>
               <ResendForm />
@@ -145,12 +171,6 @@ export default async function BienvenuePage({ searchParams }: { searchParams: Pr
       </div>
     </main>
   );
-}
-
-// "1er novembre", "14 novembre"
-function frenchDate(date: Date): string {
-  const parts = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" }).formatToParts(date);
-  return parts.map((p) => (p.type === "day" && p.value === "1" ? "1er" : p.value)).join("");
 }
 
 function Heading({ title, text }: { title: string; text: string }) {

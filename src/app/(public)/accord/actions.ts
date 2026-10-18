@@ -21,17 +21,15 @@ async function consentFor(formData: FormData) {
 }
 
 export async function giveConsent(formData: FormData) {
-  const consent = await consentFor(formData);
-  if (!consent) redirect("/accord/invalide");
-  if (!consent.confirmed_at) {
-    if (new Date(consent.expires_at).getTime() < Date.now()) redirect(`/accord/${consent.token}`);
-    const now = new Date().toISOString();
-    await consent.service.from("parental_consents").update({ confirmed_at: now }).eq("user_id", consent.user_id);
-    // The trigger locks Découvrir to the youth selection and the profile to private.
-    await consent.service.from("profiles").update({ parent_consent_at: now }).eq("id", consent.user_id);
-    await logServerEvent("parent_consent_given", {});
-  }
-  redirect(`/accord/${consent.token}?ok=1`);
+  const token = formData.get("token");
+  if (typeof token !== "string" || !isConsentToken(token)) redirect("/accord/invalide");
+  // Both writes in one transaction (give_parental_consent) ; repeating is safe.
+  // It also locks Découvrir to the youth selection and the profile to private.
+  const { data: userId, error } = await serviceClient().rpc("give_parental_consent", { p_token_hash: hashConsentToken(token) });
+  if (error) redirect(`/accord/${token}?erreur=accord`);
+  if (!userId) redirect(`/accord/${token}`); // unknown or expired : the page says so
+  await logServerEvent("parent_consent_given", {});
+  redirect(`/accord/${token}?ok=1`);
 }
 
 // "Je refuse" before, or "je retire mon accord" after : the child's account
@@ -40,7 +38,7 @@ export async function deleteChildAccount(formData: FormData) {
   const consent = await consentFor(formData);
   if (!consent) redirect("/accord/invalide");
   const { error } = await consent.service.auth.admin.deleteUser(consent.user_id);
-  if (error) redirect(`/accord/${consent.token}?erreur=1`);
+  if (error) redirect(`/accord/${consent.token}?erreur=suppression`);
   await logServerEvent("parent_consent_refused", { when: consent.confirmed_at ? "given" : "pending" });
   redirect("/accord/supprime");
 }

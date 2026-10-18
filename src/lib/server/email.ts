@@ -24,7 +24,7 @@ export async function sendEmail(message: { to: string; subject: string; html: st
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 // The email a parent receives when a reader under 15 signs up.
-export function parentConsentEmail({ link, username, days }: { link: string; username: string | null; days: number }) {
+export function parentConsentEmail({ link, username, deadline }: { link: string; username: string | null; deadline: string }) {
   const who = username ? `Ton enfant (pseudo « ${username} »)` : "Ton enfant";
   const subject = "Ton enfant veut utiliser Yomushelf : ton accord est demandé";
   const text = [
@@ -40,7 +40,7 @@ export function parentConsentEmail({ link, username, days }: { link: string; use
     "",
     `Voir et donner ton accord : ${link}`,
     "",
-    `Sans réponse sous ${days} jours, le compte et ses données sont supprimés. Si tu ne connais pas cet enfant, ignore ce message.`,
+    `Sans réponse avant le ${deadline}, le compte et ses données sont supprimés. Si tu ne connais pas cet enfant, ignore ce message.`,
     "",
     "L'équipe Yomushelf",
   ].join("\n");
@@ -55,7 +55,7 @@ export function parentConsentEmail({ link, username, days }: { link: string; use
 <li>Tu peux retirer ton accord à tout moment avec ce même lien : le compte est alors supprimé.</li>
 </ul>
 <p style="margin:28px 0"><a href="${escapeHtml(link)}" style="display:inline-block;background:#12151d;color:#ffd23f;font-weight:bold;font-size:17px;text-decoration:none;padding:14px 22px;border-radius:12px">Voir et donner mon accord</a></p>
-<p style="font-size:14px;line-height:1.5;color:#4a4f5c">Sans réponse sous ${days} jours, le compte et ses données sont supprimés. Si tu ne connais pas cet enfant, ignore ce message.</p>
+<p style="font-size:14px;line-height:1.5;color:#4a4f5c">Sans réponse avant le ${escapeHtml(deadline)}, le compte et ses données sont supprimés. Si tu ne connais pas cet enfant, ignore ce message.</p>
 <p style="font-size:15px;margin-top:28px">L'équipe Yomushelf</p>
 </div></body></html>`;
   return { subject, text, html };

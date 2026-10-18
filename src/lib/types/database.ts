@@ -75,6 +75,12 @@ export type Database = {
         };
         Relationships: [];
       };
+      consent_email_sends: {
+        Row: { id: number; user_id: string; recipient_hash: string; sent_at: string };
+        Insert: { id?: never; user_id: string; recipient_hash: string; sent_at?: string };
+        Update: { id?: never; user_id?: string; recipient_hash?: string; sent_at?: string };
+        Relationships: [];
+      };
       parental_consents: {
         Row: {
           user_id: string;
@@ -659,6 +665,18 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      account_ready: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
+      claim_consent_email: {
+        Args: { p_user: string; p_recipient_hash: string };
+        Returns: "ok" | "wait" | "day" | "recipient";
+      };
+      give_parental_consent: {
+        Args: { p_token_hash: string };
+        Returns: string | null;
+      };
       get_waitlist_count: {
         Args: Record<string, never>;
         Returns: number;

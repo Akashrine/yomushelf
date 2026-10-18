@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gateStep, maskEmail } from "./gate";
+import { frenchDate, gateStep, maskEmail } from "./gate";
 
 const base = { age_band: null, heard_from: null, parent_consent_at: null } as const;
 
@@ -26,5 +26,12 @@ describe("maskEmail", () => {
   it("keeps the first letter and the domain", () => {
     expect(maskEmail("julie.martin@gmail.com")).toBe("j***@gmail.com");
     expect(maskEmail("nope")).toBe("***");
+  });
+});
+
+describe("frenchDate", () => {
+  it("writes the first of the month as 1er", () => {
+    expect(frenchDate(new Date("2026-11-01T10:00:00Z"))).toBe("1er novembre");
+    expect(frenchDate(new Date("2026-11-14T10:00:00Z"))).toBe("14 novembre");
   });
 });
