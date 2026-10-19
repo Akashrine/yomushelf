@@ -16,7 +16,7 @@ export default async function DecouvrirPage() {
   const { supabase, user } = await getSessionUser();
   if (!user) redirect("/login");
 
-  const [selectionsResult, series, volumes, readings, { data: profile }, discovery] = await Promise.all([
+  const [selectionsResult, series, volumes, readings, { data: profile }, discovery, { data: synopses }] = await Promise.all([
     supabase
       .from("editorial_selections")
       .select("slug, title, description, position, editorial_selection_items ( manga_id, position, note )")
@@ -26,6 +26,10 @@ export default async function DecouvrirPage() {
     getReadings(supabase, user.id),
     supabase.from("profiles").select("avatar_initials").eq("id", user.id).single(),
     loadDiscoveryContext(supabase, user.id),
+    // The featured card's synopsis, known only once suggestions are
+    // computed : every curated synopsis now (~10 KB, server side only)
+    // rather than a second round trip.
+    supabase.from("mangas").select("id, synopsis").is("created_by", null).is("merged_into", null).eq("curated", true).not("synopsis", "is", null),
   ]);
   if (selectionsResult.error) throw new Error("Impossible de charger les découvertes.");
 
@@ -86,14 +90,12 @@ export default async function DecouvrirPage() {
   ];
 
   const featuredCard = suggestions[0] ?? (deck[0] ? { entry: deck[0].entry, reason: deck[0].reason } : null);
-  const { data: featuredMeta } = featuredCard
-    ? await supabase.from("mangas").select("synopsis").eq("id", featuredCard.entry.id).maybeSingle()
-    : { data: null };
+  const featuredSynopsis = featuredCard ? (synopses ?? []).find((m) => m.id === featuredCard.entry.id)?.synopsis ?? null : null;
 
   return (
     <AppShell active="decouvrir" avatarInitials={profile?.avatar_initials ?? undefined}>
       <DiscoverView
-        featured={featuredCard ? { card: featuredCard, synopsis: featuredMeta?.synopsis ?? null } : null}
+        featured={featuredCard ? { card: featuredCard, synopsis: featuredSynopsis } : null}
         deck={deck}
         rows={rows}
         catalogue={allowed}
