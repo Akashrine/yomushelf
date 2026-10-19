@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 import { getOwnedVolumes, getReadings, getSeriesMeta } from "@/lib/supabase/queries";
 import { loadDiscoveryContext, readerLibrary, withReaderSeries } from "@/lib/supabase/discovery-data";
 import { formatEur, formatMonthShort, lastKnownPrice, todayIso } from "@/lib/collection/value";
@@ -19,10 +19,7 @@ import { BulkReadForm } from "@/components/parent/bulk-read-form";
 export const metadata: Metadata = { title: "Mon univers" };
 
 export default async function UniversPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) redirect("/login");
 
   const [series, volumes, readings, { data: profile }, wishesResult, discovery] = await Promise.all([

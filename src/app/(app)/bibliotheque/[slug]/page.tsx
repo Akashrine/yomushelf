@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 import { getOwnedVolumes, getReadings, getSeriesMeta } from "@/lib/supabase/queries";
 import { loadDiscoveryContext, readerLibrary, withReaderSeries } from "@/lib/supabase/discovery-data";
 import { contentContext } from "@/lib/discovery/suggest";
@@ -15,41 +15,41 @@ export default async function SeriePage({
   const { slug } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(slug)) notFound();
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) redirect("/login");
 
-  // RLS : another reader's private series is simply not found.
-  const { data: manga, error: mangaError } = await supabase
-    .from("mangas")
-    .select("id, title, author, publisher_fr, total_volumes, status, cover_url, genres, demographic, audience_min_age, audience_age_source, audience_age_scope, audience_age_volumes, audience_age_year, synopsis, created_by, merged_into, pictures")
-    .eq("id", slug)
-    .maybeSingle();
-
-  if (mangaError) throw new Error("Impossible de charger cette série.");
-  if (!manga) notFound();
-  // An old link to a series merged into another one.
-  if (manga.merged_into) redirect(`/bibliotheque/${manga.merged_into}`);
-
-  const [volumes, readings, { data: wishes, error: wishesError }, { data: collection, error: collectionError }, { data: profile }, { data: catalogueVolumes }, allSeries, allVolumes, allReadings, discovery] =
+  // Everything is keyed on the id in the URL : one round of queries, the
+  // series itself included.
+  const [{ data: manga, error: mangaError }, { data: wishes, error: wishesError }, { data: collection, error: collectionError }, { data: profile }, { data: catalogueVolumes }, allSeries, allVolumes, allReadings, discovery] =
     await Promise.all([
-      getOwnedVolumes(supabase, user.id, manga.id),
-      getReadings(supabase, user.id, manga.id),
-      supabase.from("wishlist_items").select("volume_number").eq("user_id", user.id).eq("manga_id", manga.id),
-      supabase.from("user_collections").select("archived_at, liked").eq("user_id", user.id).eq("manga_id", manga.id).maybeSingle(),
+      // RLS : another reader's private series is simply not found.
+      supabase
+        .from("mangas")
+        .select("id, title, author, publisher_fr, total_volumes, status, cover_url, genres, demographic, audience_min_age, audience_age_source, audience_age_scope, audience_age_volumes, audience_age_year, synopsis, created_by, merged_into, pictures")
+        .eq("id", slug)
+        .maybeSingle(),
+      supabase.from("wishlist_items").select("volume_number").eq("user_id", user.id).eq("manga_id", slug),
+      supabase.from("user_collections").select("archived_at, liked").eq("user_id", user.id).eq("manga_id", slug).maybeSingle(),
       supabase.from("profiles").select("avatar_initials").eq("id", user.id).single(),
       // French-edition covers per volume (filled nightly) ; none is fine
-      supabase.from("volumes").select("volume_number, cover_url").eq("manga_id", manga.id).not("cover_url", "is", null),
+      supabase.from("volumes").select("volume_number, cover_url").eq("manga_id", slug).not("cover_url", "is", null),
       // "Dans le même genre" : the same content rules as Découvrir
       getSeriesMeta(supabase, user.id, { includeArchived: true }),
       getOwnedVolumes(supabase, user.id),
       getReadings(supabase, user.id),
       loadDiscoveryContext(supabase, user.id),
     ]);
+
+  if (mangaError) throw new Error("Impossible de charger cette série.");
+  if (!manga) notFound();
+  // An old link to a series merged into another one.
+  if (manga.merged_into) redirect(`/bibliotheque/${manga.merged_into}`);
   if (wishesError) throw new Error("Impossible de charger les envies.");
   if (collectionError) throw new Error("Impossible de charger cette série.");
+
+  // Already in volume order : this series' share of the full lists.
+  const volumes = allVolumes.filter((v) => v.manga_id === manga.id);
+  const readings = allReadings.filter((r) => r.manga_id === manga.id);
 
   const knownMap = withReaderSeries(discovery.catalogue, allSeries);
   const ctx = contentContext(readerLibrary(allSeries, allVolumes, allReadings), knownMap, discovery.declared, discovery.scope);

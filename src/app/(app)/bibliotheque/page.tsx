@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 import { getOwnedVolumes, getReadings, getSeriesMeta } from "@/lib/supabase/queries";
 import { buildShelves } from "@/lib/collection/reading";
 import { AppShell } from "@/components/app/app-shell";
@@ -11,10 +11,7 @@ export const metadata: Metadata = { title: "Ma collection" };
 // Home of the app : the collection as a wall of covers, then the wishes.
 // Everything comes from the server render ; actions refresh it.
 export default async function BibliothequePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) redirect("/login");
 
   const [series, volumes, readings, { data: profile }, wishesResult] = await Promise.all([

@@ -2,17 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 import { formValues } from "@/lib/collection/schema";
 import { GENRES } from "@/lib/discovery/suggest";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
 async function getAuthed() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   return { supabase, user };
 }
 

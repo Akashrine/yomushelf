@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/types/database";
 
@@ -23,10 +24,7 @@ type Result =
   | { success: false; error: string };
 
 export async function ensureWrappedSnapshot(year: number): Promise<Result> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) return { success: false, error: "Non authentifié." };
 
   // generate_wrapped is service-role only (no grant to authenticated)

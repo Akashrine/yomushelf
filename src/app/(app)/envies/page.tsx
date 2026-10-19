@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 import { getOwnedVolumes } from "@/lib/supabase/queries";
 import { lastKnownPrice, nextVolumeToBuy, todayIso } from "@/lib/collection/value";
 import { spendingOverview } from "@/lib/univers/stats";
@@ -10,10 +10,7 @@ import { WishlistView, type WishItem, type WishSeries } from "@/components/envie
 export const metadata: Metadata = { title: "Mes envies" };
 
 export default async function EnviesPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) redirect("/login");
 
   const [{ data: profile }, { data: wishes, error: wishesError }, { data: collections, error: collectionError }, volumes] = await Promise.all([

@@ -16,7 +16,7 @@ vi.mock("@/lib/collection/readings-db", () => ({
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
-    auth: { getUser: async () => ({ data: { user: state.user } }) },
+    auth: { getClaims: async () => ({ data: state.user ? { claims: { sub: state.user.id } } : null }) },
     from: () => {
       let patch: Record<string, unknown> | undefined;
       const query = {

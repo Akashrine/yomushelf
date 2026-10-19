@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 import { getOwnedVolumes, getReadings } from "@/lib/supabase/queries";
 import { AppShell } from "@/components/app/app-shell";
 import { AddFlow, type FlowSeries } from "@/components/ajouter/add-flow";
@@ -13,31 +13,49 @@ export default async function AjouterPage({
 }: {
   searchParams: Promise<{ serie?: string; detaille?: string; bienvenue?: string }>;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) redirect("/login");
 
-  const [{ serie, detaille, bienvenue }, { data: profile }] = await Promise.all([
-    searchParams,
+  const { serie, detaille, bienvenue } = await searchParams;
+  const serieId = serie && /^[0-9a-f-]{36}$/i.test(serie) ? serie : null;
+
+  // The quick add's covers, with the reader's volumes on each.
+  const loadQuick = () =>
+    Promise.all([
+      supabase
+        .from("mangas")
+        .select("id, title, author, total_volumes, cover_url")
+        .is("created_by", null)
+        .is("merged_into", null)
+        .eq("curated", true)
+        .not("cover_url", "is", null)
+        .order("top_50_rank", { ascending: true, nullsFirst: false })
+        .order("title")
+        .limit(60),
+      getOwnedVolumes(supabase, user.id),
+      getReadings(supabase, user.id),
+    ]);
+
+  // One round of queries : the profile, then either the series asked for
+  // (keyed on the id in the URL) or the quick add.
+  const [{ data: profile }, serieResult, quickResult] = await Promise.all([
     supabase.from("profiles").select("avatar_initials, username").eq("id", user.id).single(),
+    serieId
+      ? Promise.all([
+          supabase.from("mangas").select("id, title, author, total_volumes, cover_url").eq("id", serieId).maybeSingle(),
+          getOwnedVolumes(supabase, user.id, serieId),
+          getReadings(supabase, user.id, serieId),
+        ])
+      : null,
+    !serieId && !detaille ? loadQuick() : null,
   ]);
 
   // "Ajouter des tomes" from a series page opens the flow on that series.
   let initial: FlowSeries | null = null;
-  if (serie && /^[0-9a-f-]{36}$/i.test(serie)) {
-    const { data: manga, error } = await supabase
-      .from("mangas")
-      .select("id, title, author, total_volumes, cover_url")
-      .eq("id", serie)
-      .maybeSingle();
+  if (serieResult) {
+    const [{ data: manga, error }, volumes, readings] = serieResult;
     if (error) throw new Error("Impossible de charger cette série.");
     if (manga) {
-      const [volumes, readings] = await Promise.all([
-        getOwnedVolumes(supabase, user.id, manga.id),
-        getReadings(supabase, user.id, manga.id),
-      ]);
       initial = {
         key: manga.id,
         title: manga.title,
@@ -61,20 +79,8 @@ export default async function AjouterPage({
     );
   }
 
-  const [popular, owned, readings] = await Promise.all([
-    supabase
-      .from("mangas")
-      .select("id, title, author, total_volumes, cover_url")
-      .is("created_by", null)
-      .is("merged_into", null)
-      .eq("curated", true)
-      .not("cover_url", "is", null)
-      .order("top_50_rank", { ascending: true, nullsFirst: false })
-      .order("title")
-      .limit(60),
-    getOwnedVolumes(supabase, user.id),
-    getReadings(supabase, user.id),
-  ]);
+  // An unknown series in the URL falls back to the quick add.
+  const [popular, owned, readings] = quickResult ?? (await loadQuick());
   if (popular.error) throw new Error("Impossible de charger les séries populaires.");
   // One card per title : the catalogue still holds a few duplicates.
   const seen = new Set<string>();

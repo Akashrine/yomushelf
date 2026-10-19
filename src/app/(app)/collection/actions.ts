@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 import { todayIso } from "@/lib/collection/value";
 import { volumeNumberField } from "@/lib/collection/schema";
 import {
@@ -48,10 +48,7 @@ export async function saveReading(input: z.input<typeof SaveSchema>): Promise<Re
   const parsed = SaveSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Données invalides." };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) return { success: false, error: "Non authentifié." };
 
   const { manga_id, volume_number, intent } = parsed.data;
@@ -104,10 +101,7 @@ export async function restoreReading(input: z.input<typeof RestoreSchema>): Prom
   const parsed = RestoreSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "Données invalides." };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) return { success: false, error: "Non authentifié." };
 
   const { manga_id, volume_number, previous } = parsed.data;

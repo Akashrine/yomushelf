@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 import { getOwnedVolumes, getReadings, getSeriesMeta } from "@/lib/supabase/queries";
 import { loadDiscoveryContext, readerLibrary, withReaderSeries } from "@/lib/supabase/discovery-data";
 import { GENRE_LABELS, GENRES, contentAllowed, contentContext, otherUniverses, suggest } from "@/lib/discovery/suggest";
@@ -13,10 +13,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 export const metadata: Metadata = { title: "Découvrir" };
 
 export default async function DecouvrirPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) redirect("/login");
 
   const [selectionsResult, series, volumes, readings, { data: profile }, discovery] = await Promise.all([

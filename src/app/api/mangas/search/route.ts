@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 import { searchMangaMAL } from "@/lib/manga-api/mal";
 import { mergeSearchResults, type SearchHit } from "@/lib/manga-api/merge";
 import { consumeImportQuota } from "@/lib/rate-limit/import-quota";
@@ -23,10 +23,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Paramètre q requis." }, { status: 400 });
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) {
     return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
   }
