@@ -26,9 +26,10 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Refreshes an expired session (cookies above), then checks the JWT
+  // signature locally : no Auth server call on every request.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims ?? null;
 
   // OAuth code landed at root — forward to the callback handler
   const url = request.nextUrl;

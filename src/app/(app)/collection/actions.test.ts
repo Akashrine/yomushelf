@@ -4,7 +4,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 const reading = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn(), count: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({ auth: { getUser: async () => ({ data: { user: { id: "user" } } }) } }),
+  createClient: async () => ({ auth: { getClaims: async () => ({ data: { claims: { sub: "user" } } }) } }),
 }));
 vi.mock("@/lib/collection/readings-db", () => ({
   getReadingState: reading.get, setReadingState: reading.set, countVolumesRead: reading.count,

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 import { todayIso } from "@/lib/collection/value";
 import {
   VolumeDetailsSchema,
@@ -16,10 +17,7 @@ import { getReadingState, setReadingState } from "@/lib/collection/readings-db";
 type ActionResult = { success: true } | { success: false; error: string };
 
 async function getAuthed() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   return { supabase, user };
 }
 

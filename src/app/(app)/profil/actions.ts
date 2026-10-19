@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 import { redirect } from "next/navigation";
 
 type Result = { success: true } | { success: false; error: string };
@@ -18,10 +19,7 @@ export async function updateUsername(formData: FormData): Promise<Result> {
   const parsed = UsernameSchema.safeParse({ username: formData.get("username") });
   if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) return { success: false, error: "Non authentifié." };
 
   const { error } = await supabase

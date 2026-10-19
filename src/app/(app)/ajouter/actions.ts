@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { consumeImportQuota } from "@/lib/rate-limit/import-quota";
 import { lookupByIsbn } from "@/lib/manga-api/google-books";
@@ -56,10 +57,7 @@ export async function lookupIsbn(formData: FormData): Promise<IsbnResult> {
   const parsed = IsbnSchema.safeParse({ isbn: formData.get("isbn") });
   if (!parsed.success) return { success: false, error: "ISBN invalide." };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) return { success: false, error: "Non authentifié." };
 
   if (!(await consumeImportQuota(user.id, "isbn_lookup"))) {
@@ -360,10 +358,7 @@ function revalidateLibrary(mangaId?: string) {
 export async function addMangaFromExternalSource(
   formData: FormData
 ): Promise<AddFromExternalResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) return { success: false, error: "Non authentifié." };
 
   const parsed = ImportSchema.safeParse(formObject(formData));
@@ -451,10 +446,7 @@ function partialReadings(addedVolumes: number): string {
 }
 
 export async function addSeriesToLibrary(input: AddSeriesInput): Promise<AddSeriesResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) return { success: false, error: "Non authentifié." };
 
   const parsed = AddSeriesSchema.safeParse(input);

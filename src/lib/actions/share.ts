@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 
 type ShareType = "profile_link" | "collection_card" | "wrapped_card";
 type ShareFormat = "landscape" | "story" | "link";
@@ -19,10 +19,7 @@ export async function logShareEvent(
   format: ShareFormat,
   platform: SharePlatform
 ): Promise<void> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) return;
 
   await supabase.from("share_events").insert({

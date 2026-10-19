@@ -42,7 +42,7 @@ vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
-    auth: { getUser: async () => ({ data: { user: state.user } }) },
+    auth: { getClaims: async () => ({ data: state.user ? { claims: { sub: state.user.id } } : null }) },
     from: (table: string) => query(table),
     // Catalogue search used to recognise a series from a bookstore record
     rpc: async () => ({ data: [], error: null }),

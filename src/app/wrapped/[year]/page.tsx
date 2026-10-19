@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 import { ensureWrappedSnapshot } from "./actions";
 import { WrappedCarousel } from "@/components/wrapped/wrapped-carousel";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
@@ -16,10 +16,7 @@ export default async function WrappedPage({
   const year = parseInt(yearStr, 10);
   if (isNaN(year) || year < 2020 || year > 2100) notFound();
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase
