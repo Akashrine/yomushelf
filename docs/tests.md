@@ -57,6 +57,9 @@ docker exec supabase_db_Yomushelf-v2 psql "$DB" -f /tmp/t400.sql | grep -E "T[0-
 
 docker cp supabase/tests/catalogue_merge_test.sql supabase_db_Yomushelf-v2:/tmp/t600.sql
 docker exec supabase_db_Yomushelf-v2 psql "$DB" -f /tmp/t600.sql | grep -E "T[0-9]|ERROR"
+
+# Migration 20261022000200 appliquée d'abord
+docker exec -i supabase_db_Yomushelf-v2 psql "$DB" -q < supabase/tests/wishlist_family_share_test.sql
 ```
 
 - `private_libraries_test.sql` : profils rendus privés, ancien état sauvegardé, collections intactes, appel anonyme refusé, retour au public impossible.
@@ -67,6 +70,13 @@ docker exec supabase_db_Yomushelf-v2 psql "$DB" -f /tmp/t600.sql | grep -E "T[0-
   - aucune ligne n'est mélangée entre deux lecteurs ;
   - la fusion est rejouable ;
   - un lecteur ne peut pas la lancer.
+- `wishlist_family_share_test.sql` (31 vérifications, comptes créés par le test) :
+  - un enfant de moins de 15 ans ne partage jamais lui-même, le parent seulement après son accord ;
+  - la page partagée ne montre qu'un prénom et les envies, rien de personnel ;
+  - « Je l'offre » : le premier gagne, seul le même navigateur peut annuler ;
+  - le lecteur ne voit jamais les tomes offerts, ni l'empreinte du lien ;
+  - un nouveau lien coupe l'ancien ; lien révoqué ou expiré : rien à voir ni à réserver ;
+  - accord du parent retiré ou âge modifié : le lien s'arrête seul.
 
 Les comptes de test viennent de `e2e/reset.sql`, à charger d'abord.
 

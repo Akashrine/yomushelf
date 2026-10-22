@@ -14,6 +14,21 @@ export type WishlistPriority = "high" | "low";
 export type AgeBand = "under_15" | "15_plus";
 export type HeardFrom = "ami" | "parent" | "librairie" | "mediatheque_cdi" | "salon" | "reseaux" | "google" | "autre";
 
+// What the family sees through a shared link (get_shared_wishlist).
+export type SharedWishlist = {
+  display_name: string;
+  expires_at: string;
+  items: {
+    id: string;
+    title: string;
+    cover_url: string | null;
+    volume_number: number | null; // null = the whole series
+    priority: WishlistPriority;
+    price_eur: number | null;
+    reserved: boolean;
+  }[];
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -515,6 +530,35 @@ export type Database = {
           }
         ];
       };
+      // The reader reads their own row, token_hash excluded (column grant).
+      wishlist_shares: {
+        Row: {
+          user_id: string;
+          token_hash: string;
+          display_name: string;
+          created_by: "parent" | "reader";
+          created_at: string;
+          expires_at: string;
+          revoked_at: string | null;
+        };
+        Insert: never;
+        Update: {
+          revoked_at?: string | null;
+        };
+        Relationships: [];
+      };
+      // Service role only : never readable by the reader (surprise).
+      wishlist_reservations: {
+        Row: {
+          wishlist_item_id: string;
+          user_id: string;
+          undo_hash: string;
+          reserved_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       waitlist_entries: {
         Row: {
           id: string;
@@ -676,6 +720,22 @@ export type Database = {
       give_parental_consent: {
         Args: { p_token_hash: string };
         Returns: string | null;
+      };
+      upsert_wishlist_share: {
+        Args: { p_user_id: string; p_token_hash: string; p_display_name: string; p_by_parent: boolean; p_expires_at: string };
+        Returns: undefined;
+      };
+      get_shared_wishlist: {
+        Args: { p_token_hash: string };
+        Returns: SharedWishlist | null;
+      };
+      reserve_wishlist_item: {
+        Args: { p_token_hash: string; p_item_id: string; p_undo_hash: string };
+        Returns: "reserved" | "taken" | "not_found";
+      };
+      release_wishlist_item: {
+        Args: { p_token_hash: string; p_item_id: string; p_undo_hash: string };
+        Returns: boolean;
       };
       get_waitlist_count: {
         Args: Record<string, never>;
