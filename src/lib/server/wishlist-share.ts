@@ -1,4 +1,7 @@
+import { cache } from "react";
+import { cookies } from "next/headers";
 import { serviceClient } from "@/lib/server/consent";
+import { getSessionUser } from "@/lib/supabase/session";
 import { hashLinkToken, isLinkToken, newLinkToken } from "@/lib/server/link-token";
 import { defaultShareExpiry } from "@/lib/wishlist/share";
 
@@ -56,3 +59,43 @@ export async function loadParentLink(token: string) {
   if (!profile || profile.age_band !== "under_15" || !profile.parent_consent_at || !consent?.confirmed_at) return null;
   return { userId: link.user_id, username: profile.username, parentEmail: consent.parent_email, share: share ?? null };
 }
+
+// ── The family's page (/liste/<token>) ───────────────────────
+// A browser that says "Je l'offre" gets a random secret (httpOnly cookie,
+// only sent to /liste) ; the reservation keeps its hash, so this browser
+// alone can see it as its own and take it back.
+const OFFER_COOKIE = "yomushelf_offre";
+
+export async function offerSecret({ create }: { create: boolean }): Promise<string | null> {
+  const jar = await cookies();
+  const current = jar.get(OFFER_COOKIE)?.value;
+  if (current && isLinkToken(current)) return current;
+  if (!create) return null;
+  const { token } = newLinkToken();
+  jar.set(OFFER_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/liste",
+    maxAge: 180 * 86_400,
+  });
+  return token;
+}
+
+// Once per request (page and its metadata). Null : unknown, stopped or expired.
+// The reader who opens their own link (15 and over hold it) sees no
+// reservation : the surprise holds on this page too.
+export const loadSharedList = cache(async (token: string) => {
+  if (!isLinkToken(token)) return null;
+  const hash = hashLinkToken(token);
+  const [secret, { user }] = await Promise.all([offerSecret({ create: false }), getSessionUser()]);
+  const service = serviceClient();
+  const [{ data, error }, own] = await Promise.all([
+    service.rpc("get_shared_wishlist", { p_token_hash: hash, ...(secret ? { p_undo_hash: hashLinkToken(secret) } : {}) }),
+    user ? service.from("wishlist_shares").select("user_id").eq("user_id", user.id).eq("token_hash", hash).maybeSingle() : null,
+  ]);
+  if (error) throw new Error("Impossible de charger cette liste.");
+  if (!data) return null;
+  const owner = !!own?.data;
+  return owner ? { ...data, owner, items: data.items.map((i) => ({ ...i, reserved: false, mine: false })) } : { ...data, owner };
+});

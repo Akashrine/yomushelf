@@ -1,4 +1,5 @@
--- Test of 20261022000200_wishlist_family_share (LOCAL / TEST DATABASES ONLY).
+-- Test of 20261022000200_wishlist_family_share and 20261022000400_wishlist_shared_page
+-- (LOCAL / TEST DATABASES ONLY, both applied).
 -- Runs inside a transaction that is rolled back : nothing persists.
 -- Usage : psql -f supabase/tests/wishlist_family_share_test.sql (migration applied)
 \set ON_ERROR_STOP 1
@@ -73,9 +74,15 @@ insert into results values ('T11 reserve', public.reserve_wishlist_item(:'h1', '
 insert into results values ('T12 second relative sees it taken', public.reserve_wishlist_item(:'h1', '00000000-0000-4000-8000-0000000000a1', :'u2') = 'taken');
 insert into results values ('T13 another reader''s item refused', public.reserve_wishlist_item(:'h1', '00000000-0000-4000-8000-0000000000a3', :'u1') = 'not_found');
 insert into results values ('T14 page shows it reserved', (public.get_shared_wishlist(:'h1') -> 'items' -> 0 ->> 'reserved')::boolean);
-insert into results values ('T15 wrong undo secret keeps it', not public.release_wishlist_item(:'h1', '00000000-0000-4000-8000-0000000000a1', :'u2'));
-insert into results values ('T16 own undo secret releases it', public.release_wishlist_item(:'h1', '00000000-0000-4000-8000-0000000000a1', :'u1'));
+insert into results values ('T15 wrong undo secret keeps it', public.release_wishlist_item(:'h1', '00000000-0000-4000-8000-0000000000a1', :'u2') = 'not_found');
+insert into results values ('T16 own undo secret releases it', public.release_wishlist_item(:'h1', '00000000-0000-4000-8000-0000000000a1', :'u1') = 'released');
 select public.reserve_wishlist_item(:'h1', '00000000-0000-4000-8000-0000000000a1', :'u1');
+-- The page tells this browser what it offers, and nobody else.
+insert into results values ('T32 the offering browser sees it as its own',
+  (public.get_shared_wishlist(:'h1', :'u1') -> 'items' -> 0 ->> 'mine')::boolean);
+insert into results values ('T33 another browser does not',
+  not (public.get_shared_wishlist(:'h1', :'u2') -> 'items' -> 0 ->> 'mine')::boolean
+  and not (public.get_shared_wishlist(:'h1') -> 'items' -> 0 ->> 'mine')::boolean);
 
 -- The surprise : the reader sees their link's status, never the reservations.
 set local role authenticated;
@@ -124,6 +131,19 @@ insert into results values
 update public.wishlist_shares set expires_at = now() - interval '1 second' where user_id = '00000000-0000-4000-8000-0000000000c3';
 insert into results values ('T27 expired link gives nothing', public.get_shared_wishlist(:'h3') is null);
 
+-- Limit per link : 40 actions per 10 minutes, then "busy".
+update public.wishlist_shares set revoked_at = null, action_window_start = now(), action_count = 40 where user_id = '00000000-0000-4000-8000-0000000000c1';
+insert into results values ('T34 busy link refuses to reserve', public.reserve_wishlist_item(:'h2', '00000000-0000-4000-8000-0000000000a2', :'u1') = 'busy');
+insert into results values ('T35 busy link refuses to release', public.release_wishlist_item(:'h2', '00000000-0000-4000-8000-0000000000a1', :'u1') = 'busy');
+update public.wishlist_shares set action_window_start = now() - interval '11 minutes' where user_id = '00000000-0000-4000-8000-0000000000c1';
+insert into results values ('T36 limit resets after 10 minutes', public.reserve_wishlist_item(:'h2', '00000000-0000-4000-8000-0000000000a2', :'u1') = 'reserved');
+update public.wishlist_shares set action_window_start = now(), action_count = 40 where user_id = '00000000-0000-4000-8000-0000000000c1';
+select public.upsert_wishlist_share('00000000-0000-4000-8000-0000000000c1', :'h1', 'Léo', true, now() + interval '30 days');
+insert into results select 'T37 a new link starts with a fresh limit', action_count = 0 and action_window_start is null from public.wishlist_shares where user_id = '00000000-0000-4000-8000-0000000000c1';
+select public.upsert_wishlist_share('00000000-0000-4000-8000-0000000000c1', :'h2', 'Léo', true, now() + interval '30 days');
+insert into results values ('T38 same browser tapping twice keeps it', public.reserve_wishlist_item(:'h2', '00000000-0000-4000-8000-0000000000a2', :'u1') = 'reserved');
+insert into results values ('T39 another browser still sees it taken', public.reserve_wishlist_item(:'h2', '00000000-0000-4000-8000-0000000000a2', :'u2') = 'taken');
+
 -- No longer allowed : the link stops by itself.
 update public.wishlist_shares set revoked_at = null where user_id = '00000000-0000-4000-8000-0000000000c1';
 update public.profiles set parent_consent_at = null where id = '00000000-0000-4000-8000-0000000000c1';
@@ -134,7 +154,7 @@ insert into results values ('T31 15+ link revoked when the age answer changes', 
 
 -- Removing a wish removes its reservation ; deleting the account removes all.
 delete from public.wishlist_items where id = '00000000-0000-4000-8000-0000000000a1';
-insert into results select 'T28 reservation follows the wish', count(*) = 0 from public.wishlist_reservations;
+insert into results select 'T28 reservation follows the wish', count(*) = 0 from public.wishlist_reservations where wishlist_item_id = '00000000-0000-4000-8000-0000000000a1';
 delete from auth.users where id = '00000000-0000-4000-8000-0000000000c1';
 insert into results select 'T29 account deletion removes the link', count(*) = 0 from public.wishlist_shares where user_id = '00000000-0000-4000-8000-0000000000c1';
 

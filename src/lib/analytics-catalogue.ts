@@ -87,9 +87,14 @@ export function isoWeek(date: Date): string {
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 
+// Link tokens (consent, family list : 43 base64url characters) are
+// credentials : never recorded.
+const LINK_TOKEN = /(?<=\/)[A-Za-z0-9_-]{43}(?=$|[/?#])/g;
+export const redactLinkTokens = (s: string) => s.replace(LINK_TOKEN, "jeton");
+
 // "/bibliotheque/021acb54-…" → "/bibliotheque/id" : no series id in events.
 export function cleanPath(pathname: string): string {
-  return pathname.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "id").replace(/[^\w\-/]/g, "").slice(0, 80) || "/";
+  return redactLinkTokens(pathname).replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "id").replace(/[^\w\-/]/g, "").slice(0, 80) || "/";
 }
 
 // utm_source first, then the referrer's site, else "direct".
