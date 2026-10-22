@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 import { accountGate, serviceClient } from "@/lib/server/consent";
 import { CONSENT_DAYS, HEARD_FROM, frenchDate, maskEmail, type GateStep } from "@/lib/account/gate";
 import { chooseAgeBand, chooseHeardFrom, restartAge } from "./actions";
@@ -18,10 +18,7 @@ const TITLES: Record<GateStep, string> = {
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   const step = user ? await accountGate(supabase, user.id) : "age";
   return { title: TITLES[step], robots: { index: false } };
 }
@@ -33,10 +30,7 @@ const LINK = "inline-flex min-h-11 items-center text-sm font-semibold underline 
 // Asked once, after sign-up (email or Google) : age, source, then a
 // parent's consent under 15. The app layout sends here until it is done.
 export default async function BienvenuePage({ searchParams }: { searchParams: Promise<{ changer?: string; envoye?: string; verifie?: string }> }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (!user) redirect("/login");
   const step = await accountGate(supabase, user.id);
   if (step === "ready") redirect("/bibliotheque");

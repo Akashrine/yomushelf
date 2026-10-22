@@ -11,7 +11,7 @@
 --   profile can never be public (trigger below).
 -- Clients may read the new profile columns but not write them : only the
 -- server (service role) sets them, after checking the session.
--- Rollback : supabase/rollbacks/20261018000300_age_and_parental_consent_down.sql
+-- Rollback : supabase/rollbacks/20261022000100_age_and_parental_consent_down.sql
 -- ============================================================
 
 alter table public.profiles
@@ -93,9 +93,9 @@ begin
   foreach t in array array['user_collections', 'user_volumes', 'user_readings', 'wishlist_items',
                            'discovery_dismissals', 'mangas', 'share_events'] loop
     execute format('drop policy if exists "%1$s: account ready (insert)" on public.%1$I', t);
-    execute format('create policy "%1$s: account ready (insert)" on public.%1$I as restrictive for insert to authenticated with check (public.account_ready())', t);
+    execute format('create policy "%1$s: account ready (insert)" on public.%1$I as restrictive for insert to authenticated with check ((select public.account_ready()))', t);
     execute format('drop policy if exists "%1$s: account ready (update)" on public.%1$I', t);
-    execute format('create policy "%1$s: account ready (update)" on public.%1$I as restrictive for update to authenticated using (public.account_ready()) with check (public.account_ready())', t);
+    execute format('create policy "%1$s: account ready (update)" on public.%1$I as restrictive for update to authenticated using ((select public.account_ready())) with check ((select public.account_ready()))', t);
   end loop;
 end $$;
 

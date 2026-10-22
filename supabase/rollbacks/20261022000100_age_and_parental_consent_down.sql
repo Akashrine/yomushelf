@@ -1,4 +1,4 @@
--- Rollback of 20261018000300_age_and_parental_consent.sql
+-- Rollback of 20261022000100_age_and_parental_consent.sql
 do $$
 declare t text;
 begin

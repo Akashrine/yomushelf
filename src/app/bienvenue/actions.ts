@@ -9,7 +9,7 @@ import { parentConsentEmail, sendEmail } from "@/lib/server/email";
 import { logServerEvent } from "@/lib/server/analytics";
 
 // The child's session is checked here ; the writes go through the service
-// role, since clients may not change these columns (migration 20261018000300).
+// role, since clients may not change these columns (migration 20261022000100).
 async function signedIn() {
   const supabase = await createClient();
   const {

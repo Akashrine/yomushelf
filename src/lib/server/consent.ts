@@ -5,7 +5,7 @@ import { gateStep, type GateStep } from "@/lib/account/gate";
 import type { Database } from "@/lib/types/database";
 
 // Age, source and parental consent live in columns and a table that only
-// the service role writes (migration 20261018000300). Every caller checks
+// the service role writes (migration 20261022000100). Every caller checks
 // the session first.
 export function serviceClient() {
   return createClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 import { accountGate } from "@/lib/server/consent";
 
 // Every app screen waits for the age, the source and, under 15, a
@@ -9,10 +9,7 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getSessionUser();
   if (user && (await accountGate(supabase, user.id)) !== "ready") redirect("/bienvenue");
   return <>{children}</>;
 }
