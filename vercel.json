@@ -18,6 +18,10 @@
     {
       "path": "/api/cron/analytics-purge",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/consent-purge",
+      "schedule": "15 5 * * *"
     }
   ]
 }

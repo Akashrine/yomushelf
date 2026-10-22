@@ -51,6 +51,7 @@ export async function updateSession(request: NextRequest) {
     "/profil",
     "/ajouter",
     "/wrapped",
+    "/bienvenue",
   ];
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
 

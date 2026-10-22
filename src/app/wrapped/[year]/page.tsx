@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSessionUser } from "@/lib/supabase/session";
+import { accountGate } from "@/lib/server/consent";
 import { ensureWrappedSnapshot } from "./actions";
 import { WrappedCarousel } from "@/components/wrapped/wrapped-carousel";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
@@ -18,6 +19,7 @@ export default async function WrappedPage({
 
   const { supabase, user } = await getSessionUser();
   if (!user) redirect("/login");
+  if ((await accountGate(supabase, user.id)) !== "ready") redirect("/bienvenue");
 
   const { data: profile } = await supabase
     .from("profiles")

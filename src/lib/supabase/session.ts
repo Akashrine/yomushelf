@@ -7,8 +7,8 @@ export type SessionUser = { id: string; email: string | null };
 // JWT's signature against the project's signing keys (ES256, JWKS cached
 // by auth-js) : no call to the Auth server, unlike getUser(). PostgREST
 // trusts the same JWT for RLS, so this is as strict as the writes it
-// guards. Kept on getUser() : the password change and /api/events (needs
-// created_at, not in the JWT).
+// guards. Kept on getUser() : the password change, /api/events and the
+// /bienvenue actions (they need created_at, not in the JWT).
 export const getSessionUser = cache(async () => {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();

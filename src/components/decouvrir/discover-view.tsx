@@ -27,6 +27,7 @@ type Props = {
   wished: string[];
   declared: DeclaredTastes;
   scope: DiscoveryScope;
+  scopeLocked: boolean;
   dismissedCount: number;
   hasHistory: boolean;
 };
@@ -55,7 +56,7 @@ type Toast = { ok: boolean; text: string; undo?: () => void };
 // Découvrir, like a streaming home : one featured series, the card game
 // one tap away, then rows of covers. Every cover opens the series page,
 // where the reader decides. An age chip row filters everything.
-export function DiscoverView({ featured, deck, rows, catalogue, onShelf, wished, declared, scope, dismissedCount, hasHistory }: Props) {
+export function DiscoverView({ featured, deck, rows, catalogue, onShelf, wished, declared, scope, scopeLocked, dismissedCount, hasHistory }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [toast, setToast] = useState<Toast | null>(null);
@@ -242,6 +243,7 @@ export function DiscoverView({ featured, deck, rows, catalogue, onShelf, wished,
             key={`${declared.liked.join(",")}|${declared.avoided.join(",")}|${scope}`}
             declared={declared}
             scope={scope}
+            scopeLocked={scopeLocked}
             openByDefault={!hasHistory && declared.liked.length === 0}
             pending={isPending && pendingId === "tastes"}
             onSave={(t) => run("tastes", () => saveDeclaredTastes(t), "Tes goûts sont enregistrés. Les suggestions sont à jour.")}
@@ -414,12 +416,14 @@ function DeckOverlay({ deck, onClose }: { deck: DeckCard[]; onClose: () => void 
 function TastesEditor({
   declared,
   scope,
+  scopeLocked,
   openByDefault,
   pending,
   onSave,
 }: {
   declared: DeclaredTastes;
   scope: DiscoveryScope;
+  scopeLocked: boolean;
   openByDefault: boolean;
   pending: boolean;
   onSave: (t: DeclaredTastes & { scope: DiscoveryScope }) => void;
@@ -486,17 +490,24 @@ function TastesEditor({
             );
           })}
         </ul>
-        <fieldset className="mt-5 flex flex-col gap-1">
-          <legend className="mb-1 text-sm font-bold">Ce que Découvrir te propose</legend>
-          <label className="flex min-h-11 cursor-pointer items-start gap-2 text-sm">
-            <input type="radio" name="scope" checked={!youth} onChange={() => setYouth(false)} className="mt-1 h-5 w-5 shrink-0 accent-accent" />
-            <span>Tout le catalogue. Les séries sans âge vérifié sont signalées, et celles des magazines pour jeunes adultes ne sont proposées qu&apos;à qui en lit déjà.</span>
-          </label>
-          <label className="flex min-h-11 cursor-pointer items-start gap-2 text-sm">
-            <input type="radio" name="scope" checked={youth} onChange={() => setYouth(true)} className="mt-1 h-5 w-5 shrink-0 accent-accent" />
-            <span>Seulement des séries recommandées pour la jeunesse par le CNLJ (Bibliothèque nationale de France). Moins de choix, et c&apos;est une indication, pas une garantie.</span>
-          </label>
-        </fieldset>
+        {scopeLocked ? (
+          <p className="mt-5 text-sm">
+            <span className="font-bold">Ce que Découvrir te propose :</span> seulement des séries recommandées pour la jeunesse par le CNLJ
+            (Bibliothèque nationale de France), comme ton parent l&apos;a accepté.
+          </p>
+        ) : (
+          <fieldset className="mt-5 flex flex-col gap-1">
+            <legend className="mb-1 text-sm font-bold">Ce que Découvrir te propose</legend>
+            <label className="flex min-h-11 cursor-pointer items-start gap-2 text-sm">
+              <input type="radio" name="scope" checked={!youth} onChange={() => setYouth(false)} className="mt-1 h-5 w-5 shrink-0 accent-accent" />
+              <span>Tout le catalogue. Les séries sans âge vérifié sont signalées, et celles des magazines pour jeunes adultes ne sont proposées qu&apos;à qui en lit déjà.</span>
+            </label>
+            <label className="flex min-h-11 cursor-pointer items-start gap-2 text-sm">
+              <input type="radio" name="scope" checked={youth} onChange={() => setYouth(true)} className="mt-1 h-5 w-5 shrink-0 accent-accent" />
+              <span>Seulement des séries recommandées pour la jeunesse par le CNLJ (Bibliothèque nationale de France). Moins de choix, et c&apos;est une indication, pas une garantie.</span>
+            </label>
+          </fieldset>
+        )}
         <button
           type="button"
           onClick={() => onSave({ liked: [...liked], avoided: [...avoided], scope: youth ? "youth_verified" : "all" })}

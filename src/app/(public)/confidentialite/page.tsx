@@ -30,8 +30,12 @@ export default function ConfidentialitePage() {
               Aucune autre donnée personnelle n&apos;est demandée à ce stade.
             </p>
             <p className="mt-2">
-              Lors de la création d&apos;un compte (après lancement), sont également collectés : nom d&apos;utilisateur,
-              données de collection manga (titres, tomes, statut de lecture). Ces données sont fournies volontairement.
+              Lors de la création d&apos;un compte sont collectés : email, pseudo (facultatif), tranche d&apos;âge
+              (moins de 15 ans ou 15 ans et plus, jamais la date de naissance), la façon dont tu as connu Yomushelf,
+              et les données de collection manga (séries, tomes, lectures, envies). Ces données sont fournies volontairement.
+            </p>
+            <p className="mt-2">
+              Pour un compte de moins de 15 ans, on collecte aussi l&apos;email d&apos;un parent, pour lui demander son accord.
             </p>
           </section>
 
@@ -39,7 +43,8 @@ export default function ConfidentialitePage() {
             <h2 className="mb-3 text-2xl" style={{ color: "var(--ink)" }}>Finalité du traitement</h2>
             <ul className="flex flex-col gap-1.5 list-disc list-inside">
               <li>Vous informer de l&apos;ouverture de Yomushelf au public</li>
-              <li>Gérer votre compte et votre collection (après lancement)</li>
+              <li>Gérer votre compte et votre collection</li>
+              <li>Demander l&apos;accord d&apos;un parent pour un compte de moins de 15 ans</li>
               <li>Améliorer le service (mesure d&apos;audience anonyme, voir plus bas)</li>
             </ul>
             <p className="mt-2">
@@ -57,6 +62,22 @@ export default function ConfidentialitePage() {
               Les données de compte sont conservées tant que votre compte est actif.
               Elles sont supprimées dans les 30 jours suivant une demande de suppression.
             </p>
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-2xl" style={{ color: "var(--ink)" }}>Moins de 15 ans</h2>
+            <p>
+              En France, avant 15 ans, l&apos;utilisation d&apos;un service comme Yomushelf demande l&apos;accord d&apos;un
+              parent (article 45 de la loi Informatique et Libertés). Après l&apos;inscription, on demande donc la tranche
+              d&apos;âge. Sous 15 ans, le compte reste fermé tant qu&apos;un parent n&apos;a pas dit oui depuis le lien reçu
+              par email.
+            </p>
+            <ul className="mt-2 flex list-inside list-disc flex-col gap-1.5">
+              <li>Sans accord au bout de 14 jours, le compte et ses données sont supprimés automatiquement.</li>
+              <li>L&apos;email du parent sert uniquement à cet accord et à lui écrire au sujet du compte. Jamais de pub.</li>
+              <li>Un compte de moins de 15 ans ne voit dans Découvrir que des séries recommandées pour la jeunesse par le CNLJ (BnF), et son profil ne peut pas être public.</li>
+              <li>Le parent peut retirer son accord à tout moment avec le même lien : le compte est alors supprimé.</li>
+            </ul>
           </section>
 
           <section>

@@ -33,7 +33,7 @@ export default async function DecouvrirPage() {
   ]);
   if (selectionsResult.error) throw new Error("Impossible de charger les découvertes.");
 
-  const { catalogue, dismissed, wished, declared, scope } = discovery;
+  const { catalogue, dismissed, wished, declared, scope, scopeLocked } = discovery;
   const byId = new Map(catalogue.map((c) => [c.id, c]));
   const knownMap = withReaderSeries(catalogue, series);
   const known = [...knownMap.values()];
@@ -103,6 +103,7 @@ export default async function DecouvrirPage() {
         wished={wished}
         declared={declared}
         scope={scope}
+        scopeLocked={scopeLocked}
         dismissedCount={dismissed.size}
         hasHistory={library.some((l) => l.read + l.owned > 0 || l.liked != null)}
       />

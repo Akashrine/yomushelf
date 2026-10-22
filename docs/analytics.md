@@ -29,6 +29,10 @@ Ajouter `?utm_source=<canal>` à chaque lien posté : `tiktok`, `instagram`, `yo
 | `signup_viewed` | Page d'inscription | — |
 | `account_created` | Serveur | `method` : email, google (+ `src`) |
 | `email_confirmed` | Serveur | — |
+| `age_answered` | `/bienvenue` (serveur) | `band` : under_15, 15_plus |
+| `heard_from_answered` | `/bienvenue` (serveur) | `answer` : ami, parent, librairie, mediatheque_cdi, salon, reseaux, google, autre |
+| `parent_consent_requested` / `parent_consent_given` | Email au parent envoyé / accord donné (serveur) | — |
+| `parent_consent_refused` | Le parent refuse ou retire son accord (serveur) | `when` : pending, given |
 | `app_opened` | 1 fois par session dans l'app | `screen` |
 | `quick_add_done` | Ajout rapide terminé | `series`, `volumes`, `welcome` |
 | `volume_toggled` | Fiche série | `action` add/remove, `tab` tomes/lectures |
@@ -99,6 +103,23 @@ select c.cohorte::date, count(*) as comptes,
   count(distinct a.user_id) filter (where a.semaine = c.cohorte + interval '4 weeks') as s4
 from comptes c left join actifs a on a.user_id = c.id
 group by 1 order by 1 desc;
+```
+
+**« Comment tu as connu Yomushelf ? » (révèle le bouche-à-oreille caché derrière `direct`)**
+
+```sql
+select properties->>'answer' as reponse, coalesce(properties->>'src','direct') as source, count(*)
+from analytics_events
+where event_name = 'heard_from_answered' and created_at > now() - interval '30 days'
+group by 1, 2 order by 3 desc;
+```
+
+**Accord parental : demandes, accords, refus**
+
+```sql
+select event_name, count(*) from analytics_events
+where event_name like 'parent_consent_%' or (event_name = 'age_answered' and properties->>'band' = 'under_15')
+group by 1;
 ```
 
 **Gestes clés de la semaine**
