@@ -1,4 +1,3 @@
-import { createHash, randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { gateStep, type GateStep } from "@/lib/account/gate";
@@ -10,18 +9,6 @@ import type { Database } from "@/lib/types/database";
 export function serviceClient() {
   return createClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 }
-
-// The link token travels in the email only ; the database keeps its hash.
-export function newConsentToken(): { token: string; hash: string } {
-  const token = randomBytes(32).toString("base64url");
-  return { token, hash: hashConsentToken(token) };
-}
-
-export function hashConsentToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
-
-export const isConsentToken = (t: string) => /^[A-Za-z0-9_-]{43}$/.test(t);
 
 // Where a signed-in reader stands. One profile read ; the consent table is
 // read only for a reader under 15 still waiting.

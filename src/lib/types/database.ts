@@ -547,6 +547,13 @@ export type Database = {
         };
         Relationships: [];
       };
+      // Service role only : the link emailed to a parent (under 15).
+      wishlist_parent_links: {
+        Row: { user_id: string; token_hash: string; expires_at: string; created_at: string };
+        Insert: { user_id: string; token_hash: string; expires_at: string; created_at?: string };
+        Update: { token_hash?: string; expires_at?: string; created_at?: string };
+        Relationships: [];
+      };
       // Service role only : never readable by the reader (surprise).
       wishlist_reservations: {
         Row: {

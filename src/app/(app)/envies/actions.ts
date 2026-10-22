@@ -5,6 +5,12 @@ import { z } from "zod";
 import { getSessionUser } from "@/lib/supabase/session";
 import { todayIso } from "@/lib/collection/value";
 import { formValues, priceField, volumeNumberField } from "@/lib/collection/schema";
+import { frenchDate } from "@/lib/account/gate";
+import { serviceClient } from "@/lib/server/consent";
+import { familyListRequestEmail, sendEmail } from "@/lib/server/email";
+import { hashLinkToken, newLinkToken } from "@/lib/server/link-token";
+import { createFamilyShare, parentPageUrl, stopFamilyShare } from "@/lib/server/wishlist-share";
+import { DisplayNameSchema, defaultShareExpiry } from "@/lib/wishlist/share";
 
 type ActionResult = { success: true } | { success: false; error: string };
 
@@ -181,4 +187,87 @@ export async function acquireWishlistItem(formData: FormData): Promise<ActionRes
   revalidatePath(`/bibliotheque/${wish.manga_id}`);
   revalidatePath("/univers");
   return { success: true };
+}
+
+// ─────────────────────────────────────────
+// Family list (Christmas) : 15 and over share it themselves ; under 15
+// the parent gets an email and shares it from their own page.
+// ─────────────────────────────────────────
+
+export type ShareState = { error?: string; link?: string; until?: string; value?: string; sent?: boolean };
+
+export async function shareMyList(_prev: ShareState, formData: FormData): Promise<ShareState> {
+  const raw = formData.get("display_name");
+  const value = typeof raw === "string" ? raw : undefined;
+  const name = DisplayNameSchema.safeParse(raw ?? "");
+  if (!name.success) return { error: name.error.issues[0].message, value };
+  const { user } = await getAuthed();
+  if (!user) return { error: "Non authentifié.", value };
+
+  // The database refuses a reader under 15 (only their parent shares) or
+  // a locked account ; the page offers the form to neither.
+  const share = await createFamilyShare(user.id, name.data, false);
+  if (!share) return { error: "Le lien n'a pas pu être créé. Réessaie dans quelques minutes.", value };
+  // No revalidatePath : re-rendering the panel would unmount the form
+  // holding the link, shown this once. The status updates on next visit.
+  return { link: share.url, until: frenchDate(share.expiresAt), value: name.data };
+}
+
+export async function stopMyShare(): Promise<ShareState> {
+  const { user } = await getAuthed();
+  if (!user) return { error: "Non authentifié." };
+  if (!(await stopFamilyShare(user.id))) return { error: "Le partage n'a pas pu être arrêté. Réessaie." };
+  revalidatePath("/envies");
+  return {};
+}
+
+const THROTTLED: Record<string, string> = {
+  // A failed send still counts : say nothing about whether one left.
+  wait: "Attends une minute avant de réessayer.",
+  day: "Trop d'essais aujourd'hui. Réessaie demain.",
+  recipient: "Trop d'emails pour ton parent aujourd'hui. Réessaie demain.",
+};
+
+// Under 15 : emails the parent who gave their consent. Sending again
+// replaces the link in the previous email.
+export async function askParentToShare(): Promise<ShareState> {
+  const { user } = await getAuthed();
+  if (!user) return { error: "Non authentifié." };
+  const service = serviceClient();
+  const [{ data: profile }, { data: consent }, { data: existing }] = await Promise.all([
+    service.from("profiles").select("username, age_band, parent_consent_at").eq("id", user.id).single(),
+    service.from("parental_consents").select("parent_email, confirmed_at").eq("user_id", user.id).maybeSingle(),
+    service.from("wishlist_parent_links").select("token_hash, expires_at, created_at").eq("user_id", user.id).maybeSingle(),
+  ]);
+  if (profile?.age_band !== "under_15" || !profile.parent_consent_at || !consent?.confirmed_at) {
+    return { error: "Pas possible depuis ce compte." };
+  }
+
+  // Same budget as the consent emails : 1 per minute, a few per day.
+  const { data: claim, error: claimError } = await service.rpc("claim_consent_email", {
+    p_user: user.id,
+    p_recipient_hash: hashLinkToken(consent.parent_email),
+  });
+  if (claimError) return { error: "Pas envoyé. Vérifie ta connexion et réessaie." };
+  if (claim !== "ok") return { error: THROTTLED[claim as string] ?? THROTTLED.wait };
+
+  const { token, hash } = newLinkToken();
+  const expiresAt = defaultShareExpiry(new Date());
+  const { error } = await service
+    .from("wishlist_parent_links")
+    .upsert({ user_id: user.id, token_hash: hash, expires_at: expiresAt.toISOString(), created_at: new Date().toISOString() });
+  if (error) return { error: "Pas envoyé. Vérifie ta connexion et réessaie." };
+
+  const sent = await sendEmail({
+    to: consent.parent_email,
+    ...familyListRequestEmail({ link: parentPageUrl(token), username: profile.username, until: frenchDate(expiresAt) }),
+  });
+  if (!sent) {
+    // Nothing reached the parent : the previous link still works.
+    if (existing) await service.from("wishlist_parent_links").update(existing).eq("user_id", user.id);
+    else await service.from("wishlist_parent_links").delete().eq("user_id", user.id);
+    return { error: "L'email n'est pas parti. Réessaie dans quelques minutes." };
+  }
+  revalidatePath("/envies");
+  return { sent: true };
 }

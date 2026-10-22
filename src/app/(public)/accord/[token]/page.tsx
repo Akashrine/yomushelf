@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { hashConsentToken, isConsentToken, serviceClient } from "@/lib/server/consent";
+import { serviceClient } from "@/lib/server/consent";
+import { hashLinkToken, isLinkToken } from "@/lib/server/link-token";
 import { deleteChildAccount, giveConsent } from "../actions";
+import { LinkPageFrame } from "@/components/public/link-page-frame";
 
 export const metadata: Metadata = {
   title: "Accord parental",
@@ -23,20 +25,20 @@ export default async function AccordPage({ params, searchParams }: { params: Pro
 
   if (token === "supprime") {
     return (
-      <Frame title="Compte supprimé.">
+      <LinkPageFrame title="Compte supprimé.">
         <p>Le compte de ton enfant et toutes ses données ont été supprimés. Tu n&apos;as rien d&apos;autre à faire.</p>
-      </Frame>
+      </LinkPageFrame>
     );
   }
 
-  const consent = isConsentToken(token) ? await loadConsent(token) : null;
+  const consent = isLinkToken(token) ? await loadConsent(token) : null;
   if (!consent) {
     return (
-      <Frame title="Ce lien n'est plus valable.">
+      <LinkPageFrame title="Ce lien n'est plus valable.">
         <p>
           Le compte a peut-être déjà été supprimé, ou un email plus récent t&apos;a été envoyé : utilise le dernier reçu.
         </p>
-      </Frame>
+      </LinkPageFrame>
     );
   }
 
@@ -51,7 +53,7 @@ export default async function AccordPage({ params, searchParams }: { params: Pro
 
   if (query.refuser === "1" || query.retirer === "1") {
     return (
-      <Frame title="Supprimer le compte ?">
+      <LinkPageFrame title="Supprimer le compte ?">
         {error}
         <p>Le compte de ton enfant et toutes ses données (collection, lectures, envies) seront supprimés. C&apos;est définitif.</p>
         <form action={deleteChildAccount}>
@@ -63,13 +65,13 @@ export default async function AccordPage({ params, searchParams }: { params: Pro
         <Link href={`/accord/${token}`} className={LINK}>
           Annuler
         </Link>
-      </Frame>
+      </LinkPageFrame>
     );
   }
 
   if (consent.confirmed_at) {
     return (
-      <Frame title={query.ok === "1" ? "C'est fait, merci !" : "Ton accord est enregistré."}>
+      <LinkPageFrame title={query.ok === "1" ? "C'est fait, merci !" : "Ton accord est enregistré."}>
         {error}
         <p>
           {who}{" "}peut utiliser Yomushelf. Découvrir ne lui propose que des séries recommandées pour la jeunesse par le CNLJ (BnF),
@@ -79,24 +81,24 @@ export default async function AccordPage({ params, searchParams }: { params: Pro
         <Link href={`/accord/${token}?retirer=1`} className={LINK}>
           Retirer mon accord et supprimer le compte
         </Link>
-      </Frame>
+      </LinkPageFrame>
     );
   }
 
   if (expired) {
     return (
-      <Frame title="Ce lien a expiré.">
+      <LinkPageFrame title="Ce lien a expiré.">
         {error}
         <p>Le compte sans accord va être supprimé. Ton enfant peut en créer un nouveau et te renvoyer une demande.</p>
         <Link href={`/accord/${token}?refuser=1`} className={LINK}>
           Supprimer le compte tout de suite
         </Link>
-      </Frame>
+      </LinkPageFrame>
     );
   }
 
   return (
-    <Frame title="Ton enfant veut utiliser Yomushelf.">
+    <LinkPageFrame title="Ton enfant veut utiliser Yomushelf.">
       {error}
       <p>
         {who}{" "}a créé un compte sur Yomushelf, une app gratuite pour suivre sa collection de mangas : ses tomes, ses lectures, ses
@@ -122,7 +124,7 @@ export default async function AccordPage({ params, searchParams }: { params: Pro
           Confidentialité
         </Link>
       </div>
-    </Frame>
+    </LinkPageFrame>
   );
 }
 
@@ -131,29 +133,10 @@ async function loadConsent(token: string) {
   const { data } = await service
     .from("parental_consents")
     .select("user_id, expires_at, confirmed_at")
-    .eq("token_hash", hashConsentToken(token))
+    .eq("token_hash", hashLinkToken(token))
     .maybeSingle();
   if (!data) return null;
   const { data: profile } = await service.from("profiles").select("username").eq("id", data.user_id).maybeSingle();
   const expired = !data.confirmed_at && new Date(data.expires_at).getTime() < Date.now();
   return { ...data, expired, username: profile?.username ?? null };
-}
-
-function Frame({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="manga-halftone relative flex min-h-screen flex-col items-center justify-center overflow-x-hidden px-4 py-16" style={{ color: "var(--ink)" }}>
-      <div className="relative flex w-full max-w-md flex-col gap-8">
-        <Link href="/" className="flex min-h-11 items-center justify-center gap-2 font-display text-3xl tracking-wide">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg text-xl" style={{ background: "var(--ink)", color: "var(--pop)" }} aria-hidden="true">
-            漫
-          </span>
-          Yomushelf
-        </Link>
-        <div className="manga-panel flex flex-col gap-5 rounded-3xl p-6 text-[0.95rem] font-medium leading-relaxed sm:p-7">
-          <h1 className="text-4xl leading-none">{title}</h1>
-          {children}
-        </div>
-      </div>
-    </div>
-  );
 }
