@@ -4,13 +4,13 @@ import { LandingDeck } from "@/components/landing/landing-deck";
 import { CoverMarquee } from "@/components/landing/cover-marquee";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import { TrackedLink } from "@/components/analytics/tracked-link";
-import { getLandingDeck } from "@/lib/landing/covers";
+import { getCatalogueFigures, getLandingDeck } from "@/lib/landing/covers";
 
 export const revalidate = 60;
 
 const TITLE = "Yomushelf : ta collec' de mangas, mode main character";
 const DESCRIPTION =
-  "Tous tes tomes en un coup d'œil, plus jamais de doublon, et ta prochaine série en un swipe. Gratuit, sans pub, sans profil public.";
+  "Tous tes tomes en un coup d'œil, plus jamais de doublon, ta liste d'envies partagée en famille pour Noël et ta prochaine série en un swipe. Gratuit, sans pub, sans profil public.";
 // A page-level openGraph replaces the root one, file-based image included :
 // the generated image (src/app/opengraph-image.tsx) is named explicitly.
 const OG_IMAGE = { url: "https://www.yomushelf.com/opengraph-image", width: 1200, height: 630, alt: TITLE };
@@ -56,7 +56,7 @@ function Sticker({ children, tilt, className = "", pop = false }: { children: Re
 }
 
 export default async function LandingPage() {
-  const deck = await getLandingDeck();
+  const [deck, figures] = await Promise.all([getLandingDeck(), getCatalogueFigures()]);
   const covers = deck.flatMap((d) => (d.entry.cover_url ? [{ title: d.entry.title, url: d.entry.cover_url, total: d.entry.total_volumes, completed: d.entry.status === "completed" }] : []));
 
   return (
@@ -169,14 +169,80 @@ export default async function LandingPage() {
           </ol>
         </section>
 
+        {/* CHRISTMAS LIST */}
+        <section className="manga-halftone px-5 py-20 sm:px-10" style={{ borderTop: `3px solid ${INK}`, borderBottom: `3px solid ${INK}` }}>
+          <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[1fr_1.05fr]">
+            <div className="flex flex-col items-start gap-4">
+              <p className="manga-sticker rounded-full px-4 py-1 text-sm font-black uppercase tracking-widest" style={{ background: INK, color: POP, transform: "rotate(-2deg)" }}>
+                Nouveau
+              </p>
+              <h2 className={`text-5xl leading-none sm:text-6xl ${comic}`} style={comicHeading}>
+                Ta liste de Noël,
+                <br />
+                sans doublon sous le sapin
+              </h2>
+              <ul className="flex max-w-lg flex-col gap-2 text-lg font-medium leading-relaxed">
+                <li>Tes envies, avec le tome et son prix indicatif quand on le connaît, dans un lien à envoyer à ta famille.</li>
+                <li>Chacun coche ce qu&apos;il offre. Les autres le voient, toi non : la surprise tient.</li>
+                <li>Sans compte pour la famille. Le lien s&apos;arrête tout seul fin janvier, ou avant si tu veux.</li>
+              </ul>
+              <p className="text-sm font-bold" style={{ color: "#3d4352" }}>Moins de 15 ans ? C&apos;est ton parent qui envoie la liste, depuis son email, et qui peut l&apos;arrêter.</p>
+            </div>
+            {deck.length >= 3 && (
+              <div aria-hidden="true" className="manga-panel mx-auto flex w-full max-w-[420px] flex-col gap-3 rounded-3xl p-5" style={{ transform: "rotate(1deg)" }}>
+                <p className={`text-3xl ${comic}`} style={comicHeading}>La liste de Léo</p>
+                {deck.slice(0, 3).map((d, i) => (
+                  <div key={d.entry.id} className="flex items-center gap-3 rounded-2xl p-2" style={{ border: `2px solid ${INK}`, background: "var(--surface)" }}>
+                    {d.entry.cover_url && (
+                      /* eslint-disable-next-line @next/next/no-img-element -- already resized by the image optimizer */
+                      <img src={thumb(d.entry.cover_url)} alt="" width={44} height={66} loading="lazy" decoding="async" className="h-16 w-11 rounded-md object-cover" style={{ border: `2px solid ${INK}` }} />
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-bold">{d.entry.title}</span>
+                      <span className="text-sm" style={{ color: "#3d4352" }}>Tome {[4, 2, 7][i]}</span>
+                    </span>
+                    {i === 1 ? (
+                      <span className="rounded-xl px-3 py-2 text-sm font-black" style={{ background: "var(--surface-raised)", color: "#3d4352", border: "2px dashed #5b6170" }}>Déjà offert</span>
+                    ) : (
+                      <span className="manga-button rounded-xl px-3 py-2 text-sm font-black" style={{ background: "var(--accent)", color: "white" }}>Je l&apos;offre</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* AND ALSO */}
+        <section className="mx-auto max-w-6xl px-5 py-20 sm:px-10">
+          <h2 className={`mb-10 text-center text-5xl sm:text-6xl ${comic}`} style={comicHeading}>
+            Et aussi
+          </h2>
+          <ul className="grid gap-6 sm:grid-cols-2">
+            <Feature title="Des idées qui te ressemblent">
+              {figures ? `${figures.series} séries choisies, dont ${figures.verifiedAge} avec l'âge conseillé par la BnF. ` : "Des séries choisies, avec l'âge conseillé par la BnF quand il existe. "}
+              Des suggestions proches de celles que tu aimes, jamais ce que tu as déjà.
+            </Feature>
+            <Feature title="À lire chez toi">Les tomes que tu as mais pas encore lus, série par série. Tes lectures d&apos;avant se notent d&apos;un coup : « lu jusqu&apos;au tome 12 ».</Feature>
+            <Feature title="Ton univers">Ta carte des goûts, tes tomes lus mois par mois, ce que tu as dépensé et ce que coûteraient tes envies.</Feature>
+            <Feature title="Ta liste d'envies">Le tome exact que tu veux, et celui à trouver en premier. Acheté ou offert : un geste, et il rejoint ton étagère.</Feature>
+          </ul>
+        </section>
+
         {/* PARENTS */}
         <section className="px-5 pb-20 sm:px-10">
-          <div className="manga-panel mx-auto flex max-w-3xl flex-col gap-3 rounded-3xl p-6 sm:p-8" style={{ transform: "rotate(-0.5deg)" }}>
-            <p className="text-xs font-black uppercase tracking-[0.25em]" style={{ color: "var(--accent)" }}>Côté parents</p>
-            <p className="text-xl font-bold leading-snug">Gratuit. Pas de pub. Pas de profil public, pas de messages entre inconnus.</p>
-            <p className="text-base leading-relaxed" style={{ color: "#3d4352" }}>
-              Les suggestions suivent l&apos;âge conseillé par la sélection jeunesse de la BnF quand il existe. Les données restent privées.
-            </p>
+          <div className="manga-panel mx-auto flex max-w-3xl flex-col gap-5 rounded-3xl p-6 sm:p-8" style={{ transform: "rotate(-0.5deg)" }}>
+            <div className="flex flex-col gap-2">
+              <h2 className="text-xs font-black uppercase tracking-[0.25em]" style={{ color: "var(--accent)" }}>Côté parents</h2>
+              <p className="text-xl font-bold leading-snug">Gratuit. Pas de pub. Pas de profil public, pas de messages entre inconnus.</p>
+            </div>
+            <dl className="flex flex-col gap-4 text-base leading-relaxed">
+              <Qa q="Mon enfant a moins de 15 ans ?">Il te donne ton email à l&apos;inscription. Tu reçois un lien pour accepter ou refuser. Sans ton accord, l&apos;appli reste fermée, et le compte est supprimé au bout de 14 jours.</Qa>
+              <Qa q="Qui voit sa collection ?">Personne d&apos;autre que lui. Sous 15 ans, sa liste de Noël ne part que par le lien que tu crées, et tu peux l&apos;arrêter quand tu veux. Dès 15 ans, c&apos;est lui qui la partage.</Qa>
+              <Qa q="Quels mangas lui sont proposés ?">Sous 15 ans, Découvrir et les suggestions ne proposent que des séries dont l&apos;âge est conseillé par la sélection jeunesse de la BnF (CNLJ). La recherche reste ouverte, sans contenu adulte.</Qa>
+              <Qa q="Et les données ?">Stockées en Europe. La mesure d&apos;audience est anonyme et sans cookie. Rien n&apos;est vendu, rien ne sert à la pub.</Qa>
+            </dl>
+            <Link href="/confidentialite" className="self-start text-sm font-bold underline decoration-2 underline-offset-4">Tout sur la confidentialité</Link>
           </div>
         </section>
 
@@ -211,6 +277,26 @@ function badge(c: { total: number | null; completed: boolean }, i: number) {
   if (!c.total) return i === 0 ? "✓" : `${[12, 5][i - 1] ?? 3} tomes`;
   if (i === 0 && c.completed) return `✓ ${c.total}/${c.total}`;
   return `${Math.max(1, Math.round(c.total * [0.9, 0.5, 0.3][i]))}/${c.total}`;
+}
+
+function Feature({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <li className="manga-panel flex flex-col gap-2 rounded-2xl p-5">
+      <h3 className={`text-3xl ${comic}`} style={comicHeading}>
+        {title}
+      </h3>
+      <p className="text-base leading-relaxed">{children}</p>
+    </li>
+  );
+}
+
+function Qa({ q, children }: { q: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <dt className="font-bold">{q}</dt>
+      <dd style={{ color: "#3d4352" }}>{children}</dd>
+    </div>
+  );
 }
 
 function Panel({ n, title, text, tilt, children }: { n: number; title: string; text: string; tilt: number; children: React.ReactNode }) {
