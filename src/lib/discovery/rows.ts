@@ -11,13 +11,16 @@ import { TERRITORIES, territoriesOf, type TerritoryKey } from "./territories";
 
 export type RowItem = { entry: CatalogueEntry; reason?: string; note?: string | null };
 
+// The page shows no row shorter than this : a shorter row claims nothing.
+export const MIN_VISIBLE = 3;
+
 export type RowDraft = {
   key: string;
   title: string;
   subtitle?: string | null;
   items: RowItem[];
   priority: number; // lower claims its series first
-  min?: number; // fewer left : the row is dropped (default 4)
+  min?: number; // fewer left : the row is dropped and claims nothing (never below MIN_VISIBLE)
   max?: number; // default 15
 };
 
@@ -36,7 +39,7 @@ export function composeRows(drafts: RowDraft[], excluded: Set<string>, excludedT
       if (items.some((x) => titleKey(x.entry.title) === titleKey(i.entry.title))) continue;
       items.push(i);
     }
-    if (items.length < (d.min ?? 4)) continue;
+    if (items.length < Math.max(MIN_VISIBLE, d.min ?? MIN_VISIBLE)) continue;
     for (const i of items) {
       taken.add(i.entry.id);
       takenTitles.add(titleKey(i.entry.title));
@@ -84,4 +87,21 @@ export function territoryRows(
       items: items.map((entry) => ({ entry })),
       priority: priority + i,
     }));
+}
+
+// Drafts travel to the client as ids (the catalogue is already there) :
+// the age chips filter them, then the rows are composed again, so a row
+// the filter empties frees its series for the next rows.
+export type RowDraftRef = Omit<RowDraft, "items"> & { items: { id: string; reason?: string; note?: string | null }[] };
+
+export const toRef = (d: RowDraft): RowDraftRef => ({ ...d, items: d.items.map((i) => ({ id: i.entry.id, reason: i.reason, note: i.note })) });
+
+export function fromRefs(refs: RowDraftRef[], byId: Map<string, CatalogueEntry>, keep: (e: CatalogueEntry) => boolean = () => true): RowDraft[] {
+  return refs.map((r) => ({
+    ...r,
+    items: r.items.flatMap((i) => {
+      const entry = byId.get(i.id);
+      return entry && keep(entry) ? [{ entry, reason: i.reason, note: i.note }] : [];
+    }),
+  }));
 }

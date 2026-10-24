@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composeRows, dailyOrder, territoryRows, type RowDraft } from "./rows";
+import { composeRows, dailyOrder, fromRefs, territoryRows, toRef, type RowDraft } from "./rows";
 import type { CatalogueEntry } from "./suggest";
 
 const entry = (id: string, genres: string[] = ["action"], title = `Série ${id}`): CatalogueEntry => ({
@@ -40,21 +40,31 @@ describe("composeRows", () => {
   });
 
   it("drops a row left too short, and its series stay free for the next rows", () => {
-    const rows = composeRows([draft("short", ["1", "2", "3"], 0), draft("next", ["1", "2", "3", "4"], 1)], new Set());
+    const rows = composeRows([draft("short", ["1", "2"], 0), draft("next", ["1", "2", "3", "4"], 1)], new Set());
     expect(rows.map((r) => r.key)).toEqual(["next"]);
   });
 
-  it("keeps a personal row of one when its minimum allows it", () => {
-    expect(composeRows([draft("pour-toi", ["1"], 0, { min: 1 })], new Set())).toHaveLength(1);
+  it("never keeps a row the page would hide : its series go to the next rows", () => {
+    const rows = composeRows([draft("pour-toi", ["1", "2"], 0, { min: 1 }), draft("next", ["1", "2", "3", "4"], 1)], new Set());
+    expect(rows.map((r) => r.key)).toEqual(["next"]);
+    expect(rows[0].items.map((i) => i.entry.id)).toEqual(["1", "2", "3", "4"]);
+  });
+
+  it("an age filter that empties a row frees its series for the next rows", () => {
+    const byId = new Map(["1", "2", "3", "4", "5", "6"].map((id) => [id, entry(id)]));
+    const refs = [draft("first", ["1", "2", "3"], 0, { min: 3 }), draft("second", ["1", "4", "5", "6"], 1)].map(toRef);
+    const rows = composeRows(fromRefs(refs, byId, (e) => e.id !== "2"), new Set());
+    expect(rows.map((r) => r.key)).toEqual(["second"]);
+    expect(rows[0].items.map((i) => i.entry.id)).toEqual(["1", "4", "5", "6"]);
   });
 
   it("skips a same-title duplicate of a series already on the shelf or on the page", () => {
     const rows = composeRows(
-      [{ key: "a", title: "a", priority: 0, min: 1, items: [{ entry: entry("x", ["action"], "One Piece") }, { entry: entry("y", ["action"], "Naruto") }, { entry: entry("z", ["action"], "naruto ") }] }],
+      [{ key: "a", title: "a", priority: 0, min: 1, items: [{ entry: entry("x", ["action"], "One Piece") }, { entry: entry("y", ["action"], "Naruto") }, { entry: entry("z", ["action"], "naruto ") }, { entry: entry("k", ["action"], "Kingdom") }, { entry: entry("b", ["action"], "Bleach") }] }],
       new Set(),
       new Set(["ONE PIECE"])
     );
-    expect(rows[0].items.map((i) => i.entry.id)).toEqual(["y"]);
+    expect(rows[0].items.map((i) => i.entry.id)).toEqual(["y", "k", "b"]);
   });
 
   it("caps a row", () => {
