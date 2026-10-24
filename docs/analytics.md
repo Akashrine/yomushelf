@@ -33,7 +33,7 @@ Ajouter `?utm_source=<canal>` à chaque lien posté : `tiktok`, `instagram`, `yo
 | `heard_from_answered` | `/bienvenue` (serveur) | `answer` : ami, parent, librairie, mediatheque_cdi, salon, reseaux, google, autre |
 | `parent_consent_requested` / `parent_consent_given` | Email au parent envoyé / accord donné (serveur) | — |
 | `parent_consent_refused` | Le parent refuse ou retire son accord (serveur) | `when` : pending, given |
-| `app_opened` | 1 fois par session dans l'app | `screen` |
+| `app_opened` | 1 fois par session dans l'app | `screen` : collection, decouvrir, serie, ajouter, univers, reglages, autre |
 | `quick_add_done` | Ajout rapide terminé | `series`, `volumes`, `welcome` |
 | `volume_toggled` | Fiche série | `action` add/remove, `tab` tomes/lectures |
 | `fill_prompt_answered` | Bulle « Tu as aussi… ? » | `answer` yes/no, `tab`, `volumes` |

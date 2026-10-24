@@ -4,14 +4,15 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { captureSource, track } from "@/lib/analytics";
 
-const APP_SCREENS: [RegExp, "collection" | "decouvrir" | "serie" | "ajouter" | "univers"][] = [
+const APP_SCREENS: [RegExp, "collection" | "decouvrir" | "serie" | "ajouter" | "univers" | "reglages"][] = [
   [/^\/bibliotheque\/[^/]+/, "serie"],
   [/^\/bibliotheque/, "collection"],
   [/^\/decouvrir/, "decouvrir"],
   [/^\/(ajouter|onboarding)/, "ajouter"],
   [/^\/univers/, "univers"],
+  [/^\/reglages/, "reglages"],
 ];
-const APP_PREFIXES = /^\/(bibliotheque|decouvrir|ajouter|onboarding|univers|envies|parent|profil|collection)/;
+const APP_PREFIXES = /^\/(bibliotheque|decouvrir|ajouter|onboarding|univers|reglages|envies|parent|profil|collection)/;
 const OPENED_KEY = "ys_opened";
 const IDLE_MS = 30 * 60_000; // a PWA resumed after 30 minutes is a new visit
 

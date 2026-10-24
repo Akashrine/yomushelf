@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppIcon } from "@/components/app/app-icon";
 import { Cover } from "@/components/collection/reader-home";
+import { ReadUpTo } from "@/components/collection/read-up-to";
 import { restoreSeries } from "@/app/(app)/bibliotheque/actions";
 import type { SeriesShelf } from "@/lib/collection/reading";
+import type { Waiting } from "@/lib/univers/stats";
 import { titleKey } from "@/lib/manga-api/merge";
 
 export type ShelfCard = {
@@ -24,12 +26,15 @@ type Props = {
   archived: ArchivedSeries[];
   wishes: WishPreview[];
   wishCount: number;
+  waiting: { total: number; series: Waiting[] };
+  pastReadSeries: { manga_id: string; title: string }[];
 };
 
 // The collection as a wall of covers, like a streaming catalogue : the
 // covers are the interface. One number per series (how many at home), a
-// tile to add another one, the wishes in a row underneath.
-export function LibraryHome({ name, cards, archived, wishes, wishCount }: Props) {
+// tile to add another one, the wishes in a row underneath, then what
+// waits to be read.
+export function LibraryHome({ name, cards, archived, wishes, wishCount, waiting, pastReadSeries }: Props) {
   const [query, setQuery] = useState("");
   const visible = cards.filter((c) => !query.trim() || titleKey(c.shelf.title).includes(titleKey(query)));
   const volumes = cards.reduce((n, c) => n + c.shelf.owned.length, 0);
@@ -98,7 +103,13 @@ export function LibraryHome({ name, cards, archived, wishes, wishCount }: Props)
       )}
 
       <WishesRow wishes={wishes} count={wishCount} />
-      {archived.length > 0 && <ArchivedList archived={archived} />}
+      {waiting.total > 0 && <ToRead waiting={waiting} />}
+      {(pastReadSeries.length > 0 || archived.length > 0) && (
+        <div className="flex flex-col gap-3">
+          {pastReadSeries.length > 0 && <PastReadings series={pastReadSeries} />}
+          {archived.length > 0 && <ArchivedList archived={archived} />}
+        </div>
+      )}
     </div>
   );
 }
@@ -192,6 +203,57 @@ function WishesRow({ wishes, count }: { wishes: WishPreview[]; count: number }) 
         ))}
       </ul>
     </section>
+  );
+}
+
+// The series with unread volumes at home, most waiting first.
+function ToRead({ waiting }: { waiting: { total: number; series: Waiting[] } }) {
+  const most = waiting.series[0]?.unread ?? 1;
+  return (
+    <section aria-labelledby="h-to-read" className="flex flex-col gap-3">
+      <div>
+        <h2 id="h-to-read" className="text-2xl sm:text-3xl" style={{ color: "var(--ink)" }}>À lire chez toi</h2>
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
+          {waiting.total} tome{waiting.total > 1 ? "s" : ""} non lu{waiting.total > 1 ? "s" : ""} dans ta collection.
+        </p>
+      </div>
+      <ul className="manga-panel flex flex-col gap-2 rounded-2xl p-3 sm:p-4">
+        {waiting.series.map((w) => (
+          <li key={w.manga_id}>
+            <Link
+              href={`/bibliotheque/${w.slug}`}
+              className="grid min-h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-1 hover:underline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+            >
+              <span className="flex min-w-0 flex-col gap-1">
+                <span className="truncate text-sm font-semibold">{w.title}</span>
+                <span className="h-3 overflow-hidden rounded-full" style={{ background: "var(--background)", border: "2px solid var(--ink)" }} aria-hidden="true">
+                  <span className="block h-full rounded-full" style={{ width: `${Math.max(8, (w.unread / most) * 100)}%`, background: "var(--read)" }} />
+                </span>
+              </span>
+              <span className="flex items-center gap-0.5 text-sm font-bold tabular-nums" style={{ color: "var(--ink)" }}>
+                {w.unread} à lire <AppIcon name="chevron-right" size={14} />
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// Readings from before Yomushelf, one series at a time : folded, it is
+// only needed once per series.
+function PastReadings({ series }: { series: { manga_id: string; title: string }[] }) {
+  return (
+    <details className="manga-panel-sm rounded-2xl p-4" style={{ background: "var(--surface)" }}>
+      <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-bold" style={{ color: "var(--ink)" }}>
+        <AppIcon name="book-open" size={18} /> Noter d&apos;anciennes lectures
+      </summary>
+      <p className="mb-3 mt-2 text-sm" style={{ color: "var(--muted)" }}>
+        Pour une série lue avant d&apos;utiliser Yomushelf. Les lectures sont notées sans date.
+      </p>
+      <ReadUpTo series={series} />
+    </details>
   );
 }
 

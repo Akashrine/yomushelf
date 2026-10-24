@@ -58,7 +58,7 @@ check("Mot de passe oublié : e-mail en français reçu", Boolean(recovery), rec
 p = await fresh();
 await p.goto(linkOf(recovery), { waitUntil: "load" });
 await p.waitForTimeout(2000);
-const onSettings = /\/univers/.test(p.url());
+const onSettings = /\/reglages/.test(p.url());
 let changed = false;
 if (onSettings) {
   await p.getByLabel("Nouveau mot de passe").fill(password + "2");

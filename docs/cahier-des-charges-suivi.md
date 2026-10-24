@@ -16,7 +16,8 @@ Branche `feat/compagnon-lecture`. Légende :
 | Tomes possédés, lus, manquants, souhaités distingués | Fait | cartes de séries (`library-home.tsx`), grille de tomes (légende textuelle) |
 | Accès aux envies, bouton « Ajouter un manga » | Fait, testé | e2e « États vides » |
 | Découvrir : suggestions expliquées, sélections, filtres, ajout | Fait, testé | e2e « Découvrir », `suggest.test.ts` |
-| Mon univers : carte des goûts, lectures, dépenses, envies séparées | Fait, testé | e2e « Carte des goûts », « Envies » |
+| Mon univers : l'analyse seule (carte des goûts, lectures, dépenses, envies estimées à part) | Fait, testé | e2e « Carte des goûts », « Envies », « Rouage » |
+| Réglages derrière le rouage de l'en-tête (`/reglages`) | Fait, testé | e2e « Rouage », « Déconnexion » |
 | Mobile d'abord, utilisable sur ordinateur | Fait, testé | e2e en 390×844 et 1280×800 (navigateur, pas appareil réel) |
 | Actions faciles à toucher (44 px) | Fait | tous les contrôles passés à `min-h-11` ou plus |
 | Libellés simples, tutoiement | Fait | relecture (« vous » et jargon retirés) |
@@ -79,7 +80,7 @@ Branche `feat/compagnon-lecture`. Légende :
 | Territoires, données réelles, clic vers séries et découvertes | Fait, testé | `taste-map.tsx`, e2e |
 | État utile avec peu de données, alternative sans couleur | Fait | niveaux en mots, liste de séries, explication du calcul |
 | Pondération qui n'écrase pas les autres goûts | Fait, testé | `suggest.test.ts` (série de 45 tomes = série de 3 tomes) |
-| Lectures disponibles, dépenses, envies, chacune menant à une action | Fait | « Qu'est-ce que je peux lire maintenant ? », dépenses par mois + couverture, envies estimées |
+| Lectures disponibles, dépenses, envies, chacune menant à une action | Fait, testé | « À lire chez toi » et « Noter d'anciennes lectures » dans Ma collection (e2e « Ma collection : à lire chez toi »), dépenses par mois + couverture, envies estimées dans Mon univers |
 
 ## 8. Argent et envies
 

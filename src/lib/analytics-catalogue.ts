@@ -28,7 +28,7 @@ export const EVENTS = {
   parent_consent_given: z.object({}),
   parent_consent_refused: z.object({ when: z.enum(["pending", "given"]) }),
   // App
-  app_opened: z.object({ screen: z.enum(["collection", "decouvrir", "serie", "ajouter", "univers", "autre"]) }),
+  app_opened: z.object({ screen: z.enum(["collection", "decouvrir", "serie", "ajouter", "univers", "reglages", "autre"]) }),
   quick_add_done: z.object({ series: count, volumes: count, welcome: z.boolean() }),
   volume_toggled: z.object({ action: z.enum(["add", "remove"]), tab: z.enum(["tomes", "lectures"]) }),
   fill_prompt_answered: z.object({ answer: z.enum(["yes", "no"]), tab: z.enum(["tomes", "lectures"]), volumes: count }),
