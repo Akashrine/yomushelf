@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BatchSchema, cleanPath, sourceFrom, validateEvents } from "./analytics-catalogue";
+import { BatchSchema, cleanPath, redactLinkTokens, sourceFrom, validateEvents } from "./analytics-catalogue";
 
 describe("validateEvents", () => {
   it("keeps known events with their declared properties", () => {
@@ -45,6 +45,13 @@ describe("sourceFrom", () => {
 });
 
 describe("cleanPath", () => {
+  it("never keeps a link token (consent, family list)", () => {
+    const t = "cQQLaF6Qcxdpn0123456789abcdefghijklmnopqrst";
+    expect(cleanPath(`/liste/${t}`)).toBe("/liste/jeton");
+    expect(cleanPath(`/accord/${t}`)).toBe("/accord/jeton");
+    expect(redactLinkTokens(`https://www.yomushelf.com/famille/${t}?arreter=1`)).toBe("https://www.yomushelf.com/famille/jeton?arreter=1");
+    expect(cleanPath("/bibliotheque")).toBe("/bibliotheque");
+  });
   it("removes series ids", () => {
     expect(cleanPath("/bibliotheque/021acb54-f7e7-4f75-9618-3716f1b03eb3")).toBe("/bibliotheque/id");
   });

@@ -58,7 +58,7 @@ docker exec supabase_db_Yomushelf-v2 psql "$DB" -f /tmp/t400.sql | grep -E "T[0-
 docker cp supabase/tests/catalogue_merge_test.sql supabase_db_Yomushelf-v2:/tmp/t600.sql
 docker exec supabase_db_Yomushelf-v2 psql "$DB" -f /tmp/t600.sql | grep -E "T[0-9]|ERROR"
 
-# Migration 20261022000200 appliquée d'abord
+# Migrations 20261022000200 à 20261022000400 appliquées d'abord
 docker exec -i supabase_db_Yomushelf-v2 psql "$DB" -q < supabase/tests/wishlist_family_share_test.sql
 ```
 
@@ -70,10 +70,11 @@ docker exec -i supabase_db_Yomushelf-v2 psql "$DB" -q < supabase/tests/wishlist_
   - aucune ligne n'est mélangée entre deux lecteurs ;
   - la fusion est rejouable ;
   - un lecteur ne peut pas la lancer.
-- `wishlist_family_share_test.sql` (31 vérifications, comptes créés par le test) :
+- `wishlist_family_share_test.sql` (39 vérifications, comptes créés par le test) :
   - un enfant de moins de 15 ans ne partage jamais lui-même, le parent seulement après son accord ;
   - la page partagée ne montre qu'un prénom et les envies, rien de personnel ;
-  - « Je l'offre » : le premier gagne, seul le même navigateur peut annuler ;
+  - « Je l'offre » : le premier gagne, seul le même navigateur peut annuler, et lui seul le voit comme le sien ; un double appui reste à lui ;
+  - 40 actions par lien et par 10 minutes, puis refus ; un nouveau lien repart à zéro ;
   - le lecteur ne voit jamais les tomes offerts, ni l'empreinte du lien ;
   - un nouveau lien coupe l'ancien ; lien révoqué ou expiré : rien à voir ni à réserver ;
   - accord du parent retiré ou âge modifié : le lien s'arrête seul.
@@ -165,15 +166,21 @@ npx next dev -p 3100 > /tmp/dev.log 2>&1   # mêmes variables que ci-dessus, RES
 LOG=/tmp/dev.log SERVICE=<clé service locale> node e2e/family-list.mjs
 ```
 
-Scénarios (31 vérifications) :
+Scénarios (45 vérifications) :
 
 - **Moins de 15 ans** :
   - l'enfant n'a jamais de formulaire de lien : un bouton envoie l'email au parent (adresse masquée ensuite), un second envoi dans la minute est refusé ;
   - le parent ouvre sa page sans compte (noindex, no-referrer), choisit le prénom, reçoit le lien à l'écran et par email ;
   - un proche réserve : l'enfant voit « liste partagée », jamais le lien ni ce qui est offert ;
-  - nouveau lien : l'ancien s'arrête, la réservation reste ; arrêt du partage avec confirmation ; lien parent inconnu refusé.
+  - nouveau lien : l'ancien s'arrête, la réservation reste ; arrêt du partage avec confirmation ; lien parent inconnu refusé ;
   - la page du parent vit au moins aussi longtemps que le lien ; copie par email, ou la page dit qu'elle n'est pas partie.
-- **15 ans et plus** : création du lien dans « Mes envies », lien gardé quand une autre action rafraîchit la page, lien non réaffiché ensuite, arrêt avec confirmation.
+- **Page de la famille** (`/liste/<jeton>`) :
+  - sans compte, noindex, no-referrer, rien de personnel, pas de défilement horizontal sur téléphone ;
+  - « Je l'offre » sur deux téléphones : l'un l'offre (focus sur le message), l'autre le voit déjà offert et sans bouton ; annulation puis reprise par l'autre ;
+  - tome retiré pendant que la page est ouverte : message ; lien arrêté : « Cette liste n'est plus partagée ».
+- **15 ans et plus** :
+  - création du lien dans « Mes envies », lien gardé quand une autre action rafraîchit la page, lien non réaffiché ensuite, arrêt avec confirmation ;
+  - le lecteur qui ouvre son propre lien ne voit rien de ce qui est offert.
 
 ## 5. Base de test cloud
 

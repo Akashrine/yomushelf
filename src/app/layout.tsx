@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Bangers, Geist } from "next/font/google";
 import "./globals.css";
 import { AnalyticsRoot } from "@/components/analytics/analytics-root";
-import { Analytics } from "@vercel/analytics/next";
+import { VercelAnalytics } from "@/components/analytics/vercel-analytics";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -72,7 +72,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col antialiased">
         {children}
         <AnalyticsRoot />
-        <Analytics />
+        <VercelAnalytics />
       </body>
     </html>
   );

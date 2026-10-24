@@ -2,10 +2,10 @@ import Link from "next/link";
 
 // Pages a parent opens from an email link (consent, family list) : the
 // logo, then one panel.
-export function LinkPageFrame({ title, children }: { title: string; children: React.ReactNode }) {
+export function LinkPageFrame({ title, children, top = false, wide = false }: { title: string; children: React.ReactNode; top?: boolean; wide?: boolean }) {
   return (
-    <div className="manga-halftone relative flex min-h-screen flex-col items-center justify-center overflow-x-hidden px-4 py-16" style={{ color: "var(--ink)" }}>
-      <div className="relative flex w-full max-w-md flex-col gap-8">
+    <div className={`manga-halftone relative flex min-h-screen flex-col items-center overflow-x-hidden px-4 ${top ? "py-8 sm:py-12" : "justify-center py-16"}`} style={{ color: "var(--ink)" }}>
+      <div className={`relative flex w-full ${wide ? "max-w-xl" : "max-w-md"} flex-col gap-8`}>
         <Link href="/" className="flex min-h-11 items-center justify-center gap-2 font-display text-3xl tracking-wide">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg text-xl" style={{ background: "var(--ink)", color: "var(--pop)" }} aria-hidden="true">
             漫

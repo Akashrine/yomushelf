@@ -26,6 +26,7 @@ export type SharedWishlist = {
     priority: WishlistPriority;
     price_eur: number | null;
     reserved: boolean;
+    mine: boolean; // reserved by the browser whose undo secret was sent
   }[];
 };
 
@@ -540,6 +541,8 @@ export type Database = {
           created_at: string;
           expires_at: string;
           revoked_at: string | null;
+          action_window_start: string | null; // limit on "Je l'offre" per link
+          action_count: number;
         };
         Insert: never;
         Update: {
@@ -733,16 +736,16 @@ export type Database = {
         Returns: undefined;
       };
       get_shared_wishlist: {
-        Args: { p_token_hash: string };
+        Args: { p_token_hash: string; p_undo_hash?: string };
         Returns: SharedWishlist | null;
       };
       reserve_wishlist_item: {
         Args: { p_token_hash: string; p_item_id: string; p_undo_hash: string };
-        Returns: "reserved" | "taken" | "not_found";
+        Returns: "reserved" | "taken" | "not_found" | "busy";
       };
       release_wishlist_item: {
         Args: { p_token_hash: string; p_item_id: string; p_undo_hash: string };
-        Returns: boolean;
+        Returns: "released" | "not_found" | "busy";
       };
       get_waitlist_count: {
         Args: Record<string, never>;

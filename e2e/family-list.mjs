@@ -117,7 +117,36 @@ try {
 
   // A relative reserves ; the child must not know.
   const item = page1.items[0].id;
-  check("relative reserves a volume", (await rpc("reserve_wishlist_item", { p_token_hash: sha(tokenOf(listLink1)), p_item_id: item, p_undo_hash: sha("undo") })) === "reserved");
+  const first = (p) => p.locator(`#tome-${item}`);
+  // The family's page, on two phones.
+  const aunt = await newPage();
+  const resList = await aunt.page.goto(listLink1, { waitUntil: "load", timeout: 120000 });
+  check("family page opens without an account", resList.status() === 200 && (await visible(aunt.page.getByRole("heading", { name: "La liste de Léo" }))));
+  check("family page is noindex, no-referrer",
+    (await aunt.page.locator('meta[name="robots"]').getAttribute("content"))?.includes("noindex") &&
+    (await aunt.page.locator('meta[name="referrer"]').getAttribute("content")) === "no-referrer");
+  check("family page lists the 3 wishes, nothing personal", (await aunt.page.locator("li[id^=tome-]").count()) === 3 && !(await aunt.page.content()).includes("e2e@yomushelf.local"));
+  check("no horizontal scroll on a phone", await aunt.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+  await first(aunt.page).getByRole("button", { name: /^Je l.offre/ }).click();
+  check("relative reserves a volume", await visible(first(aunt.page).getByText("✓ Tu l'offres.")) && (await visible(first(aunt.page).getByRole("status"))));
+  check("focus lands on the result message", (await aunt.page.evaluate(() => document.activeElement?.getAttribute("role"))) === "status");
+  const uncle = await newPage();
+  await uncle.page.goto(listLink1, { waitUntil: "load", timeout: 120000 });
+  check("another relative sees it taken, no button", (await visible(first(uncle.page).getByText("Déjà offert par quelqu'un de la famille."))) && (await first(uncle.page).getByRole("button").count()) === 0);
+  await first(aunt.page).getByRole("button", { name: /^Annuler/ }).click();
+  check("the relative who offered can cancel", await visible(first(aunt.page).getByText("C'est annulé")));
+  await uncle.page.reload({ waitUntil: "load" });
+  await first(uncle.page).getByRole("button", { name: /^Je l.offre/ }).click();
+  check("then someone else can offer it", await visible(first(uncle.page).getByText("✓ Tu l'offres.")));
+  await aunt.page.reload({ waitUntil: "load" });
+  check("first relative now sees it taken by someone else", await visible(first(aunt.page).getByText("Déjà offert par quelqu'un de la famille.")));
+  // A volume removed while the page is open.
+  const gone = page1.items[2].id;
+  await aunt.page.reload({ waitUntil: "load" });
+  await fetch(`${SUPABASE_URL}/rest/v1/wishlist_items?id=eq.${gone}`, { method: "DELETE", headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` } });
+  await aunt.page.locator(`#tome-${gone}`).getByRole("button", { name: /^Je l.offre/ }).click();
+  check("offering a removed volume says so", await visible(aunt.page.getByRole("alert").filter({ hasText: "Ce tome n'est plus dans la liste." })));
+  check("no page errors (family)", aunt.errors.length + uncle.errors.length === 0, [...aunt.errors, ...uncle.errors].join(" | "));
   await kid.page.reload({ waitUntil: "load" });
   check("child sees the list is shared", await visible(panel(kid.page).getByRole("heading", { name: "Ta liste est partagée" })));
   check("child can still send the parent a fresh email", await visible(panel(kid.page).getByRole("button", { name: "Renvoyer l'email à mon parent" })));
@@ -145,6 +174,8 @@ try {
   await parent.page.getByRole("button", { name: "Arrêter le partage" }).click();
   await parent.page.getByRole("heading", { name: "Le partage est arrêté." }).waitFor({ timeout: 30000 });
   check("parent stops sharing", (await sharedList(listLink2)) === null);
+  await uncle.page.goto(listLink2, { waitUntil: "load" });
+  check("family page says the list is no longer shared", await visible(uncle.page.getByRole("heading", { name: "Cette liste n'est plus partagée." })));
   await kid.page.reload({ waitUntil: "load" });
   check("child panel back to asking", await visible(panel(kid.page).getByRole("button", { name: "Renvoyer l'email à mon parent" })));
 
@@ -166,6 +197,17 @@ try {
   await teen.page.waitForTimeout(3000);
   check("link survives a refresh from another action", (await panel(teen.page).locator("input[readonly]").inputValue().catch(() => "")) === teenLink);
   check("15+ link works", (await sharedList(teenLink))?.display_name === "Sam");
+  // Someone offers ; the reader opens their own link : nothing shows.
+  const cousin = await newPage();
+  await cousin.page.goto(teenLink, { waitUntil: "load", timeout: 120000 });
+  await cousin.page.locator("li[id^=tome-]").first().getByRole("button", { name: /^Je l.offre/ }).click();
+  await visible(cousin.page.getByText("✓ Tu l'offres."));
+  const own = await newPage();
+  await own.page.context().addCookies(await teen.page.context().cookies());
+  await own.page.goto(teenLink, { waitUntil: "load", timeout: 120000 });
+  check("reader on their own link sees the owner note", await visible(own.page.getByText("C'est ta liste. Ce qu'on t'offre reste caché")));
+  const ownText = await own.page.locator("main, body").first().innerText();
+  check("reader on their own link sees nothing offered", !/Déjà offert|déjà offerte|Tu l.offres/.test(ownText) && (await own.page.getByRole("button", { name: /^Je l.offre/ }).count()) === 0);
   await teen.page.reload({ waitUntil: "load" });
   check("15+ sees it shared, link not shown again", (await visible(panel(teen.page).getByRole("heading", { name: "Ta liste est partagée" }))) && !(await teen.page.content()).includes(tokenOf(teenLink)));
   await panel(teen.page).locator("summary", { hasText: "Arrêter le partage" }).click();
