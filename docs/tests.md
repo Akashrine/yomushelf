@@ -155,6 +155,26 @@ Scénarios couverts par `e2e/journeys.mjs` :
 - **Carte des goûts** : clic sur un territoire.
 - **Suppression définitive** et redirection des anciennes adresses.
 
+### Liste de Noël partagée (`e2e/family-list.mjs`)
+
+L'application tourne sans Resend (`RESEND_API_KEY` vide, `next dev`) : les emails sont écrits dans son journal, où le script lit les liens.
+
+```bash
+# e2e@yomushelf.local : moins de 15 ans avec accord parental ; other@yomushelf.local : 15 ans et plus ; des envies pour les deux
+npx next dev -p 3100 > /tmp/dev.log 2>&1   # mêmes variables que ci-dessus, RESEND_API_KEY= RESEND_FROM_EMAIL=
+LOG=/tmp/dev.log SERVICE=<clé service locale> node e2e/family-list.mjs
+```
+
+Scénarios (31 vérifications) :
+
+- **Moins de 15 ans** :
+  - l'enfant n'a jamais de formulaire de lien : un bouton envoie l'email au parent (adresse masquée ensuite), un second envoi dans la minute est refusé ;
+  - le parent ouvre sa page sans compte (noindex, no-referrer), choisit le prénom, reçoit le lien à l'écran et par email ;
+  - un proche réserve : l'enfant voit « liste partagée », jamais le lien ni ce qui est offert ;
+  - nouveau lien : l'ancien s'arrête, la réservation reste ; arrêt du partage avec confirmation ; lien parent inconnu refusé.
+  - la page du parent vit au moins aussi longtemps que le lien ; copie par email, ou la page dit qu'elle n'est pas partie.
+- **15 ans et plus** : création du lien dans « Mes envies », lien gardé quand une autre action rafraîchit la page, lien non réaffiché ensuite, arrêt avec confirmation.
+
 ## 5. Base de test cloud
 
 Même procédure avec l'URL du pooler du projet `fcpyhtfacqnzohwzyfcp`, une compilation de production (`next build && next start -p 3200`) et `BASE=http://localhost:3200`.

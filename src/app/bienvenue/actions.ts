@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { CONSENT_DAYS, HEARD_FROM, frenchDate } from "@/lib/account/gate";
-import { hashConsentToken, newConsentToken, serviceClient } from "@/lib/server/consent";
+import { serviceClient } from "@/lib/server/consent";
+import { hashLinkToken, newLinkToken } from "@/lib/server/link-token";
 import { parentConsentEmail, sendEmail } from "@/lib/server/email";
 import { logServerEvent } from "@/lib/server/analytics";
 
@@ -98,12 +99,12 @@ export async function requestParentConsent(_prev: ParentState, formData: FormDat
   // Atomic, per account and per address, kept across age changes.
   const { data: claim, error: claimError } = await service.rpc("claim_consent_email", {
     p_user: user.id,
-    p_recipient_hash: hashConsentToken(parsed.data),
+    p_recipient_hash: hashLinkToken(parsed.data),
   });
   if (claimError) return { error: "Pas enregistré. Vérifie ta connexion et réessaie.", value };
   if (claim !== "ok") return { error: THROTTLED[claim as string] ?? THROTTLED.wait, value };
 
-  const { token, hash } = newConsentToken();
+  const { token, hash } = newLinkToken();
   const { error } = await service.from("parental_consents").upsert({
     user_id: user.id,
     parent_email: parsed.data,
