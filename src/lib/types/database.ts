@@ -47,7 +47,6 @@ export type Database = {
           avoided_genres: string[];
           bio: string | null;
           public_slug: string | null;
-          sharing_locked: boolean;
           age_band: AgeBand | null;
           age_band_set_at: string | null;
           heard_from: HeardFrom | null;

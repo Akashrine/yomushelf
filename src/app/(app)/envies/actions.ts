@@ -204,8 +204,8 @@ export async function shareMyList(_prev: ShareState, formData: FormData): Promis
   const { user } = await getAuthed();
   if (!user) return { error: "Non authentifié.", value };
 
-  // The database refuses a reader under 15 (only their parent shares) or
-  // a locked account ; the page offers the form to neither.
+  // The database refuses a reader under 15 (only their parent shares) ;
+  // the page does not offer them the form.
   const share = await createFamilyShare(user.id, name.data, false);
   if (!share) return { error: "Le lien n'a pas pu être créé. Réessaie dans quelques minutes.", value };
   // No revalidatePath : re-rendering the panel would unmount the form
