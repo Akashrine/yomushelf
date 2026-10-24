@@ -50,3 +50,19 @@ describe("wishPrice", () => {
     expect(wishPrice(null, null, null)).toEqual({ kind: "unknown" });
   });
 });
+
+describe("publisher names", () => {
+  it("does not mix two publishers starting with « Le »", () => {
+    const price = priceIndex([
+      { id: "a", publisher_fr: "Le Lézard Noir", list_price_eur: 19 },
+      { id: "b", publisher_fr: "Le Lézard noir", list_price_eur: 19 },
+      { id: "c", publisher_fr: "Le Lézard Noir", list_price_eur: 19 },
+    ]);
+    expect(price("x", "Le Lombard")).toBeNull();
+    expect(price("x", "le lezard noir")).toEqual({ amount: 19, basis: "publisher" });
+  });
+  it("reads « Crunchyroll (ex-Kazé) » as Crunchyroll", () => {
+    const price = priceIndex([1, 2, 3].map((i) => ({ id: `k${i}`, publisher_fr: "Crunchyroll (ex-Kazé)", list_price_eur: 7.05 })));
+    expect(price("x", "Crunchyroll")).toEqual({ amount: 7.05, basis: "publisher" });
+  });
+});

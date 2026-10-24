@@ -35,8 +35,11 @@ as $$
           'volume_number', w.volume_number,
           'priority', w.priority,
           -- The price the reader typed, else the volume's French price, else
-          -- the series' publisher price (20261025000100).
-          'price_eur', coalesce(w.target_price, v.price_eur, m.list_price_eur),
+          -- the series' publisher price (20261025000100) for a volume wish
+          -- only : a whole-series wish never shows one volume's price.
+          -- (No publisher-median fallback here, unlike the app : the family
+          -- then sees no price rather than an estimate.)
+          'price_eur', coalesce(w.target_price, v.price_eur, case when w.volume_number is not null then m.list_price_eur end),
           'reserved', r.wishlist_item_id is not null,
           'mine', p_undo_hash is not null and r.undo_hash = p_undo_hash
         ) order by (w.priority = 'high') desc, m.title, w.volume_number nulls last)

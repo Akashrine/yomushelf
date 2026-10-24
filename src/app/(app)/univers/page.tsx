@@ -7,6 +7,7 @@ import { loadDiscoveryContext, readerLibrary, withReaderSeries } from "@/lib/sup
 import { formatEur, formatMonthShort, lastKnownPrice, todayIso } from "@/lib/collection/value";
 import { collectionValue, readingsOverview, spendingOverview, wishPrice, wishlistEstimate } from "@/lib/univers/stats";
 import { priceIndex } from "@/lib/univers/prices";
+import { loadPriceRows } from "@/lib/supabase/price-data";
 import { contentContext, territoryDiscoveries, territoryTastes } from "@/lib/discovery/suggest";
 import { TERRITORIES, type TerritoryKey } from "@/lib/discovery/territories";
 import { AppShell } from "@/components/app/app-shell";
@@ -20,15 +21,13 @@ export default async function UniversPage() {
   const { supabase, user } = await getSessionUser();
   if (!user) redirect("/login");
 
-  const [series, volumes, readings, { data: profile }, wishesResult, discovery, { data: priceRows }] = await Promise.all([
+  const [series, volumes, readings, { data: profile }, wishesResult, discovery] = await Promise.all([
     getSeriesMeta(supabase, user.id, { includeArchived: true }),
     getOwnedVolumes(supabase, user.id),
     getReadings(supabase, user.id),
     supabase.from("profiles").select("avatar_initials").eq("id", user.id).single(),
     supabase.from("wishlist_items").select("manga_id, volume_number, target_price").eq("user_id", user.id),
     loadDiscoveryContext(supabase, user.id),
-    // Publisher prices : the shared catalogue and the reader's own series (RLS)
-    supabase.from("mangas").select("id, publisher_fr, list_price_eur").is("merged_into", null),
   ]);
   if (wishesResult.error) throw new Error("Impossible de charger tes envies.");
 
@@ -54,7 +53,7 @@ export default async function UniversPage() {
 
   const reads = readingsOverview(readings, new Map(series.map((s) => [s.manga_id, s.total_volumes])), today);
   const spend = spendingOverview(volumes, today);
-  const priceOf = priceIndex(priceRows ?? []);
+  const priceOf = priceIndex(await loadPriceRows(supabase, [...series.map((s) => s.manga_id), ...(wishesResult.data ?? []).map((w) => w.manga_id)]));
   const worth = collectionValue(volumes, priceOf);
   const wishes = wishlistEstimate(
     (wishesResult.data ?? []).map((w) =>

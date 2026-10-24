@@ -15,7 +15,8 @@ const publisherKey = (p: string | null) =>
     .toLowerCase()
     .replace(/\(.*?\)/g, " ")
     .split(/[^a-z0-9]+/)
-    .filter((w) => w.length > 1 && !["editions", "edition", "manga", "les"].includes(w))[0] ?? "";
+    .filter((w) => w.length > 1 && !["editions", "edition", "manga", "les", "le", "la"].includes(w))
+    .join(" ");
 
 const median = (xs: number[]) => {
   const s = [...xs].sort((a, b) => a - b);
