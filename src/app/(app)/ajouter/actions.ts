@@ -16,6 +16,7 @@ import type { MangaSearchResult } from "@/lib/manga-api/types";
 import type { Database, Json } from "@/lib/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { todayIso } from "@/lib/collection/value";
+import { MINOR_REFUSAL, minorMayAdd } from "@/lib/discovery/minor-catalogue";
 import { acquisitionTypeField, MAX_VOLUME, priceField, volumeNumberField } from "@/lib/collection/schema";
 
 function getServiceClient() {
@@ -236,16 +237,44 @@ type SeriesSource =
   | { source: "google_books"; isbn: string }
   | { source: "private"; title: string; author?: string | null; total_volumes?: number | null };
 
+// A reader under 15 adds only what the youth selection allows (see
+// lib/discovery/minor-catalogue.ts) : a series already on their shelf, one
+// of their own personal series, or a catalogue series with a verified age.
+// This is the one place every add goes through, so the rule holds even for
+// a request that skips the search box.
+async function isMinor(supabase: Supabase, userId: string): Promise<boolean | null> {
+  const { data, error } = await supabase.from("profiles").select("age_band").eq("id", userId).single();
+  return error || !data ? null : data.age_band === "under_15";
+}
+
+async function minorMayHave(supabase: Supabase, userId: string, mangaId: string): Promise<boolean | null> {
+  const [shelf, series] = await Promise.all([
+    supabase.from("user_collections").select("manga_id").eq("user_id", userId).eq("manga_id", mangaId).maybeSingle(),
+    supabase.from("mangas").select("created_by, audience_min_age, audience_age_source, audience_age_scope").eq("id", mangaId).maybeSingle(),
+  ]);
+  if (shelf.error || series.error) return null;
+  if (shelf.data) return true;
+  if (!series.data) return false;
+  return series.data.created_by === userId || minorMayAdd(series.data);
+}
+
 // Finds the catalogue series the reader means, creating it when needed :
 // from a provider (server-side metadata, quota per account) or as a
 // private series that only this reader can see.
 async function resolveSeries(supabase: Supabase, userId: string, src: SeriesSource): Promise<Resolved> {
+  const minor = src.source === "private" ? false : await isMinor(supabase, userId);
+  if (minor === null) return { ok: false, error: "Impossible de vérifier ton compte. Réessaie." };
+  const refusal = { ok: false, error: MINOR_REFUSAL } as const;
+  // Allowed ? Null (a failed check) is refused too.
+  const mayHave = async (mangaId: string) => !minor || (await minorMayHave(supabase, userId, mangaId)) === true;
+
   if (src.source === "db") {
     const { data, error } = await supabase.from("mangas").select("id, merged_into").eq("id", src.manga_id).maybeSingle();
     if (error) return { ok: false, error: "Impossible de vérifier le catalogue. Réessaie." };
     if (!data) return { ok: false, error: "Série introuvable." };
     // A merged series lives on under the series it was merged into.
-    return { ok: true, manga_id: data.merged_into ?? data.id };
+    const id = data.merged_into ?? data.id;
+    return (await mayHave(id)) ? { ok: true, manga_id: id } : refusal;
   }
 
   if (src.source === "private") {
@@ -288,8 +317,10 @@ async function resolveSeries(supabase: Supabase, userId: string, src: SeriesSour
     .limit(1)
     .maybeSingle();
   if (lookupError) return { ok: false, error: "Impossible de vérifier le catalogue. Réessaie." };
-  if (existing) return { ok: true, manga_id: existing.id };
+  if (existing) return (await mayHave(existing.id)) ? { ok: true, manga_id: existing.id } : refusal;
 
+  // A new series would come from the online providers : not for a reader under 15.
+  if (minor) return refusal;
   if (!(await consumeImportQuota(userId, "import"))) {
     return { ok: false, error: "Tu as ajouté beaucoup de séries d'un coup. Réessaie dans une heure." };
   }

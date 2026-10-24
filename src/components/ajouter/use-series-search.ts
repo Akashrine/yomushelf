@@ -13,6 +13,7 @@ export function useSeriesSearch(limit = 12) {
   const [searchedFor, setSearchedFor] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [remoteDown, setRemoteDown] = useState(false);
+  const [restricted, setRestricted] = useState(false); // youth selection only (under 15)
 
   useEffect(() => {
     const q = query.trim();
@@ -23,11 +24,12 @@ export function useSeriesSearch(limit = 12) {
       setSearchError(null);
       try {
         const res = await fetch(`/api/mangas/search?q=${encodeURIComponent(q)}&limit=${limit}`, { signal: ctrl.signal });
-        const json = (await res.json()) as { results?: SearchHit[]; remote_unavailable?: boolean; error?: string };
+        const json = (await res.json()) as { results?: SearchHit[]; remote_unavailable?: boolean; restricted?: boolean; error?: string };
         if (!res.ok) throw new Error(json.error ?? "search");
         setResults(json.results ?? []);
         setSearchedFor(q);
         setRemoteDown(Boolean(json.remote_unavailable));
+        setRestricted(Boolean(json.restricted));
       } catch (e) {
         if ((e as Error).name !== "AbortError") {
           setSearchError("La recherche ne répond pas. Vérifie ta connexion et réessaie.");
@@ -53,6 +55,7 @@ export function useSeriesSearch(limit = 12) {
     error: answered ? searchError : null,
     waiting: searching || (ready && !answered),
     remoteDown,
+    restricted,
     reset: () => {
       setQuery("");
       setResults([]);

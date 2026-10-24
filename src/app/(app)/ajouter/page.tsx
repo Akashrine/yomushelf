@@ -5,6 +5,7 @@ import { getOwnedVolumes, getReadings } from "@/lib/supabase/queries";
 import { AppShell } from "@/components/app/app-shell";
 import { AddFlow, type FlowSeries } from "@/components/ajouter/add-flow";
 import { QuickAdd } from "@/components/ajouter/quick-add";
+import { minorMayAdd } from "@/lib/discovery/minor-catalogue";
 
 export const metadata: Metadata = { title: "Ajouter un manga" };
 
@@ -24,14 +25,14 @@ export default async function AjouterPage({
     Promise.all([
       supabase
         .from("mangas")
-        .select("id, title, author, total_volumes, cover_url")
+        .select("id, title, author, total_volumes, cover_url, audience_min_age, audience_age_source, audience_age_scope")
         .is("created_by", null)
         .is("merged_into", null)
         .eq("curated", true)
         .not("cover_url", "is", null)
         .order("top_50_rank", { ascending: true, nullsFirst: false })
         .order("title")
-        .limit(60),
+        .limit(120), // a reader under 15 keeps only the verified ages : room to fill the grid
       getOwnedVolumes(supabase, user.id),
       getReadings(supabase, user.id),
     ]);
@@ -39,7 +40,7 @@ export default async function AjouterPage({
   // One round of queries : the profile, then either the series asked for
   // (keyed on the id in the URL) or the quick add.
   const [{ data: profile }, serieResult, quickResult] = await Promise.all([
-    supabase.from("profiles").select("avatar_initials, username").eq("id", user.id).single(),
+    supabase.from("profiles").select("avatar_initials, username, age_band").eq("id", user.id).single(),
     serieId
       ? Promise.all([
           supabase.from("mangas").select("id, title, author, total_volumes, cover_url").eq("id", serieId).maybeSingle(),
@@ -84,7 +85,10 @@ export default async function AjouterPage({
   if (popular.error) throw new Error("Impossible de charger les séries populaires.");
   // One card per title : the catalogue still holds a few duplicates.
   const seen = new Set<string>();
+  const minor = profile?.age_band === "under_15";
   const popularSeries: FlowSeries[] = (popular.data ?? [])
+    // Under 15 : the youth selection, plus what is already on their shelf.
+    .filter((m) => !minor || minorMayAdd(m) || owned.some((v) => v.manga_id === m.id))
     .filter((m) => {
       const key = m.title.toLowerCase();
       if (seen.has(key)) return false;

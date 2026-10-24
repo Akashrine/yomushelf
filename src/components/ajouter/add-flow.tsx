@@ -50,7 +50,7 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
   const [step, setStep] = useState<Step>(initial ? "volumes" : "search");
   const [series, setSeries] = useState<FlowSeries | null>(initial);
   const search = useSeriesSearch();
-  const { query, setQuery, answered, remoteDown } = search;
+  const { query, setQuery, answered, remoteDown, restricted } = search;
 
   const [privTitle, setPrivTitle] = useState("");
   const [privAuthor, setPrivAuthor] = useState("");
@@ -235,6 +235,7 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
               <p className="text-sm">
                 {shownResults.length === 0 ? "Rien trouvé." : "Ce n'est pas dans la liste ?"}{" "}
                 {remoteDown && <span style={{ color: "var(--muted)" }}>Le catalogue en ligne ne répond pas en ce moment.</span>}
+                {restricted && <span style={{ color: "var(--muted)" }}>Sur ton compte, la recherche ne montre que les séries avec un âge conseillé.</span>}
               </p>
               <button
                 type="button"
