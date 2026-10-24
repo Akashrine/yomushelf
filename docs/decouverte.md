@@ -1,6 +1,6 @@
 # Découverte et carte des goûts
 
-Tout est calculé à partir des données réelles du lecteur et du catalogue éditorial, sans moteur d'IA. Code : `src/lib/discovery/` et `src/lib/univers/stats.ts`.
+Tout est calculé à partir des données réelles du lecteur et du catalogue éditorial. Un seul calcul vient d'un modèle de langue, hors de l'app et sur le catalogue seulement : les « séries proches » (plus bas). Code : `src/lib/discovery/` et `src/lib/univers/stats.ts`.
 
 ## Ce qui compte
 
@@ -12,6 +12,7 @@ Tout est calculé à partir des données réelles du lecteur et du catalogue éd
 | « Pas pour moi » sur une série | la série ne compte plus | goût déclaré |
 | Genre choisi dans « Mes goûts » | 1 par genre | goût déclaré |
 | Genre évité dans « Mes goûts » | les séries de ce genre ne sont jamais proposées | préférence de contenu |
+| Série proche d'une série du lecteur | jusqu'à +0,6, selon son rang parmi les proches et le poids de la série du lecteur | catalogue |
 
 **Chaque série compte autant, qu'elle ait 3 ou 100 tomes.** Une série très longue n'écrase donc pas les autres goûts.
 
@@ -43,7 +44,7 @@ Les séries sans genre connu (fiches personnelles, imports) ne comptent pas, et 
    - prochain tome chez toi, tome laissé de côté ;
    - tome à trouver (pas chez toi), avec « Je le veux ».
 2. **Pour toi** :
-   - séries proches de tes goûts, avec une raison tirée des données (« Parce que tu as aimé… », « Parce que tu lis… », « Parce que tu as … chez toi », « Du même auteur que… », « Parce que tu aimes … ») ;
+   - séries proches de tes goûts, avec une raison tirée des données (« Parce que tu as aimé… », « Parce que tu lis… », « Parce que tu as … chez toi », « Du même auteur que… », « Parce que tu as aimé … : une histoire proche », « Parce que tu aimes … ») ;
    - « Pas pour moi » écarte une suggestion, avec annulation, et « Tout réafficher » les fait toutes revenir.
 3. **Mes goûts** : genres aimés ou évités. Permet de démarrer sans historique.
 4. **Explorer un univers différent** : une série par territoire peu visité.
@@ -53,6 +54,20 @@ Les séries sans genre connu (fiches personnelles, imports) ne comptent pas, et 
    - le filtre territoire peut arriver déjà rempli depuis la carte.
 
 Prudence sur l'âge : voir `docs/politique-contenu.md`. Une série sans indication d'âge n'est jamais suggérée.
+
+## Séries proches
+
+Pour chaque série curée, les 12 séries qui racontent quelque chose de proche : titre, genres, public et résumé français, passés dans un modèle multilingue ouvert (`multilingual-e5-small`, licence MIT). Table `series_neighbours`, lisible comme le catalogue.
+
+- **Où ça sert** : « Dans le même genre » sous une fiche série (mêlé aux genres partagés), et un critère de « Pour toi ».
+- **Ce qui ne change pas** : les règles de contenu et d'âge filtrent toujours après. Aucune donnée de lecteur n'entre dans le calcul ni ne sort vers un service tiers.
+- **Recalcul** après un changement du catalogue (le modèle est téléchargé une fois, environ 145 Mo) :
+
+```bash
+cd scripts/series-neighbours && ONNXRUNTIME_NODE_INSTALL_CUDA=skip npm ci   # dépendances à part, jamais installées par l'app
+SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node index.mjs --dry-run   # aperçu
+SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node index.mjs             # écrit (un seul calcul à la fois)
+```
 
 ## Données absentes
 

@@ -165,3 +165,40 @@ describe("preferences", () => {
     expect(out.map((o) => o.entry.id)).not.toContain("op");
   });
 });
+
+describe("suggest with series neighbours", () => {
+  // A cosy series sharing no genre with One Piece, but close by what it tells.
+  const yotsuba = entry({ id: "yo", title: "Yotsuba&!", genres: ["tranche-de-vie"], demographic: "seinen", audience_min_age: 9, ...cnlj });
+  const books = [...catalogue, yotsuba];
+  const liked = [{ manga_id: "op", read: 12, owned: 14, liked: true }];
+
+  it("proposes a close series without a shared genre, and says why", () => {
+    const neighbours = new Map([["op", [{ id: "yo", rank: 1 }]]]);
+    const out = suggest(liked, books, new Set(["op"]), { neighbours });
+    const yo = out.find((s) => s.entry.id === "yo");
+    expect(yo?.reason).toBe("Parce que tu as aimé One Piece : une histoire proche");
+    expect(yo?.because).toEqual(["One Piece"]);
+  });
+
+  it("without neighbours, the same series is not proposed", () => {
+    expect(suggest(liked, books, new Set(["op"])).some((s) => s.entry.id === "yo")).toBe(false);
+  });
+
+  it("a far neighbour alone is not enough", () => {
+    const neighbours = new Map([["op", [{ id: "yo", rank: 12 }]]]);
+    expect(suggest(liked, books, new Set(["op"]), { neighbours }).some((s) => s.entry.id === "yo")).toBe(false);
+  });
+
+  it("content rules still win over closeness", () => {
+    const neighbours = new Map([["op", [{ id: "mo", rank: 1 }]]]);
+    const out = suggest(liked, books, new Set(["op"]), { neighbours, scope: "youth_verified" });
+    expect(out.some((s) => s.entry.id === "mo")).toBe(false);
+  });
+
+  it("closeness lifts a series sharing genres above the others", () => {
+    const reading = [{ manga_id: "op", read: 12, owned: 14 }];
+    const without = suggest(reading, books, new Set(["op"])).map((s) => s.entry.id);
+    const withNear = suggest(reading, books, new Set(["op"]), { neighbours: new Map([["op", [{ id: "hk", rank: 1 }]]]) }).map((s) => s.entry.id);
+    expect(withNear.indexOf("hk")).toBeLessThan(without.indexOf("hk"));
+  });
+});

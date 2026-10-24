@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/types/database";
-import type { CatalogueEntry, DeclaredTastes, DiscoveryScope, ReaderSeries } from "@/lib/discovery/suggest";
+import type { CatalogueEntry, DeclaredTastes, DiscoveryScope, Neighbours, ReaderSeries } from "@/lib/discovery/suggest";
 import type { SeriesMetaRow } from "./queries";
 import type { OwnedVolume } from "@/lib/collection/value";
 import type { Reading } from "@/lib/collection/reading";
@@ -75,4 +75,30 @@ export function withReaderSeries(catalogue: CatalogueEntry[], series: SeriesMeta
     });
   }
   return map;
+}
+
+// Closest series of the given ones (series_neighbours). Only catalogue
+// series have neighbours : pass those. Optional : a failure only means
+// suggestions without this signal.
+export async function loadNeighbours(supabase: Supabase, ids: string[]): Promise<Neighbours> {
+  const out: Neighbours = new Map();
+  // 100 ids per call : a short URL, and at most 1200 rows (12 per series).
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await supabase
+      .from("series_neighbours")
+      .select("manga_id, neighbour_id, rank")
+      .in("manga_id", ids.slice(i, i + 100))
+      .order("rank")
+      .limit(1200);
+    if (error) {
+      console.error("series_neighbours", error.message);
+      return out;
+    }
+    for (const r of data ?? []) {
+      const list = out.get(r.manga_id) ?? [];
+      list.push({ id: r.neighbour_id, rank: r.rank });
+      out.set(r.manga_id, list);
+    }
+  }
+  return out;
 }

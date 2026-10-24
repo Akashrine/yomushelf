@@ -49,3 +49,4 @@ DESIGN.md
 /*.fingerprint
 /*.timestamp
 /*.after-restore
+/scripts/series-neighbours/node_modules

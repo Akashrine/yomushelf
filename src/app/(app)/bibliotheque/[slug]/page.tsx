@@ -20,7 +20,7 @@ export default async function SeriePage({
 
   // Everything is keyed on the id in the URL : one round of queries, the
   // series itself included.
-  const [{ data: manga, error: mangaError }, { data: wishes, error: wishesError }, { data: collection, error: collectionError }, { data: profile }, { data: catalogueVolumes }, allSeries, allVolumes, allReadings, discovery] =
+  const [{ data: manga, error: mangaError }, { data: wishes, error: wishesError }, { data: collection, error: collectionError }, { data: profile }, { data: catalogueVolumes }, allSeries, allVolumes, allReadings, discovery, { data: neighbours }] =
     await Promise.all([
       // RLS : another reader's private series is simply not found.
       supabase
@@ -38,6 +38,8 @@ export default async function SeriePage({
       getOwnedVolumes(supabase, user.id),
       getReadings(supabase, user.id),
       loadDiscoveryContext(supabase, user.id),
+      // Closest series by what they tell ; none is fine
+      supabase.from("series_neighbours").select("neighbour_id, rank").eq("manga_id", slug).order("rank"),
     ]);
 
   if (mangaError) throw new Error("Impossible de charger cette série.");
@@ -54,7 +56,7 @@ export default async function SeriePage({
   const knownMap = withReaderSeries(discovery.catalogue, allSeries);
   const ctx = contentContext(readerLibrary(allSeries, allVolumes, allReadings), knownMap, discovery.declared, discovery.scope);
   const shelfIds = new Set(allSeries.filter((s) => !s.archived_at).map((s) => s.manga_id));
-  const similar = similarSeries({ id: manga.id, title: manga.title, genres: manga.genres ?? [], demographic: manga.demographic }, discovery.catalogue, ctx).map((c) => ({
+  const similar = similarSeries({ id: manga.id, title: manga.title, genres: manga.genres ?? [], demographic: manga.demographic }, discovery.catalogue, ctx, 12, (neighbours ?? []).map((n) => ({ id: n.neighbour_id, rank: n.rank }))).map((c) => ({
     id: c.id,
     title: c.title,
     cover_url: c.cover_url,
