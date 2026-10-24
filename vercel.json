@@ -16,6 +16,10 @@
       "schedule": "30 4 * * *"
     },
     {
+      "path": "/api/cron/catalogue-covers",
+      "schedule": "45 4 * * *"
+    },
+    {
       "path": "/api/cron/analytics-purge",
       "schedule": "0 5 * * *"
     },
