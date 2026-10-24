@@ -54,6 +54,16 @@ export function LibraryHome({ name, cards, archived, wishes, wishCount, waiting,
         <p className="mt-1 text-sm font-semibold" style={{ color: "var(--muted)" }}>
           {cards.length} série{cards.length > 1 ? "s" : ""} · {volumes} tome{volumes > 1 ? "s" : ""}
         </p>
+        {/* The wishes (and the Christmas list) one tap away, above the wall of covers. */}
+        <Link
+          href="/envies"
+          className="manga-panel-sm manga-press mt-3 inline-flex min-h-12 items-center gap-2 self-start rounded-2xl px-4 text-base font-bold focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+          style={{ background: "var(--pop)", color: "var(--ink)" }}
+        >
+          <AppIcon name="star" size={18} filled />
+          Mes envies
+          {wishCount > 0 && <span className="tabular-nums">· {wishCount}</span>}
+        </Link>
       </header>
 
       {cards.length > 12 && (
