@@ -82,10 +82,10 @@ export default async function DecouvrirPage() {
   const allowed = catalogue.filter((c) => contentAllowed(c, ctx));
   const byRank = [...allowed].sort((a, b) => (a.top_50_rank ?? 999) - (b.top_50_rank ?? 999) || a.title.localeCompare(b.title, "fr"));
   const drafts: RowDraft[] = [
-    { key: "pour-toi", title: "Pour toi", subtitle: suggestions.length ? "D'après ta collection et tes goûts." : null, items: suggestions, priority: 0, min: 3 },
-    ...selections.map((s, i) => ({ key: s.slug, title: s.title, subtitle: s.description, items: s.items, priority: 20 + i, min: 3 })),
+    { key: "pour-toi", title: "Pour toi", subtitle: suggestions.length ? "D'après ta collection et tes goûts." : null, items: suggestions, priority: 0 },
+    ...selections.map((s, i) => ({ key: s.slug, title: s.title, subtitle: s.description, items: s.items, priority: 20 + i })),
     { key: "plus-lus", title: "Les plus lus en France", items: byRank.filter((c) => c.top_50_rank != null).map((entry) => ({ entry })), priority: 40 },
-    { key: "autre", title: "Un univers différent", subtitle: "Pour sortir de tes habitudes.", items: others, priority: 10, min: 3 },
+    { key: "autre", title: "Un univers différent", subtitle: "Pour sortir de tes habitudes.", items: others, priority: 10 },
     ...territoryRows(allowed, `${todayIso()}:${user.id}`, declared),
   ];
 

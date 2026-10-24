@@ -60,8 +60,8 @@ export async function runCatalogueCovers(deps: CatalogueCoversDeps, limits: Cata
     }
     if (!remote) remote = await deps.bookCover(target).catch(() => null);
     const cached = remote ? await deps.cache(remote, target.id).catch(() => null) : null;
-    if (cached && (await deps.save(target.id, cached))) report.written++;
-    else if (!cached) report.missing.push(target.title);
+    if (!cached) report.missing.push(target.title);
+    else if (await deps.save(target.id, cached)) report.written++;
     await deps.pause();
   }
   return report;

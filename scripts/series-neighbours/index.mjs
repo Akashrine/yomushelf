@@ -96,8 +96,8 @@ const rows = [];
 series.forEach((s, i) => {
   const own = titleKey(s.title);
   series
-    .map((t, j) => ({ t, score: j === i ? -2 : cos(vectors[i], vectors[j]) }))
-    .filter(({ t, score }) => score > -2 && titleKey(t.title) !== own)
+    .map((t, j) => ({ t, score: cos(vectors[i], vectors[j]) }))
+    .filter(({ t }) => titleKey(t.title) !== own) // drops the series itself too
     .sort((a, b) => b.score - a.score)
     .slice(0, NEIGHBOURS)
     .forEach(({ t, score }, r) =>

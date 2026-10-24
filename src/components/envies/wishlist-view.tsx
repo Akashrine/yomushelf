@@ -26,6 +26,12 @@ export type WishSeries = {
   estimateBasis: "series" | "publisher" | "average" | null;
 };
 
+const ESTIMATE_BASIS_LABEL = {
+  series: "d'après ton dernier prix payé pour cette série",
+  publisher: "prix de l'éditeur",
+  average: "d'après ton prix moyen payé",
+} as const;
+
 type Props = {
   items: WishItem[];
   series: WishSeries[]; // every series in the collection, used for grouping + the add form
@@ -210,7 +216,7 @@ export function WishlistView({ items, series }: Props) {
                   </span>
                   {item.target_price == null && item.volume_number != null && s?.estimate != null && (
                     <span className="text-xs" style={{ color: "var(--muted)" }}>
-                      {s.estimateBasis === "series" ? "d'après ton dernier prix payé pour cette série" : s.estimateBasis === "publisher" ? "prix de l'éditeur" : "d'après ton prix moyen payé"}
+                      {ESTIMATE_BASIS_LABEL[s.estimateBasis ?? "average"]}
                     </span>
                   )}
                   <span className="ml-auto flex flex-wrap items-center gap-1.5">

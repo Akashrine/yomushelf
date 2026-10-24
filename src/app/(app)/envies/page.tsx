@@ -36,27 +36,24 @@ export default async function EnviesPage() {
   ]);
   if (wishesError || collectionError) throw new Error("Impossible de charger les envies.");
 
-  // Estimates come from prices the reader really paid, never from a
-  // default : last price paid for the series, else their average price.
+  // Estimates are never a made-up default : last price paid for the
+  // series, else the publisher price, else the reader's average price.
   const average = spendingOverview(volumes, todayIso()).averagePaid;
   const priceOf = priceIndex(await loadPriceRows(supabase, [...(collections ?? []).map((c) => c.manga_id), ...(wishes ?? []).map((w) => w.manga_id)]));
   type MangaBits = { title: string; cover_url: string | null } | null;
   const toSeries = (manga_id: string, m: MangaBits): WishSeries => {
     const own = volumes.filter((v) => v.manga_id === manga_id);
     const seriesPaid = lastKnownPrice(own.filter((v) => v.acquisition_type === "bought"));
+    const list = priceOf(manga_id)?.amount ?? null;
     return {
       manga_id,
       title: m?.title ?? "Série",
       cover_url: m?.cover_url ?? null,
       nextVolume: nextVolumeToBuy(own),
       lastPrice: lastKnownPrice(own),
-      ...(() => {
-        // What was paid for this series, else the publisher price, else the reader's average.
-        const list = priceOf(manga_id)?.amount ?? null;
-        const estimate = seriesPaid ?? list ?? average;
-        const estimateBasis = seriesPaid != null ? "series" : list != null ? "publisher" : average != null ? "average" : null;
-        return { estimate, estimateBasis } as const;
-      })(),
+      // What was paid for this series, else the publisher price, else the reader's average.
+      estimate: seriesPaid ?? list ?? average,
+      estimateBasis: seriesPaid != null ? "series" : list != null ? "publisher" : average != null ? "average" : null,
     };
   };
   // Shelf series (for the add form) plus series only wished (from Découvrir).
