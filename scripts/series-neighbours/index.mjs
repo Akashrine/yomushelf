@@ -4,9 +4,12 @@
 // (multilingual-e5-small, MIT), then keeps its closest series.
 // Catalogue data only : no reader data leaves or enters this script.
 //
-// Usage (service key of the target project, never committed) :
-//   SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node scripts/series-neighbours.mjs [--dry-run]
+// Usage (own dependencies, never installed by the app ; service key of the
+// target project, never committed) :
+//   cd scripts/series-neighbours && ONNXRUNTIME_NODE_INSTALL_CUDA=skip npm ci
+//   SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node index.mjs [--dry-run]
 // Run again after a catalogue change ; rows of a previous run are replaced.
+// One run at a time : a run's purge removes the rows of any older run.
 
 import { createClient } from "@supabase/supabase-js";
 import { pipeline } from "@huggingface/transformers";
@@ -55,14 +58,22 @@ if (!url || !key) {
 }
 const supabase = createClient(url, key, { auth: { persistSession: false } });
 
-const { data: series, error } = await supabase
-  .from("mangas")
-  .select("id, title, genres, demographic, synopsis")
-  .is("created_by", null)
-  .is("merged_into", null)
-  .eq("curated", true)
-  .order("title");
-if (error) throw error;
+// PostgREST returns at most 1000 rows a call : read every page, then check
+// the total before writing anything (a short read would purge real links).
+const curated = () => supabase.from("mangas").select("id, title, genres, demographic, synopsis", { count: "exact" }).is("created_by", null).is("merged_into", null).eq("curated", true);
+const series = [];
+let expected = null;
+for (let from = 0; ; from += 1000) {
+  const { data, error, count } = await curated().order("id").range(from, from + 999);
+  if (error) throw error;
+  expected = count;
+  series.push(...data);
+  if (data.length < 1000) break;
+}
+if (series.length !== expected) {
+  console.error(`Lecture incomplète : ${series.length} séries lues sur ${expected}. Rien n'est écrit.`);
+  process.exit(1);
+}
 console.log(`${series.length} séries curées`);
 
 // e5 : the "query: " prefix on both sides for a symmetric similarity.

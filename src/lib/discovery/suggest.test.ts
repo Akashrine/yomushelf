@@ -176,7 +176,7 @@ describe("suggest with series neighbours", () => {
     const neighbours = new Map([["op", [{ id: "yo", rank: 1 }]]]);
     const out = suggest(liked, books, new Set(["op"]), { neighbours });
     const yo = out.find((s) => s.entry.id === "yo");
-    expect(yo?.reason).toBe("Proche de One Piece, que tu as aimé");
+    expect(yo?.reason).toBe("Parce que tu as aimé One Piece : une histoire proche");
     expect(yo?.because).toEqual(["One Piece"]);
   });
 

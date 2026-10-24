@@ -77,17 +77,28 @@ export function withReaderSeries(catalogue: CatalogueEntry[], series: SeriesMeta
   return map;
 }
 
-// Closest series of the given ones (series_neighbours). Optional : a
-// failure only means suggestions without this signal.
+// Closest series of the given ones (series_neighbours). Only catalogue
+// series have neighbours : pass those. Optional : a failure only means
+// suggestions without this signal.
 export async function loadNeighbours(supabase: Supabase, ids: string[]): Promise<Neighbours> {
   const out: Neighbours = new Map();
-  if (ids.length === 0) return out;
-  const { data, error } = await supabase.from("series_neighbours").select("manga_id, neighbour_id, rank").in("manga_id", ids).order("rank");
-  if (error) return out;
-  for (const r of data ?? []) {
-    const list = out.get(r.manga_id) ?? [];
-    list.push({ id: r.neighbour_id, rank: r.rank });
-    out.set(r.manga_id, list);
+  // 100 ids per call : a short URL, and at most 1200 rows (12 per series).
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await supabase
+      .from("series_neighbours")
+      .select("manga_id, neighbour_id, rank")
+      .in("manga_id", ids.slice(i, i + 100))
+      .order("rank")
+      .limit(1200);
+    if (error) {
+      console.error("series_neighbours", error.message);
+      return out;
+    }
+    for (const r of data ?? []) {
+      const list = out.get(r.manga_id) ?? [];
+      list.push({ id: r.neighbour_id, rank: r.rank });
+      out.set(r.manga_id, list);
+    }
   }
   return out;
 }

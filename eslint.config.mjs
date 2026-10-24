@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Off-app script with its own dependencies.
+    "scripts/series-neighbours/node_modules/**",
   ]),
 ]);
 

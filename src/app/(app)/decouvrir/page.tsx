@@ -16,12 +16,15 @@ export default async function DecouvrirPage() {
   const { supabase, user } = await getSessionUser();
   if (!user) redirect("/login");
 
-  const [selectionsResult, series, volumes, readings, { data: profile }, discovery, { data: synopses }] = await Promise.all([
+  // The reader's series, then the neighbours of those in the catalogue,
+  // inside the same round of queries.
+  const seriesP = getSeriesMeta(supabase, user.id, { includeArchived: true });
+  const [selectionsResult, series, volumes, readings, { data: profile }, discovery, { data: synopses }, neighbours] = await Promise.all([
     supabase
       .from("editorial_selections")
       .select("slug, title, description, position, editorial_selection_items ( manga_id, position, note )")
       .order("position"),
-    getSeriesMeta(supabase, user.id, { includeArchived: true }),
+    seriesP,
     getOwnedVolumes(supabase, user.id),
     getReadings(supabase, user.id),
     supabase.from("profiles").select("avatar_initials").eq("id", user.id).single(),
@@ -30,6 +33,7 @@ export default async function DecouvrirPage() {
     // computed : every curated synopsis now (~10 KB, server side only)
     // rather than a second round trip.
     supabase.from("mangas").select("id, synopsis").is("created_by", null).is("merged_into", null).eq("curated", true).not("synopsis", "is", null),
+    seriesP.then((s) => loadNeighbours(supabase, s.filter((x) => !x.is_private).map((x) => x.manga_id))),
   ]);
   if (selectionsResult.error) throw new Error("Impossible de charger les découvertes.");
 
@@ -43,8 +47,6 @@ export default async function DecouvrirPage() {
   const ctx = contentContext(library, knownMap, declared, scope);
   const onShelf = series.filter((s) => !s.archived_at).map((s) => s.manga_id);
   const excluded = new Set([...series.map((s) => s.manga_id), ...wished, ...dismissed]);
-  // Series close to the reader's own (one small query, their ids only).
-  const neighbours = await loadNeighbours(supabase, series.map((s) => s.manga_id));
 
   const suggestions = suggest(library, known, excluded, { limit: 9, declared, scope, neighbours }).map((s) => ({ entry: s.entry, reason: s.reason }));
   const others = otherUniverses(library, known, new Set([...excluded, ...suggestions.map((s) => s.entry.id)]), { declared, scope });

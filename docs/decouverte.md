@@ -44,7 +44,7 @@ Les séries sans genre connu (fiches personnelles, imports) ne comptent pas, et 
    - prochain tome chez toi, tome laissé de côté ;
    - tome à trouver (pas chez toi), avec « Je le veux ».
 2. **Pour toi** :
-   - séries proches de tes goûts, avec une raison tirée des données (« Parce que tu as aimé… », « Parce que tu lis… », « Parce que tu as … chez toi », « Du même auteur que… », « Proche de …, que tu as aimé », « Parce que tu aimes … ») ;
+   - séries proches de tes goûts, avec une raison tirée des données (« Parce que tu as aimé… », « Parce que tu lis… », « Parce que tu as … chez toi », « Du même auteur que… », « Parce que tu as aimé … : une histoire proche », « Parce que tu aimes … ») ;
    - « Pas pour moi » écarte une suggestion, avec annulation, et « Tout réafficher » les fait toutes revenir.
 3. **Mes goûts** : genres aimés ou évités. Permet de démarrer sans historique.
 4. **Explorer un univers différent** : une série par territoire peu visité.
@@ -64,8 +64,9 @@ Pour chaque série curée, les 12 séries qui racontent quelque chose de proche 
 - **Recalcul** après un changement du catalogue (le modèle est téléchargé une fois, environ 145 Mo) :
 
 ```bash
-SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node scripts/series-neighbours.mjs --dry-run   # aperçu
-SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node scripts/series-neighbours.mjs             # écrit
+cd scripts/series-neighbours && ONNXRUNTIME_NODE_INSTALL_CUDA=skip npm ci   # dépendances à part, jamais installées par l'app
+SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node index.mjs --dry-run   # aperçu
+SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node index.mjs             # écrit (un seul calcul à la fois)
 ```
 
 ## Données absentes

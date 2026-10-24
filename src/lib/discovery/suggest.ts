@@ -315,8 +315,8 @@ export function suggest(
           : `Parce que tu as ${joinFr(owned)} chez toi`;
       reason = `${verb}${commonGenres.length ? ` : ${joinFr(commonGenres)}` : ""}`;
     } else if (closeEnough) {
-      const how = close.from.liked === true ? "que tu as aimé" : close.from.read > 0 ? "que tu lis" : "que tu as chez toi";
-      reason = `Proche de ${close.title}, ${how}`;
+      const verb = close.from.liked === true ? `Parce que tu as aimé ${close.title}` : close.from.read > 0 ? `Parce que tu lis ${close.title}` : `Parce que tu as ${close.title} chez toi`;
+      reason = `${verb} : une histoire proche`;
     } else {
       reason = `Parce que tu aimes ${joinFr(declaredCommon.slice(0, 2).map((g) => GENRE_LABELS[g] ?? g))}`;
     }

@@ -1,0 +1,13 @@
+{
+  "name": "yomushelf-series-neighbours",
+  "private": true,
+  "type": "module",
+  "description": "Calcul hors de l'app des séries proches (voir docs/decouverte.md). Dépendances séparées : l'app et son build ne les installent jamais.",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "3.7.6",
+    "@supabase/supabase-js": "^2.103.3"
+  }
+}
