@@ -1,9 +1,11 @@
 import { notFound, redirect } from "next/navigation";
+import { after } from "next/server";
 import { getSessionUser } from "@/lib/supabase/session";
 import { getOwnedVolumes, getReadings, getSeriesMeta } from "@/lib/supabase/queries";
 import { loadDiscoveryContext, readerLibrary, withReaderSeries } from "@/lib/supabase/discovery-data";
 import { contentContext } from "@/lib/discovery/suggest";
 import { similarSeries } from "@/lib/discovery/similar";
+import { fillVolumeCoversOnView } from "@/lib/server/volume-covers-on-view";
 import { AppShell } from "@/components/app/app-shell";
 import { SerieDetail, type ShelfPresence } from "@/components/bibliotheque/serie-detail";
 
@@ -62,6 +64,12 @@ export default async function SeriePage({
     cover_url: c.cover_url,
     onShelf: shelfIds.has(c.id),
   }));
+
+  // Volumes without a cover yet : looked up after this page is sent, the
+  // next visit shows them (at most one Google Books round per 6 hours).
+  if (manga.created_by == null && manga.total_volumes && (catalogueVolumes?.length ?? 0) < manga.total_volumes) {
+    after(() => fillVolumeCoversOnView(manga.id));
+  }
 
   const presence: ShelfPresence = !collection ? "absent" : collection.archived_at ? "archived" : "on_shelf";
 

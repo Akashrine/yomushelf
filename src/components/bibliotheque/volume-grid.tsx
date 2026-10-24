@@ -11,6 +11,7 @@ type Props = {
   owned: Set<number>;
   read: Set<number>;
   covers: Record<number, string>;
+  fallbackCover?: string; // the series cover, for a volume at home whose own cover is not known yet
   onTap: (volume: number) => void;
   // series without a known end : one more volume can always be shown
   onExtend?: () => void;
@@ -24,12 +25,12 @@ type Props = {
 // Dashed outline and number of a volume not there yet (6:1 on paper).
 const MISSING = "#5b6170";
 
-export function VolumeGrid({ count, mode, owned, read, covers, onTap, onExtend }: Props) {
+export function VolumeGrid({ count, mode, owned, read, covers, fallbackCover, onTap, onExtend }: Props) {
   return (
     <ul className="grid grid-cols-4 gap-3 min-[420px]:grid-cols-5 sm:grid-cols-7 lg:grid-cols-9">
       {Array.from({ length: count }, (_, i) => i + 1).map((n) => (
         <li key={n}>
-          <Tile number={n} mode={mode} atHome={owned.has(n)} isRead={read.has(n)} cover={owned.has(n) ? covers[n] : undefined} onTap={() => onTap(n)} />
+          <Tile number={n} mode={mode} atHome={owned.has(n)} isRead={read.has(n)} cover={owned.has(n) ? covers[n] ?? fallbackCover : undefined} onTap={() => onTap(n)} />
         </li>
       ))}
       {onExtend && (

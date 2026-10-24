@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { isAuthorizedCron } from "@/lib/server/cron-auth";
-import { cleanThumbnail, searchBooks } from "@/lib/manga-api/google-books";
-import { cacheVolumeCoverToStorage } from "@/lib/manga-api/storage";
 import { runVolumeCovers, volumeCoversMode, type TargetSeries } from "@/lib/catalogue/volume-covers";
+import { volumeCoversDeps } from "@/lib/catalogue/volume-covers-deps";
 import type { Database } from "@/lib/types/database";
 
 // Vercel Cron — nightly at 04:00 UTC (vercel.json). Fills volume ISBNs and
@@ -58,23 +57,7 @@ async function handle(request: NextRequest) {
   }
 
   try {
-    const report = await runVolumeCovers(
-      mode,
-      {
-        targets,
-        search: searchBooks,
-        cacheCover: (url, isbn) => cacheVolumeCoverToStorage(cleanThumbnail(url), isbn),
-        async insert(row) {
-          const { error } = await supabase.from("volumes").insert({ ...row, edition: "standard" });
-          if (!error) return "inserted";
-          if (error.code === "23505") return "duplicate"; // ISBN or volume already known
-          throw error;
-        },
-        now: () => Date.now(),
-        pause: () => new Promise((r) => setTimeout(r, PAUSE_MS)),
-      },
-      LIMITS
-    );
+    const report = await runVolumeCovers(mode, volumeCoversDeps(supabase, targets, PAUSE_MS), LIMITS);
     return NextResponse.json({ ...report, timestamp: new Date().toISOString() });
   } catch {
     return NextResponse.json({ error: "Impossible de compléter les tomes." }, { status: 502 });
