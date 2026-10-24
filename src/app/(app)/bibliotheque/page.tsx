@@ -3,12 +3,14 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/supabase/session";
 import { getOwnedVolumes, getReadings, getSeriesMeta } from "@/lib/supabase/queries";
 import { buildShelves } from "@/lib/collection/reading";
+import { waitingAtHome } from "@/lib/univers/stats";
 import { AppShell } from "@/components/app/app-shell";
 import { LibraryHome, type ArchivedSeries, type ShelfCard, type WishPreview } from "@/components/bibliotheque/library-home";
 
 export const metadata: Metadata = { title: "Ma collection" };
 
-// Home of the app : the collection as a wall of covers, then the wishes.
+// Home of the app : the collection as a wall of covers, then the wishes,
+// what waits to be read, and the tool for readings from before Yomushelf.
 // Everything comes from the server render ; actions refresh it.
 export default async function BibliothequePage() {
   const { supabase, user } = await getSessionUser();
@@ -76,6 +78,8 @@ export default async function BibliothequePage() {
         archived={archived}
         wishes={wishPreview}
         wishCount={wishes.length}
+        waiting={waitingAtHome(shelves)}
+        pastReadSeries={active.map((s) => ({ manga_id: s.manga_id, title: s.title })).sort((a, b) => a.title.localeCompare(b.title, "fr"))}
       />
     </AppShell>
   );

@@ -5,16 +5,13 @@ import { getSessionUser } from "@/lib/supabase/session";
 import { getOwnedVolumes, getReadings, getSeriesMeta } from "@/lib/supabase/queries";
 import { loadDiscoveryContext, readerLibrary, withReaderSeries } from "@/lib/supabase/discovery-data";
 import { formatEur, formatMonthShort, lastKnownPrice, todayIso } from "@/lib/collection/value";
-import { buildShelves } from "@/lib/collection/reading";
-import { readingsOverview, spendingOverview, waitingAtHome, wishPrice, wishlistEstimate } from "@/lib/univers/stats";
+import { readingsOverview, spendingOverview, wishPrice, wishlistEstimate } from "@/lib/univers/stats";
 import { contentContext, territoryDiscoveries, territoryTastes } from "@/lib/discovery/suggest";
 import { TERRITORIES, type TerritoryKey } from "@/lib/discovery/territories";
 import { AppShell } from "@/components/app/app-shell";
 import { AppIcon } from "@/components/app/app-icon";
 import { MonthBars } from "@/components/univers/charts";
 import { TasteMap, type MapDiscovery } from "@/components/univers/taste-map";
-import { Settings } from "@/components/univers/settings";
-import { BulkReadForm } from "@/components/parent/bulk-read-form";
 
 export const metadata: Metadata = { title: "Mon univers" };
 
@@ -26,7 +23,7 @@ export default async function UniversPage() {
     getSeriesMeta(supabase, user.id, { includeArchived: true }),
     getOwnedVolumes(supabase, user.id),
     getReadings(supabase, user.id),
-    supabase.from("profiles").select("username, avatar_initials").eq("id", user.id).single(),
+    supabase.from("profiles").select("avatar_initials").eq("id", user.id).single(),
     supabase.from("wishlist_items").select("manga_id, volume_number, target_price").eq("user_id", user.id),
     loadDiscoveryContext(supabase, user.id),
   ]);
@@ -53,7 +50,6 @@ export default async function UniversPage() {
   const uncounted = library.filter((l) => (l.read + l.owned > 0 || l.liked) && (known.get(l.manga_id)?.genres.length ?? 0) === 0).length;
 
   const reads = readingsOverview(readings, new Map(series.map((s) => [s.manga_id, s.total_volumes])), today);
-  const waiting = waitingAtHome(buildShelves(series.filter((s) => !s.archived_at), volumes, readings));
   const spend = spendingOverview(volumes, today);
   const wishes = wishlistEstimate(
     (wishesResult.data ?? []).map((w) =>
@@ -106,37 +102,6 @@ export default async function UniversPage() {
               unitLabel="Tomes finis"
             />
           </Card>
-          <Card>
-            <p className="font-display text-2xl tracking-wide" style={{ color: "var(--ink)" }}>Qu&apos;est-ce que je peux lire maintenant ?</p>
-            {waiting.total === 0 ? (
-              <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-                Aucun tome non lu chez toi. <Link href="/decouvrir" className="inline-flex min-h-11 items-center font-bold underline decoration-2 underline-offset-4" style={{ color: "var(--ink)" }}>Trouver une idée</Link>
-              </p>
-            ) : (
-              <>
-                <p className="mb-3 text-xs" style={{ color: "var(--muted)" }}>
-                  {plural(waiting.total, "tome attend chez toi", "tomes attendent chez toi")}.
-                </p>
-                <ul className="flex flex-col gap-2">
-                  {waiting.series.map((w) => (
-                    <li key={w.manga_id}>
-                      <Link href={`/bibliotheque/${w.slug}`} className="grid min-h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-1 hover:underline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]">
-                        <span className="flex min-w-0 flex-col gap-1">
-                          <span className="truncate text-sm font-semibold">{w.title}</span>
-                          <span className="h-3 overflow-hidden rounded-full" style={{ background: "var(--background)", border: "2px solid var(--ink)" }} aria-hidden="true">
-                            <span className="block h-full rounded-full" style={{ width: `${Math.max(8, (w.unread / waiting.series[0].unread) * 100)}%`, background: "var(--read)" }} />
-                          </span>
-                        </span>
-                        <span className="flex items-center gap-0.5 text-sm font-bold tabular-nums" style={{ color: "var(--ink)" }}>
-                          {plural(w.unread, "à lire", "à lire")} <AppIcon name="chevron-right" size={14} />
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </Card>
         </section>
 
         {/* Spending */}
@@ -185,18 +150,9 @@ export default async function UniversPage() {
               unitLabel="Montant payé"
             />
           </Card>
-        </section>
-
-        {/* Wishlist estimate */}
-        <section aria-labelledby="h-envies" className="flex flex-col gap-4">
-          <div>
-            <h2 id="h-envies" className="text-3xl sm:text-4xl" style={{ color: "var(--ink)" }}>Mes envies</h2>
-            <p className="text-sm" style={{ color: "var(--muted)" }}>Une estimation de ce qu&apos;elles coûteraient. Ce n&apos;est pas une dépense.</p>
-          </div>
-          {wishes.count === 0 ? (
-            <Empty>Pas encore d&apos;envie. <Link href="/decouvrir" className="inline-flex min-h-11 items-center font-bold underline decoration-2 underline-offset-4" style={{ color: "var(--ink)" }}>Trouver des idées</Link></Empty>
-          ) : (
+          {wishes.count > 0 && (
             <Card>
+              <p className="font-display text-2xl tracking-wide" style={{ color: "var(--ink)" }}>Ce que coûteraient tes envies</p>
               <p className="font-display text-5xl tabular-nums tracking-wide" style={{ color: "var(--ink)" }}>≈ {formatEur(wishes.total)}</p>
               <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
                 {[
@@ -208,25 +164,13 @@ export default async function UniversPage() {
                 ]
                   .filter(Boolean)
                   .join(" · ")}
+                . Une estimation, pas une dépense.
               </p>
               <Link href="/envies" className="manga-panel-sm manga-press mt-4 inline-flex min-h-12 items-center gap-1 rounded-2xl px-4 text-base font-bold focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]" style={{ background: "var(--pop)", color: "var(--ink)" }}>
                 Voir mes envies <AppIcon name="chevron-right" size={16} />
               </Link>
             </Card>
           )}
-        </section>
-
-        {/* Tools & settings */}
-        {series.some((s) => !s.archived_at) && (
-          <section aria-labelledby="h-outils" className="flex flex-col gap-4">
-            <h2 id="h-outils" className="text-3xl sm:text-4xl" style={{ color: "var(--ink)" }}>Noter d&apos;anciennes lectures</h2>
-            <BulkReadForm series={series.filter((s) => !s.archived_at).map((s) => ({ manga_id: s.manga_id, title: s.title })).sort((a, b) => a.title.localeCompare(b.title, "fr"))} />
-          </section>
-        )}
-
-        <section id="reglages" aria-labelledby="h-reglages" className="flex scroll-mt-20 flex-col gap-4">
-          <h2 id="h-reglages" className="text-3xl sm:text-4xl" style={{ color: "var(--ink)" }}>Réglages</h2>
-          <Settings username={profile?.username ?? null} email={user.email ?? ""} />
         </section>
       </div>
     </AppShell>
@@ -251,10 +195,3 @@ function Stat({ value, label, hint }: { value: string; label: string; hint?: str
   );
 }
 
-function Empty({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="rounded-2xl p-4 text-sm font-medium" style={{ background: "var(--surface)", color: "var(--muted)", border: "2px dashed var(--ink)" }}>
-      {children}
-    </p>
-  );
-}

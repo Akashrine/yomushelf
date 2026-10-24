@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AppIcon } from "@/components/app/app-icon";
 
-export type AppSpace = "bibliotheque" | "decouvrir" | "univers" | null;
+export type AppSpace = "bibliotheque" | "decouvrir" | "univers" | "reglages" | null;
 
 const SPACES = [
   { key: "bibliotheque", href: "/bibliotheque", label: "Ma collection", icon: "books" },
@@ -21,7 +21,7 @@ type Props = {
 };
 
 // Two places (my collection, discover) and one big "+" : nothing else to
-// learn. Stats and settings ("Mon univers") sit behind the avatar.
+// learn. Stats ("Mon univers") sit behind the avatar, settings behind the gear.
 export function AppShell({ active, avatarInitials, children, hideMobileAdd = false }: Props) {
   return (
     <div className="flex min-h-screen flex-col" style={{ background: "var(--background)", color: "var(--foreground)" }}>
@@ -73,7 +73,7 @@ export function AppShell({ active, avatarInitials, children, hideMobileAdd = fal
           })}
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {!hideMobileAdd && (
             <Link
               href="/ajouter"
@@ -84,10 +84,19 @@ export function AppShell({ active, avatarInitials, children, hideMobileAdd = fal
               Ajouter
             </Link>
           )}
+          <Link
+            href="/reglages"
+            aria-label="Réglages"
+            aria-current={active === "reglages" ? "page" : undefined}
+            className="flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+            style={active === "reglages" ? { background: INK, color: POP } : { color: INK }}
+          >
+            <AppIcon name="settings" size={24} />
+          </Link>
           {avatarInitials && (
             <Link
               href="/univers"
-              aria-label={`${avatarInitials}, mon univers et mes réglages`}
+              aria-label={`${avatarInitials}, mon univers`}
               aria-current={active === "univers" ? "page" : undefined}
               className="flex h-11 w-11 items-center justify-center"
             >

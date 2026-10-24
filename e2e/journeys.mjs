@@ -143,9 +143,9 @@ if (process.env.SIGNUP === "1") {
     await s.page.waitForURL(/\/bibliotheque/, { timeout: 120000 }).catch(() => {});
     const inApp = /\/bibliotheque/.test(s.page.url());
     if (inApp) {
-      await go(s.page, "/univers");
+      await go(s.page, "/reglages");
       await s.page.getByRole("button", { name: "Me déconnecter" }).click();
-      await s.page.waitForURL((u) => !/\/univers/.test(u.pathname), { timeout: 60000 });
+      await s.page.waitForURL((u) => !/\/reglages/.test(u.pathname), { timeout: 60000 });
       await login(s.page, email);
     }
     check("Création de compte, déconnexion, reconnexion", inApp && /\/bibliotheque/.test(s.page.url()), s.page.url());
@@ -428,13 +428,40 @@ await step("Anciennes adresses redirigées", async () => {
     await go(page, p);
     out.push(new URL(page.url()).pathname);
   }
-  check("Anciennes adresses redirigées", out.join(",") === "/bibliotheque,/univers,/univers,/bibliotheque", out.join(","));
+  check("Anciennes adresses redirigées", out.join(",") === "/bibliotheque,/univers,/reglages,/bibliotheque", out.join(","));
+});
+
+await step("Rouage : les réglages à part, Mon univers ne garde que les chiffres", async () => {
+  await go(page, "/univers");
+  const uni = await text(page);
+  await page.getByRole("link", { name: "Réglages" }).click();
+  await page.waitForURL(/\/reglages$/, { timeout: 60000 });
+  const settings = await text(page);
+  check(
+    "Rouage : les réglages à part, Mon univers ne garde que les chiffres",
+    /Ma carte des goûts/.test(uni) && /Mes dépenses renseignées/.test(uni) &&
+      !/Me déconnecter|Noter d'anciennes lectures|Qu'est-ce que je peux lire/.test(uni) &&
+      /Pseudo/.test(settings) && /Me déconnecter/.test(settings),
+    page.url()
+  );
+});
+
+await step("Ma collection : à lire chez toi et anciennes lectures", async () => {
+  await go(page, "/bibliotheque");
+  const t = await text(page);
+  await page.getByText("Noter d'anciennes lectures").click();
+  const picker = await page.getByRole("spinbutton", { name: /lu jusqu'au tome/i }).isVisible();
+  check(
+    "Ma collection : à lire chez toi et anciennes lectures",
+    /À lire chez toi/.test(t) && /\d+ à lire/.test(t) && picker,
+    t.match(/À lire chez toi[^]{0,80}/)?.[0] ?? "absent"
+  );
 });
 
 await step("Déconnexion puis reconnexion : tout est retrouvé", async () => {
-  await go(page, "/univers");
+  await go(page, "/reglages");
   await page.getByRole("button", { name: "Me déconnecter" }).click();
-  await page.waitForURL((u) => !/\/univers/.test(u.pathname), { timeout: 60000 });
+  await page.waitForURL((u) => !/\/reglages/.test(u.pathname), { timeout: 60000 });
   const blocked = await page.goto(`${BASE}/bibliotheque`, { waitUntil: "load" }).then(() => /\/login/.test(page.url()));
   await login(page, "e2e@yomushelf.local");
   const t = await text(page);

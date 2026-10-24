@@ -49,6 +49,7 @@ export async function updateSession(request: NextRequest) {
     "/envies",
     "/onboarding",
     "/profil",
+    "/reglages",
     "/ajouter",
     "/wrapped",
     "/bienvenue",
