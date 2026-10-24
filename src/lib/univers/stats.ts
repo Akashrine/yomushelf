@@ -170,19 +170,48 @@ export function spendingOverview(volumes: OwnedVolume[], today: string) {
 // Price of a wish, in this order (never invented) :
 //   indicative : the price the reader typed for this wish
 //   series     : estimated from the last price paid for this series
+//   publisher  : the publisher price of the series (or its publisher's usual price)
 //   average    : estimated from the reader's average paid price
 //   unknown    : no basis at all
 export type WishPrice =
   | { kind: "whole_series" } // a wish for a whole series : not priced
   | { kind: "indicative"; amount: number }
-  | { kind: "series" | "average"; amount: number }
+  | { kind: "series" | "publisher" | "average"; amount: number }
   | { kind: "unknown" };
 
-export function wishPrice(targetPrice: number | null, seriesLastPaid: number | null, readerAverage: number | null): WishPrice {
+export function wishPrice(targetPrice: number | null, seriesLastPaid: number | null, readerAverage: number | null, listPrice: number | null = null): WishPrice {
   if (targetPrice != null) return { kind: "indicative", amount: Number(targetPrice) };
   if (seriesLastPaid != null) return { kind: "series", amount: Number(seriesLastPaid) };
+  if (listPrice != null) return { kind: "publisher", amount: Number(listPrice) };
   if (readerAverage != null) return { kind: "average", amount: Number(readerAverage) };
   return { kind: "unknown" };
+}
+
+// What the collection is worth in a bookshop : every volume at home (not
+// borrowed) at the price the reader typed, else at its publisher price.
+// Nothing to type ; the part that is estimated is always told apart.
+export function collectionValue(volumes: OwnedVolume[], priceOf: (mangaId: string) => { amount: number } | null) {
+  let typed = 0;
+  let typedCount = 0;
+  let listed = 0;
+  let listedCount = 0;
+  let unknownCount = 0;
+  for (const v of volumes) {
+    if (v.acquisition_type === "borrowed") continue;
+    if (v.price_eur != null) {
+      typed += Number(v.price_eur);
+      typedCount++;
+      continue;
+    }
+    const list = priceOf(v.manga_id);
+    if (list) {
+      listed += list.amount;
+      listedCount++;
+    } else {
+      unknownCount++;
+    }
+  }
+  return { total: round2(typed + listed), typed: round2(typed), typedCount, listed: round2(listed), listedCount, unknownCount };
 }
 
 export function wishlistEstimate(prices: WishPrice[]) {

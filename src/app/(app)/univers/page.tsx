@@ -5,7 +5,8 @@ import { getSessionUser } from "@/lib/supabase/session";
 import { getOwnedVolumes, getReadings, getSeriesMeta } from "@/lib/supabase/queries";
 import { loadDiscoveryContext, readerLibrary, withReaderSeries } from "@/lib/supabase/discovery-data";
 import { formatEur, formatMonthShort, lastKnownPrice, todayIso } from "@/lib/collection/value";
-import { readingsOverview, spendingOverview, wishPrice, wishlistEstimate } from "@/lib/univers/stats";
+import { collectionValue, readingsOverview, spendingOverview, wishPrice, wishlistEstimate } from "@/lib/univers/stats";
+import { priceIndex } from "@/lib/univers/prices";
 import { contentContext, territoryDiscoveries, territoryTastes } from "@/lib/discovery/suggest";
 import { TERRITORIES, type TerritoryKey } from "@/lib/discovery/territories";
 import { AppShell } from "@/components/app/app-shell";
@@ -19,13 +20,15 @@ export default async function UniversPage() {
   const { supabase, user } = await getSessionUser();
   if (!user) redirect("/login");
 
-  const [series, volumes, readings, { data: profile }, wishesResult, discovery] = await Promise.all([
+  const [series, volumes, readings, { data: profile }, wishesResult, discovery, { data: priceRows }] = await Promise.all([
     getSeriesMeta(supabase, user.id, { includeArchived: true }),
     getOwnedVolumes(supabase, user.id),
     getReadings(supabase, user.id),
     supabase.from("profiles").select("avatar_initials").eq("id", user.id).single(),
     supabase.from("wishlist_items").select("manga_id, volume_number, target_price").eq("user_id", user.id),
     loadDiscoveryContext(supabase, user.id),
+    // Publisher prices : the shared catalogue and the reader's own series (RLS)
+    supabase.from("mangas").select("id, publisher_fr, list_price_eur").is("merged_into", null),
   ]);
   if (wishesResult.error) throw new Error("Impossible de charger tes envies.");
 
@@ -51,12 +54,15 @@ export default async function UniversPage() {
 
   const reads = readingsOverview(readings, new Map(series.map((s) => [s.manga_id, s.total_volumes])), today);
   const spend = spendingOverview(volumes, today);
+  const priceOf = priceIndex(priceRows ?? []);
+  const worth = collectionValue(volumes, priceOf);
   const wishes = wishlistEstimate(
     (wishesResult.data ?? []).map((w) =>
       w.volume_number == null ? ({ kind: "whole_series" } as const) : wishPrice(
         w.target_price == null ? null : Number(w.target_price),
         lastKnownPrice(volumes.filter((v) => v.manga_id === w.manga_id && v.acquisition_type === "bought")),
-        spend.averagePaid
+        spend.averagePaid,
+        priceOf(w.manga_id)?.amount ?? null
       )
     )
   );
@@ -103,6 +109,27 @@ export default async function UniversPage() {
             />
           </Card>
         </section>
+
+        {/* What the collection is worth : nothing to type */}
+        {worth.typedCount + worth.listedCount + worth.unknownCount > 0 && (
+          <section aria-labelledby="h-valeur" className="flex flex-col gap-4">
+            <h2 id="h-valeur" className="text-3xl sm:text-4xl" style={{ color: "var(--ink)" }}>Ma collection</h2>
+            <Card>
+              <p className="font-display text-5xl tabular-nums tracking-wide" style={{ color: "var(--ink)" }}>≈ {formatEur(worth.total)}</p>
+              <p className="mt-1 text-base font-bold" style={{ color: "var(--ink)" }}>ce que valent tes tomes en librairie</p>
+              <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+                {[
+                  worth.listedCount ? plural(worth.listedCount, "tome au prix de l'éditeur", "tomes au prix de l'éditeur") : null,
+                  worth.typedCount ? plural(worth.typedCount, "tome au prix que tu as noté", "tomes au prix que tu as noté") : null,
+                  worth.unknownCount ? `${plural(worth.unknownCount, "tome sans prix connu, non compté", "tomes sans prix connu, non comptés")}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>En France, l&apos;éditeur fixe le prix d&apos;un livre : c&apos;est le même partout. Rien à saisir.</p>
+            </Card>
+          </section>
+        )}
 
         {/* Spending */}
         <section aria-labelledby="h-depenses" className="flex flex-col gap-4">
@@ -165,7 +192,7 @@ export default async function UniversPage() {
                 {[
                   plural(wishes.count, "envie", "envies"),
                   wishes.knownCount ? `${formatEur(wishes.known)} de prix indicatifs que tu as notés` : null,
-                  wishes.estimatedCount ? `${formatEur(wishes.estimated)} estimés d'après les prix que tu as payés` : null,
+                  wishes.estimatedCount ? `${formatEur(wishes.estimated)} estimés (prix payés ou prix de l'éditeur)` : null,
                   wishes.unknownCount ? `${plural(wishes.unknownCount, "prix inconnu, non compté", "prix inconnus, non comptés")}` : null,
                   wishes.wholeSeriesCount ? `${plural(wishes.wholeSeriesCount, "série entière, non chiffrée", "séries entières, non chiffrées")}` : null,
                 ]

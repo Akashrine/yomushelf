@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/supabase/session";
 import { getOwnedVolumes } from "@/lib/supabase/queries";
 import { lastKnownPrice, nextVolumeToBuy, todayIso } from "@/lib/collection/value";
 import { spendingOverview } from "@/lib/univers/stats";
+import { priceIndex } from "@/lib/univers/prices";
 import { AppShell } from "@/components/app/app-shell";
 import { WishlistView, type WishItem, type WishSeries } from "@/components/envies/wishlist-view";
 import { FamilySharePanel, type FamilyShareStatus } from "@/components/envies/family-share-panel";
@@ -17,7 +18,7 @@ export default async function EnviesPage() {
   const { supabase, user } = await getSessionUser();
   if (!user) redirect("/login");
 
-  const [{ data: profile }, { data: wishes, error: wishesError }, { data: collections, error: collectionError }, volumes, { data: share }] = await Promise.all([
+  const [{ data: profile }, { data: wishes, error: wishesError }, { data: collections, error: collectionError }, volumes, { data: share }, { data: priceRows }] = await Promise.all([
     supabase.from("profiles").select("username, avatar_initials, age_band, sharing_locked").eq("id", user.id).single(),
     supabase
       .from("wishlist_items")
@@ -31,12 +32,15 @@ export default async function EnviesPage() {
     getOwnedVolumes(supabase, user.id),
     // Status only : the reader never reads the token nor what was offered.
     supabase.from("wishlist_shares").select("expires_at, revoked_at").eq("user_id", user.id).maybeSingle(),
+    // Publisher prices : the shared catalogue and the reader's own series (RLS)
+    supabase.from("mangas").select("id, publisher_fr, list_price_eur").is("merged_into", null),
   ]);
   if (wishesError || collectionError) throw new Error("Impossible de charger les envies.");
 
   // Estimates come from prices the reader really paid, never from a
   // default : last price paid for the series, else their average price.
   const average = spendingOverview(volumes, todayIso()).averagePaid;
+  const priceOf = priceIndex(priceRows ?? []);
   type MangaBits = { title: string; cover_url: string | null } | null;
   const toSeries = (manga_id: string, m: MangaBits): WishSeries => {
     const own = volumes.filter((v) => v.manga_id === manga_id);
@@ -47,8 +51,13 @@ export default async function EnviesPage() {
       cover_url: m?.cover_url ?? null,
       nextVolume: nextVolumeToBuy(own),
       lastPrice: lastKnownPrice(own),
-      estimate: seriesPaid ?? average,
-      estimateBasis: seriesPaid != null ? "series" : average != null ? "average" : null,
+      ...(() => {
+        // What was paid for this series, else the publisher price, else the reader's average.
+        const list = priceOf(manga_id)?.amount ?? null;
+        const estimate = seriesPaid ?? list ?? average;
+        const estimateBasis = seriesPaid != null ? "series" : list != null ? "publisher" : average != null ? "average" : null;
+        return { estimate, estimateBasis } as const;
+      })(),
     };
   };
   // Shelf series (for the add form) plus series only wished (from Découvrir).

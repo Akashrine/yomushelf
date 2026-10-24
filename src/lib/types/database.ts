@@ -151,6 +151,9 @@ export type Database = {
           audience_age_scope: "series" | "volume" | null;
           audience_age_volumes: number[] | null;
           audience_age_ref: string | null;
+          list_price_eur: number | null;
+          list_price_ref: string | null;
+          list_price_year: number | null;
           audience_age_year: number | null;
           curated: boolean;
           merged_into: string | null;
@@ -183,6 +186,9 @@ export type Database = {
           audience_age_scope?: "series" | "volume" | null;
           audience_age_volumes?: number[] | null;
           audience_age_ref?: string | null;
+          list_price_eur?: number | null;
+          list_price_ref?: string | null;
+          list_price_year?: number | null;
           audience_age_year?: number | null;
           curated?: boolean;
           merged_into?: string | null;
@@ -214,6 +220,9 @@ export type Database = {
           audience_age_scope?: "series" | "volume" | null;
           audience_age_volumes?: number[] | null;
           audience_age_ref?: string | null;
+          list_price_eur?: number | null;
+          list_price_ref?: string | null;
+          list_price_year?: number | null;
           audience_age_year?: number | null;
           curated?: boolean;
           merged_into?: string | null;
