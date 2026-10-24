@@ -14,7 +14,7 @@
 --   selection lists the whole series, 'volume' when only some volumes
 --   were reviewed (never used as the series' age).
 -- * Covers come from the nightly catalogue-covers job (MyAnimeList id, else
---   the French volume 1 on Google Books).
+--   the French volume 1 on Google Books, same publisher).
 -- * "GE, good ending" (CNLJ 13+) is left out : MyAnimeList flags its
 --   content, and the import rules refuse such entries.
 -- Rollback : supabase/rollbacks/20261024000100_catalogue_cnlj_growth_down.sql
@@ -33,10 +33,12 @@ returns boolean
 language sql
 stable
 as $$
-  -- Keys in another script (kana, hangul) normalise to '' : never a match.
+  -- Keys in another script (kana, hangul) normalise to '' or to a stray
+  -- digit or letter : only keys of 3 characters or more count. The
+  -- MyAnimeList id still catches a real duplicate.
   with keys as (
     select public.normalize_search(k) as key from unnest(p_keys) k
-    where public.normalize_search(k) <> ''
+    where length(public.normalize_search(k)) >= 3
   )
   select exists (
     select 1 from public.mangas m
@@ -956,7 +958,7 @@ with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, synopsis, aliases, external_ids, curated, is_top_50_fr,
   audience_min_age, audience_age_source, audience_age_scope, audience_age_volumes, audience_age_ref, audience_age_year)
 select 'Terrarium', 'Yūna Hirasawa', 'Glénat', 4, 'completed'::public.manga_status,
-  array['science-fiction','aventure','tranche-de-vie']::text[], 'seinen', 'Dans un monde presque vidé de ses humains, la jeune Chico et Pino, son petit frère robot, parcourent d''immenses cités abandonnées à la recherche de traces de vie et de leur mère disparue.', array['kagi-tsuki terrarium','kagitsuki terrarium','鍵つきテラリウム','terrarium under lock','the terrarium with key']::text[], '{"mal_id":121647}'::jsonb, true, false,
+  array['science-fiction','aventure','tranche-de-vie']::text[], 'seinen', 'Une fillette et un petit robot traversent des villes désertées, en quête d''autres survivants et de leur mère.', array['kagi-tsuki terrarium','kagitsuki terrarium','鍵つきテラリウム','terrarium under lock','the terrarium with key']::text[], '{"mal_id":121647}'::jsonb, true, false,
   13, 'cnlj', 'series', null, 'https://cnlj.bnf.fr/sites/default/files/bibliographies/mangamania-2026.pdf', 2026
 where not pg_temp.catalogue_has(array['Terrarium','kagi-tsuki terrarium','kagitsuki terrarium','鍵つきテラリウム','terrarium under lock','the terrarium with key']::text[], 121647)
 returning id
@@ -1341,7 +1343,7 @@ with inserted as (
 insert into public.mangas (title, author, publisher_fr, total_volumes, status, genres, demographic, synopsis, aliases, external_ids, curated, is_top_50_fr,
   audience_min_age, audience_age_source, audience_age_scope, audience_age_volumes, audience_age_ref, audience_age_year)
 select 'Roji !', 'Keisuke Kotobuki', 'Ki-oon', 11, 'completed'::public.manga_status,
-  array['fantasy','tranche-de-vie','comedie']::text[], 'kodomo', 'Avec sa petite sœur et sa bande, la petite Yuzu explore les ruelles de sa ville, peuplées de créatures féeriques et de chats aux drôles de pouvoirs.', array['roji!','roji']::text[], '{}'::jsonb, true, false,
+  array['fantasy','tranche-de-vie','comedie']::text[], 'kodomo', 'Yuzu et ses amis découvrent que les ruelles de leur quartier abritent tout un petit peuple magique.', array['roji!','roji']::text[], '{}'::jsonb, true, false,
   6, 'cnlj', 'series', null, 'https://cnlj.bnf.fr/sites/default/files/cnlj-mangamania-2022.pdf', 2022
 where not pg_temp.catalogue_has(array['Roji !','roji!','roji']::text[], null)
 returning id
@@ -1573,7 +1575,7 @@ insert into public.mangas (title, author, publisher_fr, total_volumes, status, g
   audience_min_age, audience_age_source, audience_age_scope, audience_age_volumes, audience_age_ref, audience_age_year)
 select 'Hinatsuba : celle qui maniait le sabre', 'Kôichi Masahara', 'Petit à petit (Kotodama)', 1, 'completed'::public.manga_status,
   array['historique','action','drame']::text[], null, 'Au temps des samouraïs, la jeune Suzu s''entraîne au sabre et cherche sa propre voie dans une société où les femmes ont peu de place.', array['hinatsuba','ひなつば']::text[], '{"mal_id":113291}'::jsonb, true, false,
-  13, 'cnlj', 'volume', null, 'https://cnlj.bnf.fr/sites/default/files/file_media/flash_2025-2026.pdf', 2025
+  null, null, null, null, null, null
 where not pg_temp.catalogue_has(array['Hinatsuba : celle qui maniait le sabre','hinatsuba','ひなつば']::text[], 113291)
 returning id
 )
