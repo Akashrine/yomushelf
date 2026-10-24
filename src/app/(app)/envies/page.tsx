@@ -4,6 +4,8 @@ import { getSessionUser } from "@/lib/supabase/session";
 import { getOwnedVolumes } from "@/lib/supabase/queries";
 import { lastKnownPrice, nextVolumeToBuy, todayIso } from "@/lib/collection/value";
 import { spendingOverview } from "@/lib/univers/stats";
+import { priceIndex } from "@/lib/univers/prices";
+import { loadPriceRows } from "@/lib/supabase/price-data";
 import { AppShell } from "@/components/app/app-shell";
 import { WishlistView, type WishItem, type WishSeries } from "@/components/envies/wishlist-view";
 import { FamilySharePanel, type FamilyShareStatus } from "@/components/envies/family-share-panel";
@@ -37,6 +39,7 @@ export default async function EnviesPage() {
   // Estimates come from prices the reader really paid, never from a
   // default : last price paid for the series, else their average price.
   const average = spendingOverview(volumes, todayIso()).averagePaid;
+  const priceOf = priceIndex(await loadPriceRows(supabase, [...(collections ?? []).map((c) => c.manga_id), ...(wishes ?? []).map((w) => w.manga_id)]));
   type MangaBits = { title: string; cover_url: string | null } | null;
   const toSeries = (manga_id: string, m: MangaBits): WishSeries => {
     const own = volumes.filter((v) => v.manga_id === manga_id);
@@ -47,8 +50,13 @@ export default async function EnviesPage() {
       cover_url: m?.cover_url ?? null,
       nextVolume: nextVolumeToBuy(own),
       lastPrice: lastKnownPrice(own),
-      estimate: seriesPaid ?? average,
-      estimateBasis: seriesPaid != null ? "series" : average != null ? "average" : null,
+      ...(() => {
+        // What was paid for this series, else the publisher price, else the reader's average.
+        const list = priceOf(manga_id)?.amount ?? null;
+        const estimate = seriesPaid ?? list ?? average;
+        const estimateBasis = seriesPaid != null ? "series" : list != null ? "publisher" : average != null ? "average" : null;
+        return { estimate, estimateBasis } as const;
+      })(),
     };
   };
   // Shelf series (for the add form) plus series only wished (from Découvrir).

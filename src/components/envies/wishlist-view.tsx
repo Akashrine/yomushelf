@@ -22,8 +22,8 @@ export type WishSeries = {
   cover_url: string | null;
   nextVolume: number;
   lastPrice: number | null;
-  estimate: number | null; // from prices the reader paid, shown as an estimate only
-  estimateBasis: "series" | "average" | null;
+  estimate: number | null; // from prices paid or the publisher price, shown as an estimate only
+  estimateBasis: "series" | "publisher" | "average" | null;
 };
 
 type Props = {
@@ -210,7 +210,7 @@ export function WishlistView({ items, series }: Props) {
                   </span>
                   {item.target_price == null && item.volume_number != null && s?.estimate != null && (
                     <span className="text-xs" style={{ color: "var(--muted)" }}>
-                      {s.estimateBasis === "series" ? "d'après ton dernier prix payé pour cette série" : "d'après ton prix moyen payé"}
+                      {s.estimateBasis === "series" ? "d'après ton dernier prix payé pour cette série" : s.estimateBasis === "publisher" ? "prix de l'éditeur" : "d'après ton prix moyen payé"}
                     </span>
                   )}
                   <span className="ml-auto flex flex-wrap items-center gap-1.5">
