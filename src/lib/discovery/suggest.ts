@@ -142,11 +142,18 @@ const joinFr = (items: string[]) =>
 
 export type DiscoveryScope = "all" | "youth_verified";
 
+// Closest catalogue series of a series (series_neighbours, rank 1 = closest).
+export type Neighbours = Map<string, { id: string; rank: number }[]>;
+const NEIGHBOUR_RANKS = 12;
+// rank 1 → 1, rank 12 → 1/12
+export const closeness = (rank: number) => Math.max(0, (NEIGHBOUR_RANKS + 1 - rank) / NEIGHBOUR_RANKS);
+
 export type SuggestOptions = {
   limit?: number;
   maxAge?: number | null; // explicit cap (overrides the comfort age)
   declared?: DeclaredTastes;
   scope?: DiscoveryScope;
+  neighbours?: Neighbours; // of the reader's series
 };
 
 // ─────────────────────────────────────────
@@ -238,7 +245,7 @@ export function suggest(
   library: ReaderSeries[],
   catalogue: CatalogueEntry[],
   excluded: Set<string>, // in the library, wished, or set aside
-  { limit = 12, maxAge = null, declared = NO_TASTES, scope = "all" }: SuggestOptions = {}
+  { limit = 12, maxAge = null, declared = NO_TASTES, scope = "all", neighbours }: SuggestOptions = {}
 ): Suggestion[] {
   const byId = new Map(catalogue.map((c) => [c.id, c]));
   const profile = tasteProfile(library, byId, declared);
@@ -248,6 +255,17 @@ export function suggest(
   const readerSeries = library
     .map((s) => ({ s, entry: byId.get(s.manga_id), w: seriesWeight(s) }))
     .filter((x): x is { s: ReaderSeries; entry: CatalogueEntry; w: number } => x.entry != null && x.w > 0);
+
+  // Series close to the reader's own by what they tell (not only by genre),
+  // the strongest link per candidate : liked and read series count most.
+  const maxWeight = Math.max(0, ...readerSeries.map((x) => x.w));
+  const near = new Map<string, { link: number; from: ReaderSeries; title: string }>();
+  for (const x of readerSeries) {
+    for (const n of neighbours?.get(x.s.manga_id) ?? []) {
+      const link = (x.w / maxWeight) * closeness(n.rank);
+      if (link > (near.get(n.id)?.link ?? 0)) near.set(n.id, { link, from: x.s, title: x.entry.title });
+    }
+  }
 
   const out: Suggestion[] = [];
   for (const c of catalogue) {
@@ -262,6 +280,8 @@ export function suggest(
     if (sameAuthor > 0) score += 0.35;
     // A light popularity prior only breaks ties.
     if (c.top_50_rank != null) score += (51 - c.top_50_rank) / 1000;
+    const close = near.get(c.id);
+    if (close) score += 0.6 * close.link;
     if (score <= 0.05) continue;
 
     // Reason : the reader's series sharing the most with this one, liked
@@ -276,7 +296,8 @@ export function suggest(
       .sort((a, b) => b.strength - a.strength)
       .slice(0, 2);
     const declaredCommon = c.genres.filter((g) => declared.liked.includes(g));
-    if (shared.length === 0 && declaredCommon.length === 0) continue;
+    const closeEnough = close != null && close.link >= 0.25;
+    if (shared.length === 0 && declaredCommon.length === 0 && !closeEnough) continue;
 
     let reason: string;
     const authorMatch = shared.find((x) => x.author);
@@ -293,11 +314,14 @@ export function suggest(
           ? `Parce que tu lis ${joinFr(read)}`
           : `Parce que tu as ${joinFr(owned)} chez toi`;
       reason = `${verb}${commonGenres.length ? ` : ${joinFr(commonGenres)}` : ""}`;
+    } else if (closeEnough) {
+      const how = close.from.liked === true ? "que tu as aimé" : close.from.read > 0 ? "que tu lis" : "que tu as chez toi";
+      reason = `Proche de ${close.title}, ${how}`;
     } else {
       reason = `Parce que tu aimes ${joinFr(declaredCommon.slice(0, 2).map((g) => GENRE_LABELS[g] ?? g))}`;
     }
 
-    out.push({ entry: c, score, reason, because: shared.map((x) => x.entry.title) });
+    out.push({ entry: c, score, reason, because: shared.length ? shared.map((x) => x.entry.title) : closeEnough ? [close.title] : [] });
   }
 
   return out.sort((a, b) => b.score - a.score || a.entry.title.localeCompare(b.entry.title, "fr")).slice(0, limit);

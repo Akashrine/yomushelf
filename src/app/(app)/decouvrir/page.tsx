@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/supabase/session";
 import { getOwnedVolumes, getReadings, getSeriesMeta } from "@/lib/supabase/queries";
-import { loadDiscoveryContext, readerLibrary, withReaderSeries } from "@/lib/supabase/discovery-data";
+import { loadDiscoveryContext, loadNeighbours, readerLibrary, withReaderSeries } from "@/lib/supabase/discovery-data";
 import { contentAllowed, contentContext, otherUniverses, suggest } from "@/lib/discovery/suggest";
 import { buildDeck } from "@/lib/discovery/deck";
 import { territoryRows, toRef, type RowDraft } from "@/lib/discovery/rows";
@@ -43,13 +43,15 @@ export default async function DecouvrirPage() {
   const ctx = contentContext(library, knownMap, declared, scope);
   const onShelf = series.filter((s) => !s.archived_at).map((s) => s.manga_id);
   const excluded = new Set([...series.map((s) => s.manga_id), ...wished, ...dismissed]);
+  // Series close to the reader's own (one small query, their ids only).
+  const neighbours = await loadNeighbours(supabase, series.map((s) => s.manga_id));
 
-  const suggestions = suggest(library, known, excluded, { limit: 9, declared, scope }).map((s) => ({ entry: s.entry, reason: s.reason }));
+  const suggestions = suggest(library, known, excluded, { limit: 9, declared, scope, neighbours }).map((s) => ({ entry: s.entry, reason: s.reason }));
   const others = otherUniverses(library, known, new Set([...excluded, ...suggestions.map((s) => s.entry.id)]), { declared, scope });
   // The swipe deck : more personal suggestions, then other universes, then
   // the most read series this reader may be proposed.
   const deck = buildDeck(
-    [...suggest(library, known, excluded, { limit: 30, declared, scope }), ...others],
+    [...suggest(library, known, excluded, { limit: 30, declared, scope, neighbours }), ...others],
     catalogue,
     excluded,
     ctx

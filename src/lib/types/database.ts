@@ -557,6 +557,14 @@ export type Database = {
         Update: { token_hash?: string; expires_at?: string; created_at?: string };
         Relationships: [];
       };
+      // Closest curated series (scripts/series-neighbours.mjs) : readable
+      // like the catalogue, written by the service role only.
+      series_neighbours: {
+        Row: { manga_id: string; neighbour_id: string; rank: number; score: number; model: string; computed_at: string };
+        Insert: { manga_id: string; neighbour_id: string; rank: number; score: number; model: string; computed_at: string };
+        Update: { rank?: number; score?: number; model?: string; computed_at?: string };
+        Relationships: [];
+      };
       // Service role only : never readable by the reader (surprise).
       wishlist_reservations: {
         Row: {

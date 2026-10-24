@@ -23,6 +23,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@huggingface/transformers": "3.7.6",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

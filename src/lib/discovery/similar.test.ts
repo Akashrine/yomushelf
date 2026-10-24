@@ -47,3 +47,17 @@ describe("similarSeries", () => {
     expect(similarSeries(entry("t"), [entry("a", { genres: ["aventure"] })], ctx)).toEqual([]);
   });
 });
+
+describe("similarSeries with neighbours", () => {
+  const target = entry("t", { genres: ["aventure", "action"], demographic: "shonen" });
+  const catalogue = [entry("a", { genres: ["aventure"] }), entry("b", { genres: ["aventure"] }), entry("calm", { genres: ["tranche-de-vie"] })];
+
+  it("a close series comes first, even with fewer shared genres", () => {
+    expect(similarSeries(target, catalogue, ctx, 12, [{ id: "b", rank: 1 }]).map((c) => c.id)[0]).toBe("b");
+  });
+
+  it("includes a close series sharing no genre", () => {
+    expect(similarSeries(target, catalogue, ctx, 12, [{ id: "calm", rank: 2 }]).map((c) => c.id)).toContain("calm");
+    expect(similarSeries(target, catalogue, ctx).map((c) => c.id)).not.toContain("calm");
+  });
+});
