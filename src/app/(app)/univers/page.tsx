@@ -150,9 +150,16 @@ export default async function UniversPage() {
               unitLabel="Montant payé"
             />
           </Card>
-          {wishes.count > 0 && (
+        </section>
+
+        {/* Wishlist estimate : apart from spending, it is not money spent */}
+        {wishes.count > 0 && (
+          <section aria-labelledby="h-envies" className="flex flex-col gap-4">
+            <div>
+              <h2 id="h-envies" className="text-3xl sm:text-4xl" style={{ color: "var(--ink)" }}>Mes envies</h2>
+              <p className="text-sm" style={{ color: "var(--muted)" }}>Une estimation de ce qu&apos;elles coûteraient. Ce n&apos;est pas une dépense.</p>
+            </div>
             <Card>
-              <p className="font-display text-2xl tracking-wide" style={{ color: "var(--ink)" }}>Ce que coûteraient tes envies</p>
               <p className="font-display text-5xl tabular-nums tracking-wide" style={{ color: "var(--ink)" }}>≈ {formatEur(wishes.total)}</p>
               <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
                 {[
@@ -164,14 +171,13 @@ export default async function UniversPage() {
                 ]
                   .filter(Boolean)
                   .join(" · ")}
-                . Une estimation, pas une dépense.
               </p>
               <Link href="/envies" className="manga-panel-sm manga-press mt-4 inline-flex min-h-12 items-center gap-1 rounded-2xl px-4 text-base font-bold focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]" style={{ background: "var(--pop)", color: "var(--ink)" }}>
                 Voir mes envies <AppIcon name="chevron-right" size={16} />
               </Link>
             </Card>
-          )}
-        </section>
+          </section>
+        )}
       </div>
     </AppShell>
   );
