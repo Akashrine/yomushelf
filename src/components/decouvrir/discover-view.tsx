@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppIcon } from "@/components/app/app-icon";
@@ -70,7 +70,10 @@ export function DiscoverView({ featured, deck, rowDrafts, excluded, shelfTitles,
 
   const shelfSet = useMemo(() => new Set(onShelf), [onShelf]);
   const wishSet = useMemo(() => new Set(wished), [wished]);
-  const fits = (e: CatalogueEntry) => maxAge == null || matchesFilters(e, { territory: null, genre: null, maxAge, status: null, length: null });
+  const fits = useCallback(
+    (e: CatalogueEntry) => maxAge == null || matchesFilters(e, { territory: null, genre: null, maxAge, status: null, length: null }),
+    [maxAge]
+  );
 
   const searching = query.trim().length >= 2;
   const results = useMemo(
@@ -102,8 +105,8 @@ export function DiscoverView({ featured, deck, rowDrafts, excluded, shelfTitles,
   const badge = (id: string) => (shelfSet.has(id) ? "shelf" : wishSet.has(id) ? "wish" : null);
   const byId = useMemo(() => new Map(catalogue.map((c) => [c.id, c])), [catalogue]);
   const visibleRows: DiscoverRow[] = useMemo(
-    () => composeRows(fromRefs(rowDrafts, byId, (e) => maxAge == null || matchesFilters(e, { territory: null, genre: null, maxAge, status: null, length: null })), new Set(excluded), new Set(shelfTitles)),
-    [rowDrafts, byId, maxAge, excluded, shelfTitles]
+    () => composeRows(fromRefs(rowDrafts, byId, fits), new Set(excluded), new Set(shelfTitles)),
+    [rowDrafts, byId, fits, excluded, shelfTitles]
   );
 
   return (

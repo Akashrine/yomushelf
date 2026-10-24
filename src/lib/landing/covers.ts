@@ -14,14 +14,18 @@ const LANDING_DECK: { title: string; reason: string }[] = [
 ];
 
 // Anonymous client without cookies : the page stays static (revalidated)
-// and only shared catalogue rows are readable under RLS. Without Supabase
-// settings (a preview build without its variables) the page still builds,
-// with no deck, instead of failing the deployment.
-export async function getLandingDeck(): Promise<DeckCard[]> {
+// and only shared catalogue rows are readable under RLS. Null without
+// Supabase settings (a preview build without its variables) : the page
+// still builds instead of failing the deployment.
+function anonCatalogueClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return [];
-  const supabase = createClient<Database>(url, key, { auth: { persistSession: false } });
+  return url && key ? createClient<Database>(url, key, { auth: { persistSession: false } }) : null;
+}
+
+export async function getLandingDeck(): Promise<DeckCard[]> {
+  const supabase = anonCatalogueClient();
+  if (!supabase) return [];
   const { data, error } = await supabase
     .from("mangas")
     .select("id, title, author, genres, demographic, audience_min_age, audience_age_source, audience_age_scope, audience_age_volumes, audience_age_year, total_volumes, status, top_50_rank, cover_url")
@@ -48,10 +52,8 @@ export async function getLandingDeck(): Promise<DeckCard[]> {
 // for the whole series. Null when unknown : the page then says nothing
 // rather than a stale number.
 export async function getCatalogueFigures(): Promise<{ series: number; verifiedAge: number } | null> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  const supabase = createClient<Database>(url, key, { auth: { persistSession: false } });
+  const supabase = anonCatalogueClient();
+  if (!supabase) return null;
   const curated = () => supabase.from("mangas").select("id", { count: "exact", head: true }).is("created_by", null).is("merged_into", null).eq("curated", true);
   const [all, aged] = await Promise.all([curated(), curated().eq("audience_age_source", "cnlj").eq("audience_age_scope", "series")]);
   if (all.error || aged.error || all.count == null || aged.count == null) return null;

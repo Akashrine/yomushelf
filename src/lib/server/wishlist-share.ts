@@ -97,5 +97,5 @@ export const loadSharedList = cache(async (token: string) => {
   if (error) throw new Error("Impossible de charger cette liste.");
   if (!data) return null;
   const owner = !!own?.data;
-  return owner ? { ...data, owner, items: data.items.map((i) => ({ ...i, reserved: false, mine: false })) } : { ...data, owner };
+  return { ...data, owner, items: owner ? data.items.map((i) => ({ ...i, reserved: false, mine: false })) : data.items };
 });
