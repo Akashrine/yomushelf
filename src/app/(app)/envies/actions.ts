@@ -10,6 +10,7 @@ import { serviceClient } from "@/lib/server/consent";
 import { familyListRequestEmail, sendEmail } from "@/lib/server/email";
 import { hashLinkToken, newLinkToken } from "@/lib/server/link-token";
 import { createFamilyShare, parentPageUrl, stopFamilyShare } from "@/lib/server/wishlist-share";
+import { logServerEvent } from "@/lib/server/analytics";
 import { DisplayNameSchema, defaultShareExpiry } from "@/lib/wishlist/share";
 
 type ActionResult = { success: true } | { success: false; error: string };
@@ -208,6 +209,7 @@ export async function shareMyList(_prev: ShareState, formData: FormData): Promis
   // the page does not offer them the form.
   const share = await createFamilyShare(user.id, name.data, false);
   if (!share) return { error: "Le lien n'a pas pu être créé. Réessaie dans quelques minutes.", value };
+  await logServerEvent("family_list_created", { by: "reader" });
   // No revalidatePath : re-rendering the panel would unmount the form
   // holding the link, shown this once. The status updates on next visit.
   return { link: share.url, until: frenchDate(share.expiresAt), value: name.data };
@@ -217,6 +219,7 @@ export async function stopMyShare(): Promise<ShareState> {
   const { user } = await getAuthed();
   if (!user) return { error: "Non authentifié." };
   if (!(await stopFamilyShare(user.id))) return { error: "Le partage n'a pas pu être arrêté. Réessaie." };
+  await logServerEvent("family_list_stopped", { by: "reader" });
   revalidatePath("/envies");
   return {};
 }
@@ -268,6 +271,7 @@ export async function askParentToShare(): Promise<ShareState> {
     else await service.from("wishlist_parent_links").delete().eq("user_id", user.id);
     return { error: "L'email n'est pas parti. Réessaie dans quelques minutes." };
   }
+  await logServerEvent("family_list_requested", {});
   revalidatePath("/envies");
   return { sent: true };
 }

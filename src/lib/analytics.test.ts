@@ -56,3 +56,17 @@ describe("cleanPath", () => {
     expect(cleanPath("/bibliotheque/021acb54-f7e7-4f75-9618-3716f1b03eb3")).toBe("/bibliotheque/id");
   });
 });
+
+describe("family list events", () => {
+  const ev = (name: string, props: Record<string, unknown> = {}) => validateEvents([{ name, props }]);
+  it("keeps the declared properties only", () => {
+    expect(ev("family_list_created", { by: "parent" })).toHaveLength(1);
+    expect(ev("family_list_stopped", { by: "reader" })).toHaveLength(1);
+    expect(ev("family_list_offered")).toHaveLength(1);
+  });
+  it("refuses a link, a name or an unknown actor", () => {
+    expect(ev("family_list_created", { by: "grandma" })).toHaveLength(0);
+    expect(ev("family_list_viewed", { token: "x".repeat(43) })).toHaveLength(0);
+    expect(ev("family_list_offered", { item: "Naruto" })).toHaveLength(0);
+  });
+});

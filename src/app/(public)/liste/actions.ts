@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { logServerEvent } from "@/lib/server/analytics";
 import { serviceClient } from "@/lib/server/consent";
 import { hashLinkToken, isLinkToken } from "@/lib/server/link-token";
 import { offerSecret } from "@/lib/server/wishlist-share";
@@ -33,6 +34,7 @@ export async function offerItem(formData: FormData) {
   if (error) back(token, item, "erreur");
   // Link stopped : the page says so. Volume removed meanwhile : said above the list.
   if (data === "not_found") redirect(`/liste/${token}?etat=retire&tome=${item}`);
+  if (data === "reserved") await logServerEvent("family_list_offered", {});
   back(token, item, data === "reserved" ? "offert" : data === "taken" ? "deja" : "trop");
 }
 
@@ -46,5 +48,6 @@ export async function cancelOffer(formData: FormData) {
     p_undo_hash: hashLinkToken(secret!),
   });
   if (error) back(token, item, "erreur");
+  if (data === "released") await logServerEvent("family_list_released", {});
   back(token, item, data === "released" ? "annule" : data === "busy" ? "trop" : "pas-toi");
 }

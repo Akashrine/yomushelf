@@ -42,6 +42,13 @@ Ajouter `?utm_source=<canal>` à chaque lien posté : `tiktok`, `instagram`, `yo
 | `deck_opened` / `deck_swiped` | Jeu des cartes (app) | `choice` wish/pass/skip |
 | `discover_filtered` / `discover_searched` | Découvrir | `age` / — |
 | `pictures_opened` / `similar_clicked` | Fiche série | — |
+| `family_list_requested` | Un enfant de moins de 15 ans demande à son parent de partager sa liste (serveur) | — |
+| `family_list_created` | Un lien de liste de Noël créé (serveur) | `by` : reader (15 ans et plus), parent |
+| `family_list_viewed` | Un proche ouvre une liste active (le propriétaire qui ouvre son lien ne compte pas) | — |
+| `family_list_offered` / `family_list_released` | « Je l'offre » / « Annuler » sur la page de la famille (serveur) | — |
+| `family_list_stopped` | Le lien est arrêté (serveur) | `by` : reader, parent |
+
+Aucun de ces événements ne porte le lien, le prénom affiché ni un titre. Un double appui du même téléphone sur « Je l'offre » compte deux fois `family_list_offered`.
 
 ## Requêtes (SQL editor Supabase, prod)
 
@@ -129,4 +136,18 @@ select event_name, properties - 'src' - 'path' - 'device' as detail, count(*)
 from analytics_events
 where created_at > now() - interval '7 days' and event_name in ('volume_toggled','fill_prompt_answered','deck_swiped','wish_added','quick_add_done')
 group by 1, 2 order by 1, 3 desc;
+```
+
+**Liste de Noël : de la demande à l'offre, 30 derniers jours**
+
+```sql
+select
+  count(*) filter (where event_name = 'family_list_requested') as demandes_au_parent,
+  count(*) filter (where event_name = 'family_list_created')   as liens_crees,
+  count(*) filter (where event_name = 'family_list_viewed')    as ouvertures_par_les_proches,
+  count(*) filter (where event_name = 'family_list_offered')   as tomes_offerts,
+  count(*) filter (where event_name = 'family_list_released')  as offres_annulees,
+  count(*) filter (where event_name = 'family_list_stopped')   as liens_arretes
+from analytics_events
+where created_at > now() - interval '30 days';
 ```
