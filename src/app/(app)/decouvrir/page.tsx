@@ -3,12 +3,12 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/supabase/session";
 import { getOwnedVolumes, getReadings, getSeriesMeta } from "@/lib/supabase/queries";
 import { loadDiscoveryContext, readerLibrary, withReaderSeries } from "@/lib/supabase/discovery-data";
-import { GENRE_LABELS, GENRES, contentAllowed, contentContext, otherUniverses, suggest } from "@/lib/discovery/suggest";
+import { contentAllowed, contentContext, otherUniverses, suggest } from "@/lib/discovery/suggest";
 import { buildDeck } from "@/lib/discovery/deck";
+import { territoryRows, toRef, type RowDraft } from "@/lib/discovery/rows";
+import { todayIso } from "@/lib/collection/value";
 import { AppShell } from "@/components/app/app-shell";
-import { DiscoverView, type DiscoverRow, type Selection } from "@/components/decouvrir/discover-view";
-
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+import { DiscoverView, type Selection } from "@/components/decouvrir/discover-view";
 
 export const metadata: Metadata = { title: "Découvrir" };
 
@@ -71,22 +71,18 @@ export default async function DecouvrirPage() {
     .filter((s) => s.items.length > 0);
 
   // Rows of covers, like a streaming home : personal first, then the
-  // editorial selections, the most read, and one row per genre. Same
-  // content rules everywhere.
+  // editorial selections, the most read, and one row per genre family.
+  // Same content rules everywhere. The view composes them (after its age
+  // filter) : nothing the reader already has, each series once on the
+  // page (lib/discovery/rows.ts).
   const allowed = catalogue.filter((c) => contentAllowed(c, ctx));
   const byRank = [...allowed].sort((a, b) => (a.top_50_rank ?? 999) - (b.top_50_rank ?? 999) || a.title.localeCompare(b.title, "fr"));
-  const liked = new Set(declared.liked);
-  const genreRows: DiscoverRow[] = GENRES.filter((g) => !declared.avoided.includes(g))
-    .map((g) => ({ key: `genre-${g}`, title: cap(GENRE_LABELS[g]), items: byRank.filter((c) => c.genres.includes(g)).slice(0, 15).map((entry) => ({ entry })) }))
-    .filter((r) => r.items.length >= 4)
-    .sort((a, b) => Number(liked.has(b.key.slice(6))) - Number(liked.has(a.key.slice(6))) || b.items.length - a.items.length)
-    .slice(0, 6);
-  const rows: DiscoverRow[] = [
-    { key: "pour-toi", title: "Pour toi", subtitle: suggestions.length ? "D'après ta collection et tes goûts." : null, items: suggestions },
-    ...selections.map((s) => ({ key: s.slug, title: s.title, subtitle: s.description, items: s.items })),
-    { key: "plus-lus", title: "Les plus lus en France", items: byRank.filter((c) => c.top_50_rank != null).slice(0, 15).map((entry) => ({ entry })) },
-    { key: "autre", title: "Un univers différent", subtitle: "Pour sortir de tes habitudes.", items: others },
-    ...genreRows,
+  const drafts: RowDraft[] = [
+    { key: "pour-toi", title: "Pour toi", subtitle: suggestions.length ? "D'après ta collection et tes goûts." : null, items: suggestions, priority: 0, min: 3 },
+    ...selections.map((s, i) => ({ key: s.slug, title: s.title, subtitle: s.description, items: s.items, priority: 20 + i, min: 3 })),
+    { key: "plus-lus", title: "Les plus lus en France", items: byRank.filter((c) => c.top_50_rank != null).map((entry) => ({ entry })), priority: 40 },
+    { key: "autre", title: "Un univers différent", subtitle: "Pour sortir de tes habitudes.", items: others, priority: 10, min: 3 },
+    ...territoryRows(allowed, `${todayIso()}:${user.id}`, declared),
   ];
 
   const featuredCard = suggestions[0] ?? (deck[0] ? { entry: deck[0].entry, reason: deck[0].reason } : null);
@@ -97,7 +93,9 @@ export default async function DecouvrirPage() {
       <DiscoverView
         featured={featuredCard ? { card: featuredCard, synopsis: featuredSynopsis } : null}
         deck={deck}
-        rows={rows}
+        rowDrafts={drafts.map(toRef)}
+        excluded={[...excluded]}
+        shelfTitles={series.map((s) => s.title)}
         catalogue={allowed}
         onShelf={onShelf}
         wished={wished}

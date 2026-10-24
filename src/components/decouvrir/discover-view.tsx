@@ -10,6 +10,7 @@ import { restoreSuggestions, saveDeclaredTastes } from "@/app/(app)/decouvrir/ac
 import { GENRE_LABELS, GENRES, ageLabel, matchesFilters, type CatalogueEntry, type DeclaredTastes, type DiscoveryScope } from "@/lib/discovery/suggest";
 import type { DeckCard } from "@/lib/discovery/deck";
 import { titleKey } from "@/lib/manga-api/merge";
+import { composeRows, fromRefs, type RowDraftRef } from "@/lib/discovery/rows";
 import { SwipeDeck } from "./swipe-deck";
 import { track } from "@/lib/analytics";
 
@@ -21,7 +22,9 @@ export type Featured = { card: DiscoverCard; synopsis: string | null } | null;
 type Props = {
   featured: Featured;
   deck: DeckCard[];
-  rows: DiscoverRow[];
+  rowDrafts: RowDraftRef[];
+  excluded: string[]; // on the shelf, wished or set aside : never in a row
+  shelfTitles: string[];
   catalogue: CatalogueEntry[];
   onShelf: string[];
   wished: string[];
@@ -56,7 +59,7 @@ type Toast = { ok: boolean; text: string; undo?: () => void };
 // Découvrir, like a streaming home : one featured series, the card game
 // one tap away, then rows of covers. Every cover opens the series page,
 // where the reader decides. An age chip row filters everything.
-export function DiscoverView({ featured, deck, rows, catalogue, onShelf, wished, declared, scope, scopeLocked, dismissedCount, hasHistory }: Props) {
+export function DiscoverView({ featured, deck, rowDrafts, excluded, shelfTitles, catalogue, onShelf, wished, declared, scope, scopeLocked, dismissedCount, hasHistory }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [toast, setToast] = useState<Toast | null>(null);
@@ -97,7 +100,11 @@ export function DiscoverView({ featured, deck, rows, catalogue, onShelf, wished,
   };
 
   const badge = (id: string) => (shelfSet.has(id) ? "shelf" : wishSet.has(id) ? "wish" : null);
-  const visibleRows = rows.map((r) => ({ ...r, items: r.items.filter((i) => fits(i.entry)) })).filter((r) => r.items.length >= 3);
+  const byId = useMemo(() => new Map(catalogue.map((c) => [c.id, c])), [catalogue]);
+  const visibleRows: DiscoverRow[] = useMemo(
+    () => composeRows(fromRefs(rowDrafts, byId, (e) => maxAge == null || matchesFilters(e, { territory: null, genre: null, maxAge, status: null, length: null })), new Set(excluded), new Set(shelfTitles)),
+    [rowDrafts, byId, maxAge, excluded, shelfTitles]
+  );
 
   return (
     <div className="flex flex-col gap-8">
