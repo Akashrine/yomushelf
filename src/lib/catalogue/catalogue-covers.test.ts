@@ -8,9 +8,9 @@ function deps(targets: CoverTarget[], over: Partial<CatalogueCoversDeps> = {}) {
   const d: CatalogueCoversDeps = {
     targets: async () => targets,
     malCover: async (id) => (calls.push(`mal:${id}`), `https://cdn.myanimelist.net/${id}.jpg`),
-    bookCover: async (title) => (calls.push(`book:${title}`), `https://books.google.com/${title}.jpg`),
+    bookCover: async (t) => (calls.push(`book:${t.title}`), `https://books.google.com/${t.title}.jpg`),
     cache: async (url, id) => `https://storage/covers/${id}?from=${url}`,
-    save: async (id, url) => void saved.push([id, url]),
+    save: async (id, url) => (saved.push([id, url]), true),
     now: () => clock,
     pause: async () => void (clock += 1),
     ...over,
@@ -18,7 +18,7 @@ function deps(targets: CoverTarget[], over: Partial<CatalogueCoversDeps> = {}) {
   return { d, saved, calls };
 }
 
-const t = (id: string, malId: number | null = null): CoverTarget => ({ id, title: `Série ${id}`, total: 10, malId });
+const t = (id: string, malId: number | null = null): CoverTarget => ({ id, title: `Série ${id}`, total: 10, malId, publisher: "Kana" });
 
 describe("runCatalogueCovers", () => {
   it("takes the MyAnimeList cover by exact id, and never asks Google Books then", async () => {
@@ -44,10 +44,23 @@ describe("runCatalogueCovers", () => {
     expect(calls).toEqual([]);
   });
 
-  it("reports a series with no cover anywhere, and survives a provider error", async () => {
-    const { d } = deps([t("a", 1)], { malCover: async () => Promise.reject(new Error("503")), bookCover: async () => null });
+  it("reports a series with no cover anywhere", async () => {
+    const { d } = deps([t("a")], { bookCover: async () => null });
     const r = await runCatalogueCovers(d, { maxSeries: 10, deadlineMs: 1000 });
     expect(r).toMatchObject({ written: 0, missing: ["Série a"] });
+  });
+
+  it("when MyAnimeList does not answer, never falls back to a title search : next night", async () => {
+    const { d, calls, saved } = deps([t("a", 1)], { malCover: async () => Promise.reject(new Error("503")) });
+    const r = await runCatalogueCovers(d, { maxSeries: 10, deadlineMs: 1000 });
+    expect(r).toMatchObject({ written: 0, unanswered: ["Série a"], missing: [] });
+    expect(calls).toEqual([]);
+    expect(saved).toEqual([]);
+  });
+
+  it("does not count a cover written meanwhile by another job", async () => {
+    const { d } = deps([t("a", 1)], { save: async () => false });
+    expect((await runCatalogueCovers(d, { maxSeries: 10, deadlineMs: 1000 })).written).toBe(0);
   });
 
   it("stops at the series budget and at the deadline", async () => {
