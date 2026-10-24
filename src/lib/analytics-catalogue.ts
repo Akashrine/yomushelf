@@ -41,9 +41,6 @@ export const EVENTS = {
   pictures_opened: z.object({}),
   similar_clicked: z.object({}),
   // Wrapped (kept from the earlier version)
-  wrapped_viewed: z.object({ year: z.number().int() }),
-  wrapped_card_viewed: z.object({ year: z.number().int(), card_index: count }),
-  wrapped_shared: z.object({ year: z.number().int(), platform: z.enum(["download", "link"]) }),
 } as const;
 
 export type EventName = keyof typeof EVENTS;

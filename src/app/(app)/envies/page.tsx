@@ -20,7 +20,7 @@ export default async function EnviesPage() {
   if (!user) redirect("/login");
 
   const [{ data: profile }, { data: wishes, error: wishesError }, { data: collections, error: collectionError }, volumes, { data: share }] = await Promise.all([
-    supabase.from("profiles").select("username, avatar_initials, age_band, sharing_locked").eq("id", user.id).single(),
+    supabase.from("profiles").select("username, avatar_initials, age_band").eq("id", user.id).single(),
     supabase
       .from("wishlist_items")
       .select("id, manga_id, volume_number, target_price, priority, mangas ( title, cover_url )")
@@ -100,15 +100,13 @@ export default async function EnviesPage() {
 // Under 15 the parent shares : the panel says whether the email went out.
 async function familyShareStatus(
   userId: string,
-  profile: { username: string | null; age_band: string | null; sharing_locked: boolean } | null,
+  profile: { username: string | null; age_band: string | null } | null,
   share: { expires_at: string; revoked_at: string | null } | null,
   hasWishes: boolean
 ): Promise<FamilyShareStatus | null> {
   const activeUntil = isActiveShare(share) && share ? frenchDate(new Date(share.expires_at)) : null;
   if (profile?.age_band === "15_plus") {
-    // A locked account may not share (the database refuses it too).
-    if (profile.sharing_locked && !activeUntil) return null;
-    return { kind: "reader", activeUntil, defaultName: profile.username ?? "", canCreate: hasWishes && !profile.sharing_locked };
+    return { kind: "reader", activeUntil, defaultName: profile.username ?? "", canCreate: hasWishes };
   }
   if (profile?.age_band !== "under_15") return null;
   if (activeUntil) return { kind: "child", activeUntil, askedOn: null, parentEmail: null };
