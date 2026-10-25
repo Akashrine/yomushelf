@@ -115,56 +115,49 @@ Voir `docs/publication.md`, section « Répétition effectuée ». Outils :
 
 ## 4. Parcours dans un vrai navigateur
 
+Une commande, sur la base locale uniquement :
+
 ```bash
-# comptes de test vidés : e2e@yomushelf.local et other@yomushelf.local (mot de passe e2e-yomushelf)
-docker cp e2e/reset.sql supabase_db_Yomushelf-v2:/tmp/reset.sql
-docker exec supabase_db_Yomushelf-v2 psql "$DB" -q -f /tmp/reset.sql
-
-# application branchée sur la base locale
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:55421 NEXT_PUBLIC_SUPABASE_ANON_KEY=<clé anon locale> \
-SUPABASE_SERVICE_ROLE_KEY=<clé service locale> NEXT_PUBLIC_APP_URL=http://localhost:3100 npx next dev -p 3100
-
-# mobile (390×844, tactile) puis ordinateur (1280×800)
-SIGNUP=1 BASE=http://localhost:3100 node e2e/journeys.mjs
-# remettre les comptes à zéro avant chaque passage
-VIEWPORT=desktop BASE=http://localhost:3100 node e2e/journeys.mjs
+e2e/run.sh            # parcours mobile, parcours ordinateur, puis liste de Noël
+e2e/run.sh journeys   # seulement les parcours
+e2e/run.sh family     # seulement la liste de Noël
+e2e/run.sh serve      # l'application seule sur la base locale, pour l'explorer
 ```
 
-Chromium : celui du cache Playwright (`npx playwright-core install chromium`), ou `CHROME=<chemin>`.
+Le lanceur :
+- exige la pile locale (`npx supabase start`, conteneur `supabase_db_Yomushelf-v2`, API sur le port 55421) et refuse de tourner si l'adresse n'est pas locale ;
+- donne l'adresse et les clés locales à l'application par son environnement (qui l'emporte sur `.env.local`) : le `.env.local` de production n'est jamais modifié ;
+- vide les comptes de test avant chaque passage (`e2e/reset.sql`) puis les vide à nouveau à la fin ;
+- coupe les emails (`RESEND_API_KEY` vide : ils sont écrits dans le journal du serveur de développement) et la recherche de jaquettes.
+
+Comptes de test (mot de passe `e2e-yomushelf`) :
+
+| Compte | Profil |
+|---|---|
+| `e2e@yomushelf.local` | 15 ans et plus, bibliothèque vide |
+| `other@yomushelf.local` | 15 ans et plus |
+| `kid@yomushelf.local` | moins de 15 ans, accord du parent (`parent.leo@yomushelf.local`) donné |
+
+Chromium : celui du cache Playwright (`npx playwright-core install chromium`), ou `CHROME=<chemin>`. Un seul scénario : `ONLY="Découvrir" BASE=http://localhost:3100 node e2e/journeys.mjs` (les étapes se suivent : celle choisie peut dépendre des précédentes). `SHOTS=<dossier>` garde les captures, dont celle de l'étape qui échoue.
 
 Scénarios couverts par `e2e/journeys.mjs` :
 
-- **Comptes** : création de compte (`SIGNUP=1`), déconnexion, reconnexion, page protégée sans session.
-- **États vides** : bibliothèque, Découvrir, Mon univers.
-- **Recherche** : zéro, un, deux et plusieurs résultats du catalogue, sans doublon.
-- **Ajout** :
-  - plage de tomes et lecture « jusqu'au » ;
-  - double clic sans doublon ;
-  - tomes épars, « J'ai un nouveau tome » ;
-  - réajout qui garde le prix ;
-  - « J'ai lu tous ceux que j'ai ».
-- **Lecture** :
-  - possession sans lecture, lecture sans possession (tome à trouver) ;
-  - « Lu jusqu'au » expliqué puis annulé ;
-  - persistance après rechargement.
-- **Fiche personnelle** : création, modification, invisible pour un autre compte.
-- **Erreur réseau** sur une sauvegarde : message d'erreur, rien d'enregistré, réussite ensuite.
-- **Anciens profils publics** : réponse 404.
+- **Premier lancement** : une bibliothèque vide mène à l'ajout rapide ; deux séries et leurs tomes en quelques touches ; le mur de couvertures, le bouton « Mes envies », « À lire chez toi ».
+- **Fiche série** : toucher un tome l'ajoute, le retoucher l'enlève ; toucher le tome 29 propose les 28 d'avant ; noter un tome lu, compté dans Mon univers.
+- **Recherche** : zéro, un et plusieurs résultats du catalogue, sans doublon.
+- **Fiche personnelle** : création, modification, invisible pour un autre compte, suppression qui demande le titre.
 - **Retirer puis remettre** une série : les lectures sont gardées.
-- **Découvrir** : raisons des suggestions, « Pas pour moi » puis annulation, « Je le veux ».
-- **Envies et argent** : envie achetée avec son prix, l'estimation ne compte pas comme dépense, couverture des prix.
-- **Carte des goûts** : clic sur un territoire.
-- **Suppression définitive** et redirection des anciennes adresses.
+- **Découvrir** : des rangées, chaque série une fois, aucune série déjà chez soi.
+- **Envies et argent** : envie achetée avec son prix ; « Ma collection » estimée au prix de l'éditeur, sans rien saisir.
+- **Carte des goûts**, **erreur réseau** sur une sauvegarde (message honnête, rien d'annoncé à tort), anciennes adresses redirigées, anciens profils publics en 404.
+- **Réglages derrière le rouage** : Mon univers ne garde que les chiffres, pseudo, déconnexion, reconnexion.
+- **Moins de 15 ans** : la recherche ne montre que les séries à âge vérifié, rien ne part vers MyAnimeList, les refus ne vident pas la liste.
+- **Pages publiques** : confidentialité à jour, mentions légales, page privée renvoyée vers la connexion.
+- **Création de compte** (`SIGNUP=1`) : l'âge est demandé, puis l'application s'ouvre.
 
 ### Liste de Noël partagée (`e2e/family-list.mjs`)
 
-L'application tourne sans Resend (`RESEND_API_KEY` vide, `next dev`) : les emails sont écrits dans son journal, où le script lit les liens.
-
-```bash
-# e2e@yomushelf.local : moins de 15 ans avec accord parental ; other@yomushelf.local : 15 ans et plus ; des envies pour les deux
-npx next dev -p 3100 > /tmp/dev.log 2>&1   # mêmes variables que ci-dessus, RESEND_API_KEY= RESEND_FROM_EMAIL=
-LOG=/tmp/dev.log SERVICE=<clé service locale> node e2e/family-list.mjs
-```
+`e2e/run.sh family` : l'application tourne sans Resend (`next dev`), les emails sont écrits dans son journal, où le script lit les liens. Comptes : `kid@` est l'enfant (moins de 15 ans, accord du parent), `other@` un adolescent de 15 ans ; `e2e/seed-family.sql` leur donne des envies.
 
 Scénarios (45 vérifications) :
 
