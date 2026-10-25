@@ -6,6 +6,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { AddFlow, type FlowSeries } from "@/components/ajouter/add-flow";
 import { QuickAdd } from "@/components/ajouter/quick-add";
 import { minorMayAdd } from "@/lib/discovery/minor-catalogue";
+import { mayHaveSeries } from "@/lib/server/youth-selection";
 
 export const metadata: Metadata = { title: "Ajouter un manga" };
 
@@ -56,7 +57,9 @@ export default async function AjouterPage({
   if (serieResult) {
     const [{ data: manga, error }, volumes, readings] = serieResult;
     if (error) throw new Error("Impossible de charger cette série.");
-    if (manga) {
+    // A series the youth selection does not allow is not opened from a link either.
+    const allowed = manga && (profile?.age_band === "15_plus" || (await mayHaveSeries(supabase, user.id, manga.id)) === true);
+    if (manga && allowed) {
       initial = {
         key: manga.id,
         title: manga.title,
@@ -85,7 +88,7 @@ export default async function AjouterPage({
   if (popular.error) throw new Error("Impossible de charger les séries populaires.");
   // One card per title : the catalogue still holds a few duplicates.
   const seen = new Set<string>();
-  const minor = profile?.age_band === "under_15";
+  const minor = profile?.age_band !== "15_plus"; // under 15, or not said yet
   const popularSeries: FlowSeries[] = (popular.data ?? [])
     // Under 15 : the youth selection, plus what is already on their shelf.
     .filter((m) => !minor || minorMayAdd(m) || owned.some((v) => v.manga_id === m.id))

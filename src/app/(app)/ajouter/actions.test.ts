@@ -6,7 +6,8 @@ const state = vi.hoisted(() => ({
   user: { id: "11111111-1111-4111-a111-111111111111" } as { id: string } | null,
   existingByExternal: null as { id: string } | null,
   existingById: null as ({ id: string } & Record<string, unknown>) | null,
-  ageBand: "15_plus" as string,
+  ageBand: "15_plus" as string | null,
+  profileError: false,
   onShelf: false,
   quota: true,
   inserted: [] as Record<string, unknown>[],
@@ -36,7 +37,8 @@ function query(table: string) {
       error: state.lookupError,
     }),
     // profiles : the reader's age band
-    single: async () => ({ data: table === "profiles" ? { age_band: state.ageBand } : null, error: null }),
+    single: async () =>
+      state.profileError ? { data: null, error: { code: "08006" } } : { data: table === "profiles" ? { age_band: state.ageBand } : null, error: null },
     upsert: async (row: Record<string, unknown>) => {
       state.upserts.push(row);
       return { error: state.saveError };
@@ -115,6 +117,7 @@ beforeEach(() => {
   state.existingByExternal = null;
   state.existingById = null;
   state.ageBand = "15_plus";
+  state.profileError = false;
   state.onShelf = false;
   state.inserted = [];
   state.upserts = [];
@@ -306,6 +309,20 @@ describe("a reader under 15", () => {
     expect((await addMangaFromExternalSource(form({ source: "mal", mal_id: "13" }))).success).toBe(false);
     state.existingById = verified;
     expect((await addMangaFromExternalSource(form({ source: "mal", mal_id: "13" }))).success).toBe(true);
+  });
+
+  it("is restricted too while the age question is not answered (fail closed)", async () => {
+    state.ageBand = null;
+    const res = await addMangaFromExternalSource(form({ source: "mal", mal_id: "13" }));
+    expect(res.success).toBe(false);
+    expect(getMangaByIdMAL).not.toHaveBeenCalled();
+  });
+
+  it("is told to retry, not refused, when the account cannot be checked", async () => {
+    state.profileError = true;
+    const res = await addMangaFromExternalSource(form({ source: "db", manga_id: SERIES }));
+    expect(res).toEqual({ success: false, error: "Impossible de vérifier ton compte. Réessaie." });
+    expect(state.upserts).toHaveLength(0);
   });
 });
 

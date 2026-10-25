@@ -15,7 +15,7 @@ const SearchSchema = z.object({
 // reader's private series included), MyAnimeList only to complete a
 // short list. Duplicates are removed : a series already in the catalogue
 // is never offered a second time from MyAnimeList.
-// A reader under 15 gets only what the youth selection allows : catalogue
+// A reader under 15 (or who has not said yet) gets only what the youth selection allows : catalogue
 // series with a verified age, those already on their shelf, their own
 // personal series ; never MyAnimeList (lib/discovery/minor-catalogue.ts).
 export async function GET(request: NextRequest) {
@@ -33,14 +33,18 @@ export async function GET(request: NextRequest) {
   }
 
   const { q, limit } = parsed.data;
-  const [{ data: local, error }, { data: me }] = await Promise.all([
-    supabase.rpc("search_mangas", { p_query: q, p_limit: limit }),
-    supabase.from("profiles").select("age_band").eq("id", user.id).single(),
-  ]);
+  const { data: me, error: meError } = await supabase.from("profiles").select("age_band").eq("id", user.id).single();
+  if (meError || !me) {
+    return NextResponse.json({ error: "La recherche ne répond pas. Réessaie." }, { status: 502 });
+  }
+  // Everyone but a reader of 15 and over (an unanswered age counts as restricted).
+  const minor = me.age_band !== "15_plus";
+  // The age filter runs after the search : ask for the most the search gives,
+  // so the first 12 cannot all be refused while an allowed series ranks 13th.
+  const { data: local, error } = await supabase.rpc("search_mangas", { p_query: q, p_limit: minor ? 50 : limit });
   if (error) {
     return NextResponse.json({ error: "La recherche ne répond pas. Réessaie." }, { status: 502 });
   }
-  const minor = me?.age_band === "under_15";
 
   let localHits: SearchHit[] = (local ?? []).map((m) => ({
     source: m.is_private ? "private" : "db",
@@ -69,6 +73,7 @@ export async function GET(request: NextRequest) {
       const allowed = new Set([...(ages ?? []).filter(minorMayAdd).map((a) => a.id), ...(shelf ?? []).map((s) => s.manga_id)]);
       localHits = localHits.filter((h) => h.source !== "db" || allowed.has(h.id as string));
     }
+    localHits = localHits.slice(0, limit);
   }
 
   // What the reader already has, so the add flow starts from it.
