@@ -44,11 +44,11 @@ Ajouter `?utm_source=<canal>` à chaque lien posté : `tiktok`, `instagram`, `yo
 | `pictures_opened` / `similar_clicked` | Fiche série | — |
 | `family_list_requested` | Un enfant de moins de 15 ans demande à son parent de partager sa liste (serveur) | — |
 | `family_list_created` | Un lien de liste de Noël créé (serveur) | `by` : reader (15 ans et plus), parent |
-| `family_list_viewed` | Un proche ouvre une liste active (le propriétaire qui ouvre son lien ne compte pas) | — |
+| `family_list_viewed` | Une personne ouvre une liste active avec le lien (le propriétaire connecté qui ouvre son lien ne compte pas) | — |
 | `family_list_offered` / `family_list_released` | « Je l'offre » / « Annuler » sur la page de la famille (serveur) | — |
 | `family_list_stopped` | Le lien est arrêté (serveur) | `by` : reader, parent |
 
-Aucun de ces événements ne porte le lien, le prénom affiché ni un titre. Un double appui du même téléphone sur « Je l'offre » compte deux fois `family_list_offered`.
+Aucun de ces événements ne porte le lien, le prénom affiché ni un titre. À savoir : `family_list_created` compte aussi les liens régénérés ; `family_list_stopped` compte les arrêts manuels (pas l'expiration) ; un double appui du même téléphone sur « Je l'offre » compte deux fois `family_list_offered` ; un navigateur peut envoyer lui-même n'importe quel événement du catalogue, même ceux marqués « serveur » : ces chiffres sont des tendances, pas des preuves.
 
 ## Requêtes (SQL editor Supabase, prod)
 

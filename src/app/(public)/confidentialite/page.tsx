@@ -35,36 +35,38 @@ export default function ConfidentialitePage() {
             </p>
             <p className="mt-2">
               Si tu partages ta liste de Noël (voir plus bas), on garde le prénom que tu choisis d&apos;afficher et un
-              lien secret. Les personnes qui ouvrent le lien n&apos;ont pas de compte : on ne garde ni leur nom, ni leur
-              adresse IP.
+              lien secret. Les personnes qui ouvrent le lien n&apos;ont pas de compte : Yomushelf ne stocke ni leur nom, ni
+              leur adresse IP (l&apos;hébergeur voit, comme pour tout site, l&apos;adresse de la requête).
             </p>
           </section>
 
           <section>
-            <h2 className="mb-3 text-2xl" style={{ color: "var(--ink)" }}>Finalité du traitement</h2>
+            <h2 className="mb-3 text-2xl" style={{ color: "var(--ink)" }}>Pourquoi on utilise tes données</h2>
             <ul className="flex flex-col gap-1.5 list-disc list-inside">
-              <li>Gérer votre compte et votre collection</li>
-              <li>Partager ta liste de Noël avec ta famille, seulement si tu le décides (ou si ton parent le décide pour toi)</li>
-              <li>Demander l&apos;accord d&apos;un parent pour un compte de moins de 15 ans</li>
-              <li>Améliorer le service (mesure d&apos;audience anonyme, voir plus bas)</li>
+              <li>Gérer ton compte et ta collection : c&apos;est le service que tu demandes (contrat).</li>
+              <li>Demander l&apos;accord d&apos;un parent pour un compte de moins de 15 ans : la loi l&apos;exige (obligation légale).</li>
+              <li>Partager ta liste de Noël avec ta famille, seulement si tu le décides, ou si ton parent le décide pour toi (consentement).</li>
+              <li>Améliorer le service avec une mesure d&apos;audience anonyme, voir plus bas (intérêt légitime).</li>
             </ul>
             <p className="mt-2">
-              Votre email ne sera jamais utilisé à des fins publicitaires ni vendu. Il passe seulement par les prestataires
-              listés plus bas, pour l&apos;envoi des emails du service.
+              Ton email ne sera jamais utilisé à des fins publicitaires ni vendu. Il passe seulement par les prestataires
+              listés plus bas, pour l&apos;envoi des emails du service. Les données demandées à l&apos;inscription sont
+              nécessaires au compte ; ton pseudo est facultatif.
             </p>
           </section>
 
           <section>
             <h2 className="mb-3 text-2xl" style={{ color: "var(--ink)" }}>Durée de conservation</h2>
             <p>
-              Les données de compte sont conservées tant que votre compte est actif.
-              Elles sont supprimées dans les 30 jours suivant une demande de suppression.
+              Les données de compte sont conservées tant que ton compte est actif. Elles sont supprimées dans les 30 jours
+              suivant ta demande (écris-nous : il n&apos;y a pas encore de bouton dans l&apos;appli), ou si ton parent
+              retire son accord pour un compte de moins de 15 ans.
             </p>
             <ul className="mt-2 flex list-inside list-disc flex-col gap-1.5">
               <li>
-                <strong style={{ color: "var(--ink)" }}>Lien de la liste de Noël</strong> : jusqu&apos;au 31 janvier par
-                défaut, ou jusqu&apos;à ce que tu l&apos;arrêtes. Il est effacé 30 jours plus tard, avec les « Je
-                l&apos;offre » de ta famille.
+                <strong style={{ color: "var(--ink)" }}>Lien de la liste de Noël</strong> : jusqu&apos;à sa date de fin
+                (le 31 janvier en général) ou jusqu&apos;à ce que tu l&apos;arrêtes. Il est effacé 30 jours plus tard,
+                avec les « Je l&apos;offre » de ta famille.
               </li>
               <li>
                 <strong style={{ color: "var(--ink)" }}>Lien envoyé à un parent</strong> : effacé 30 jours après son
@@ -77,7 +79,7 @@ export default function ConfidentialitePage() {
               <li>
                 <strong style={{ color: "var(--ink)" }}>Mesure d&apos;audience</strong> : 13 mois.
               </li>
-              <li>Si tu supprimes ton compte, ta liste, son lien et les « Je l&apos;offre » partent avec.</li>
+              <li>Quand ton compte est supprimé, ta liste, son lien et les « Je l&apos;offre » partent avec.</li>
             </ul>
           </section>
 
@@ -108,7 +110,7 @@ export default function ConfidentialitePage() {
             </p>
             <ul className="mt-2 flex list-inside list-disc flex-col gap-1.5">
               <li>Le lien est un code secret. Il n&apos;est pas indexé par les moteurs de recherche, et il est retiré des mesures d&apos;audience.</li>
-              <li>Toi, tu ne vois jamais ce qui est offert : la surprise est gardée, même si tu ouvres ton propre lien. Sous 15 ans, ton parent peut le voir sur la liste. Personne ne voit qui a coché quoi : on ne garde pas de nom.</li>
+              <li>Dans ton appli, tu ne vois jamais ce qui est offert, et ta page de liste te le cache quand tu es connecté. Le lien reste un secret : pour garder la surprise, ne l&apos;ouvre pas hors de ton compte. Sous 15 ans, ton parent peut voir ce qui est offert sur la liste. Personne ne voit qui a coché quoi : on ne garde pas de nom.</li>
               <li>Chacun peut annuler son « Je l&apos;offre », depuis le téléphone qui l&apos;a coché. Ce téléphone reçoit pour cela un cookie technique (voir plus bas).</li>
               <li>Tu peux arrêter le lien quand tu veux ; il s&apos;arrête aussi tout seul à sa date de fin.</li>
               <li>Sous 15 ans, seul le parent qui a donné son accord peut créer, renouveler ou arrêter le lien.</li>
@@ -118,30 +120,38 @@ export default function ConfidentialitePage() {
           <section>
             <h2 className="mb-3 text-2xl" style={{ color: "var(--ink)" }}>Hébergement et prestataires</h2>
             <p>
-              Les données sont stockées sur des serveurs Supabase situés dans l&apos;Union Européenne (région Irlande),
-              conformément au RGPD. D&apos;autres services interviennent pour faire fonctionner Yomushelf :
+              La base de données (ton compte, ta collection, ta liste) est sur des serveurs Supabase situés dans
+              l&apos;Union européenne (région Irlande). D&apos;autres services interviennent pour faire fonctionner Yomushelf :
             </p>
             <ul className="mt-2 flex list-inside list-disc flex-col gap-1.5">
               <li><strong style={{ color: "var(--ink)" }}>Vercel</strong> : hébergement du site (calculs à Paris) et comptage des pages vues, sans cookie.</li>
               <li><strong style={{ color: "var(--ink)" }}>Resend</strong> : envoi des emails (confirmation, accord d&apos;un parent, liste de Noël). Il reçoit l&apos;adresse du destinataire et le texte du message.</li>
               <li><strong style={{ color: "var(--ink)" }}>Google</strong> : connexion avec Google, si tu la choisis.</li>
               <li><strong style={{ color: "var(--ink)" }}>MyAnimeList</strong> : quand un compte de 15 ans et plus cherche une série absente du catalogue, le titre tapé lui est envoyé, sans lien avec le compte. Jamais pour un compte de moins de 15 ans.</li>
-              <li><strong style={{ color: "var(--ink)" }}>Google Books</strong> et la <strong style={{ color: "var(--ink)" }}>BnF</strong> : jaquettes et numéros des tomes du catalogue. Aucune donnée de lecteur ne leur est envoyée.</li>
+              <li><strong style={{ color: "var(--ink)" }}>Google Books</strong> : jaquettes et numéros des tomes du catalogue, sans donnée de lecteur. Si tu tapes un numéro ISBN que le catalogue ne connaît pas, ce numéro lui est envoyé, sans lien avec ton compte.</li>
             </ul>
-            <p className="mt-2">Rien n&apos;est vendu, et aucune donnée ne sert à de la publicité.</p>
+            <p className="mt-2">
+              Vercel, Resend et Google sont des sociétés américaines et MyAnimeList est japonaise : une partie de ces
+              données peut donc être traitée hors de l&apos;Union européenne, avec les garanties prévues par le RGPD
+              (clauses contractuelles types ou décision d&apos;adéquation, selon le prestataire). Le détail est sur demande.
+              Rien n&apos;est vendu, et aucune donnée ne sert à de la publicité.
+            </p>
           </section>
 
           <section>
-            <h2 className="mb-3 text-2xl" style={{ color: "var(--ink)" }}>Vos droits</h2>
-            <p>Conformément au RGPD, vous disposez des droits suivants :</p>
+            <h2 className="mb-3 text-2xl" style={{ color: "var(--ink)" }}>Tes droits</h2>
+            <p>Conformément au RGPD, tu disposes des droits suivants. Pour un compte de moins de 15 ans, son parent peut les exercer à sa place :</p>
             <ul className="flex flex-col gap-1.5 list-disc list-inside mt-2">
-              <li><strong style={{ color: "var(--ink)" }}>Accès</strong> : obtenir une copie de vos données</li>
+              <li><strong style={{ color: "var(--ink)" }}>Accès</strong> : obtenir une copie de tes données</li>
               <li><strong style={{ color: "var(--ink)" }}>Rectification</strong> : corriger des données inexactes</li>
-              <li><strong style={{ color: "var(--ink)" }}>Suppression</strong> : demander l&apos;effacement de vos données</li>
-              <li><strong style={{ color: "var(--ink)" }}>Opposition</strong> : vous opposer au traitement de vos données</li>
+              <li><strong style={{ color: "var(--ink)" }}>Suppression</strong> : demander l&apos;effacement de tes données</li>
+              <li><strong style={{ color: "var(--ink)" }}>Opposition</strong> : t&apos;opposer à un traitement fondé sur l&apos;intérêt légitime</li>
+              <li><strong style={{ color: "var(--ink)" }}>Limitation</strong> : demander de geler un traitement le temps d&apos;une vérification</li>
+              <li><strong style={{ color: "var(--ink)" }}>Portabilité</strong> : récupérer tes données dans un format lisible</li>
+              <li><strong style={{ color: "var(--ink)" }}>Retrait de ton consentement</strong>, à tout moment (pour un parent : retirer son accord, avec le lien reçu par email)</li>
             </ul>
             <p className="mt-3">
-              Pour exercer ces droits, contactez-nous à :{" "}
+              Pour exercer ces droits, écris-nous à :{" "}
               <a href="mailto:julien@yomushelf.com" className="font-semibold underline decoration-2 underline-offset-2" style={{ color: "var(--accent)" }}>julien@yomushelf.com</a>.
               Nous répondons dans un délai maximum de 30 jours.
             </p>
@@ -171,7 +181,7 @@ export default function ConfidentialitePage() {
             <MeasurementToggle />
             <p className="mt-3">
               Le nombre de pages vues est aussi mesuré par Vercel Analytics, sans cookie et sans identifier les
-              visiteurs.
+              visiteurs. Le refus ci-dessus le coupe aussi.
             </p>
           </section>
 
@@ -183,7 +193,7 @@ export default function ConfidentialitePage() {
               <a href="mailto:julien@yomushelf.com" className="font-semibold underline decoration-2 underline-offset-2" style={{ color: "var(--accent)" }}>julien@yomushelf.com</a>
             </p>
             <p className="mt-2">
-              Vous pouvez également introduire une réclamation auprès de la CNIL :{" "}
+              Tu peux aussi introduire une réclamation auprès de la CNIL :{" "}
               <a href="https://www.cnil.fr" target="_blank" rel="noopener noreferrer" className="font-semibold underline decoration-2 underline-offset-2" style={{ color: "var(--accent)" }}>cnil.fr</a>
             </p>
           </section>

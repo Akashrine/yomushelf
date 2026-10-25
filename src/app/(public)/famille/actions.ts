@@ -57,7 +57,7 @@ export async function parentStopShare(formData: FormData) {
   if (typeof token !== "string") redirect("/famille/invalide");
   const parent = await loadParentLink(token);
   if (!parent) redirect(`/famille/${encodeURIComponent(token)}`);
-  const ok = await stopFamilyShare(parent.userId);
-  if (ok) await logServerEvent("family_list_stopped", { by: "parent" });
-  redirect(`/famille/${encodeURIComponent(token)}?${ok ? "arrete=1" : "erreur=1"}`);
+  const stopped = await stopFamilyShare(parent.userId);
+  if (stopped) await logServerEvent("family_list_stopped", { by: "parent" });
+  redirect(`/famille/${encodeURIComponent(token)}?${stopped !== null ? "arrete=1" : "erreur=1"}`);
 }

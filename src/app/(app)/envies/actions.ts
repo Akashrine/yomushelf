@@ -218,8 +218,9 @@ export async function shareMyList(_prev: ShareState, formData: FormData): Promis
 export async function stopMyShare(): Promise<ShareState> {
   const { user } = await getAuthed();
   if (!user) return { error: "Non authentifié." };
-  if (!(await stopFamilyShare(user.id))) return { error: "Le partage n'a pas pu être arrêté. Réessaie." };
-  await logServerEvent("family_list_stopped", { by: "reader" });
+  const stopped = await stopFamilyShare(user.id);
+  if (stopped === null) return { error: "Le partage n'a pas pu être arrêté. Réessaie." };
+  if (stopped > 0) await logServerEvent("family_list_stopped", { by: "reader" });
   revalidatePath("/envies");
   return {};
 }
