@@ -5,7 +5,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const state = vi.hoisted(() => ({
   user: { id: "11111111-1111-4111-a111-111111111111" } as { id: string } | null,
   existingByExternal: null as { id: string } | null,
-  existingById: null as { id: string } | null,
+  existingById: null as ({ id: string } & Record<string, unknown>) | null,
+  ageBand: "15_plus" as string | null,
+  profileError: false,
+  onShelf: false,
   quota: true,
   inserted: [] as Record<string, unknown>[],
   upserts: [] as Record<string, unknown>[],
@@ -23,9 +26,19 @@ function query(table: string) {
     is: () => q,
     limit: () => q,
     maybeSingle: async () => ({
-      data: table === "mangas" ? (filter === "contains" ? state.existingByExternal : state.existingById) : null,
+      data:
+        table === "mangas"
+          ? filter === "contains"
+            ? state.existingByExternal
+            : state.existingById
+          : table === "user_collections" && state.onShelf
+            ? { manga_id: "on-shelf" }
+            : null,
       error: state.lookupError,
     }),
+    // profiles : the reader's age band
+    single: async () =>
+      state.profileError ? { data: null, error: { code: "08006" } } : { data: table === "profiles" ? { age_band: state.ageBand } : null, error: null },
     upsert: async (row: Record<string, unknown>) => {
       state.upserts.push(row);
       return { error: state.saveError };
@@ -103,6 +116,9 @@ beforeEach(() => {
   state.user = { id: "11111111-1111-4111-a111-111111111111" };
   state.existingByExternal = null;
   state.existingById = null;
+  state.ageBand = "15_plus";
+  state.profileError = false;
+  state.onShelf = false;
   state.inserted = [];
   state.upserts = [];
   state.lookupError = null;
@@ -246,3 +262,67 @@ describe("lookupIsbn", () => {
     expect(state.inserted).toHaveLength(0);
   });
 });
+
+describe("a reader under 15", () => {
+  const SERIES = "33333333-3333-4333-a333-333333333333";
+  const verified = { id: SERIES, created_by: null, audience_min_age: 9, audience_age_source: "cnlj", audience_age_scope: "series" };
+  beforeEach(() => {
+    state.ageBand = "under_15";
+  });
+
+  it("adds a catalogue series whose age is verified", async () => {
+    state.existingById = verified;
+    expect((await addMangaFromExternalSource(form({ source: "db", manga_id: SERIES }))).success).toBe(true);
+  });
+
+  it("is refused a catalogue series without a verified age, whatever the request", async () => {
+    state.existingById = { id: SERIES, created_by: null, audience_min_age: null, audience_age_source: null, audience_age_scope: null };
+    const res = await addMangaFromExternalSource(form({ source: "db", manga_id: SERIES }));
+    expect(res.success).toBe(false);
+    expect(state.upserts).toHaveLength(0);
+  });
+
+  it("is refused a series verified only for some volumes, or for 15 and over", async () => {
+    state.existingById = { ...verified, audience_age_scope: "volume" };
+    expect((await addMangaFromExternalSource(form({ source: "db", manga_id: SERIES }))).success).toBe(false);
+    state.existingById = { ...verified, audience_min_age: 15 };
+    expect((await addMangaFromExternalSource(form({ source: "db", manga_id: SERIES }))).success).toBe(false);
+  });
+
+  it("keeps a series already on the shelf, even without a verified age", async () => {
+    state.existingById = { id: SERIES, created_by: null, audience_min_age: null, audience_age_source: null, audience_age_scope: null };
+    state.onShelf = true;
+    expect((await addMangaFromExternalSource(form({ source: "db", manga_id: SERIES }))).success).toBe(true);
+  });
+
+  it("never reaches an online provider : refused before the quota and the call", async () => {
+    const res = await addMangaFromExternalSource(form({ source: "mal", mal_id: "13" }));
+    expect(res.success).toBe(false);
+    expect(consumeImportQuota).not.toHaveBeenCalled();
+    expect(getMangaByIdMAL).not.toHaveBeenCalled();
+    expect(state.inserted).toHaveLength(0);
+  });
+
+  it("reuses a catalogue series known by its MyAnimeList id only when allowed", async () => {
+    state.existingByExternal = { id: SERIES };
+    state.existingById = { id: SERIES, created_by: null, audience_min_age: null, audience_age_source: null, audience_age_scope: null };
+    expect((await addMangaFromExternalSource(form({ source: "mal", mal_id: "13" }))).success).toBe(false);
+    state.existingById = verified;
+    expect((await addMangaFromExternalSource(form({ source: "mal", mal_id: "13" }))).success).toBe(true);
+  });
+
+  it("is restricted too while the age question is not answered (fail closed)", async () => {
+    state.ageBand = null;
+    const res = await addMangaFromExternalSource(form({ source: "mal", mal_id: "13" }));
+    expect(res.success).toBe(false);
+    expect(getMangaByIdMAL).not.toHaveBeenCalled();
+  });
+
+  it("is told to retry, not refused, when the account cannot be checked", async () => {
+    state.profileError = true;
+    const res = await addMangaFromExternalSource(form({ source: "db", manga_id: SERIES }));
+    expect(res).toEqual({ success: false, error: "Impossible de vérifier ton compte. Réessaie." });
+    expect(state.upserts).toHaveLength(0);
+  });
+});
+

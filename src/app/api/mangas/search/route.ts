@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/supabase/session";
 import { searchMangaMAL } from "@/lib/manga-api/mal";
 import { mergeSearchResults, type SearchHit } from "@/lib/manga-api/merge";
 import { consumeImportQuota } from "@/lib/rate-limit/import-quota";
+import { minorMayAdd } from "@/lib/discovery/minor-catalogue";
 
 const SearchSchema = z.object({
   q: z.string().min(1).max(100).trim(),
@@ -14,6 +15,9 @@ const SearchSchema = z.object({
 // reader's private series included), MyAnimeList only to complete a
 // short list. Duplicates are removed : a series already in the catalogue
 // is never offered a second time from MyAnimeList.
+// A reader under 15 (or who has not said yet) gets only what the youth selection allows : catalogue
+// series with a verified age, those already on their shelf, their own
+// personal series ; never MyAnimeList (lib/discovery/minor-catalogue.ts).
 export async function GET(request: NextRequest) {
   const parsed = SearchSchema.safeParse({
     q: request.nextUrl.searchParams.get("q"),
@@ -29,12 +33,20 @@ export async function GET(request: NextRequest) {
   }
 
   const { q, limit } = parsed.data;
-  const { data: local, error } = await supabase.rpc("search_mangas", { p_query: q, p_limit: limit });
+  const { data: me, error: meError } = await supabase.from("profiles").select("age_band").eq("id", user.id).single();
+  if (meError || !me) {
+    return NextResponse.json({ error: "La recherche ne répond pas. Réessaie." }, { status: 502 });
+  }
+  // Everyone but a reader of 15 and over (an unanswered age counts as restricted).
+  const minor = me.age_band !== "15_plus";
+  // The age filter runs after the search : ask for the most the search gives,
+  // so the first 12 cannot all be refused while an allowed series ranks 13th.
+  const { data: local, error } = await supabase.rpc("search_mangas", { p_query: q, p_limit: minor ? 50 : limit });
   if (error) {
     return NextResponse.json({ error: "La recherche ne répond pas. Réessaie." }, { status: 502 });
   }
 
-  const localHits: SearchHit[] = (local ?? []).map((m) => ({
+  let localHits: SearchHit[] = (local ?? []).map((m) => ({
     source: m.is_private ? "private" : "db",
     id: m.id,
     title: m.title,
@@ -47,6 +59,22 @@ export async function GET(request: NextRequest) {
       ? ((m.external_ids as { mal_id: number }).mal_id)
       : null,
   }));
+
+  if (minor) {
+    const catalogueIds = localHits.filter((h) => h.source === "db").map((h) => h.id as string);
+    if (catalogueIds.length) {
+      const [{ data: ages, error: agesError }, { data: shelf, error: shelfError }] = await Promise.all([
+        supabase.from("mangas").select("id, audience_min_age, audience_age_source, audience_age_scope").in("id", catalogueIds),
+        supabase.from("user_collections").select("manga_id").eq("user_id", user.id).in("manga_id", catalogueIds),
+      ]);
+      if (agesError || shelfError) {
+        return NextResponse.json({ error: "La recherche ne répond pas. Réessaie." }, { status: 502 });
+      }
+      const allowed = new Set([...(ages ?? []).filter(minorMayAdd).map((a) => a.id), ...(shelf ?? []).map((s) => s.manga_id)]);
+      localHits = localHits.filter((h) => h.source !== "db" || allowed.has(h.id as string));
+    }
+    localHits = localHits.slice(0, limit);
+  }
 
   // What the reader already has, so the add flow starts from it.
   if (localHits.length) {
@@ -63,7 +91,7 @@ export async function GET(request: NextRequest) {
 
   let remote: SearchHit[] = [];
   let remoteError = false;
-  if (localHits.length < 5) {
+  if (!minor && localHits.length < 5) {
     // Aliases ("Shingeki no Kyojin" for "L'Attaque des Titans") keep a
     // known series from coming back under its original title.
     if (localHits.length) {
@@ -99,5 +127,6 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     results: mergeSearchResults(localHits, remote, limit),
     remote_unavailable: remoteError,
+    restricted: minor,
   });
 }

@@ -16,6 +16,8 @@ import type { MangaSearchResult } from "@/lib/manga-api/types";
 import type { Database, Json } from "@/lib/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { todayIso } from "@/lib/collection/value";
+import { MINOR_REFUSAL } from "@/lib/discovery/minor-catalogue";
+import { mayHaveSeries, mustFollowYouthSelection } from "@/lib/server/youth-selection";
 import { acquisitionTypeField, MAX_VOLUME, priceField, volumeNumberField } from "@/lib/collection/schema";
 
 function getServiceClient() {
@@ -236,16 +238,31 @@ type SeriesSource =
   | { source: "google_books"; isbn: string }
   | { source: "private"; title: string; author?: string | null; total_volumes?: number | null };
 
+// A reader under 15 (or who has not said yet) adds only what the youth
+// selection allows (lib/discovery/minor-catalogue.ts) : a series already on
+// their shelf, one of their own personal series, or a catalogue series with
+// a verified age. The database enforces it on the shelf tables too, so a
+// request that skips this flow gets nowhere ; here it is the clear message.
+
 // Finds the catalogue series the reader means, creating it when needed :
 // from a provider (server-side metadata, quota per account) or as a
 // private series that only this reader can see.
 async function resolveSeries(supabase: Supabase, userId: string, src: SeriesSource): Promise<Resolved> {
+  const minor = src.source === "private" ? false : await mustFollowYouthSelection(supabase, userId);
+  const retry = { ok: false, error: "Impossible de vérifier ton compte. Réessaie." } as const;
+  if (minor === null) return retry;
+  const refusal = { ok: false, error: MINOR_REFUSAL } as const;
+  // true : allowed ; false : refused ; null : the check failed (retry).
+  const mayHave = async (mangaId: string) => (minor ? await mayHaveSeries(supabase, userId, mangaId) : true);
+
   if (src.source === "db") {
     const { data, error } = await supabase.from("mangas").select("id, merged_into").eq("id", src.manga_id).maybeSingle();
     if (error) return { ok: false, error: "Impossible de vérifier le catalogue. Réessaie." };
     if (!data) return { ok: false, error: "Série introuvable." };
     // A merged series lives on under the series it was merged into.
-    return { ok: true, manga_id: data.merged_into ?? data.id };
+    const id = data.merged_into ?? data.id;
+    const may = await mayHave(id);
+    return may === null ? retry : may ? { ok: true, manga_id: id } : refusal;
   }
 
   if (src.source === "private") {
@@ -288,8 +305,13 @@ async function resolveSeries(supabase: Supabase, userId: string, src: SeriesSour
     .limit(1)
     .maybeSingle();
   if (lookupError) return { ok: false, error: "Impossible de vérifier le catalogue. Réessaie." };
-  if (existing) return { ok: true, manga_id: existing.id };
+  if (existing) {
+    const may = await mayHave(existing.id);
+    return may === null ? retry : may ? { ok: true, manga_id: existing.id } : refusal;
+  }
 
+  // A new series would come from the online providers : not for a reader under 15.
+  if (minor) return refusal;
   if (!(await consumeImportQuota(userId, "import"))) {
     return { ok: false, error: "Tu as ajouté beaucoup de séries d'un coup. Réessaie dans une heure." };
   }
