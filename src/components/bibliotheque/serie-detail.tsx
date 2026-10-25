@@ -445,6 +445,7 @@ export function SerieDetail({ manga, presence, volumes, readings, wishedVolumes,
             owned={owned}
             read={read}
             covers={volumeCovers}
+            fallbackCover={manga.cover_url ?? undefined}
             onTap={tapVolume}
             onExtend={canExtend && shownCount === gridCount ? () => setExtra((e) => e + 1) : undefined}
           />
