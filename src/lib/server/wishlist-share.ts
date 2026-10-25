@@ -30,13 +30,16 @@ export async function createFamilyShare(userId: string, displayName: string, byP
   return { url: familyListUrl(token), expiresAt };
 }
 
-export async function stopFamilyShare(userId: string) {
-  const { error } = await serviceClient()
+// Stops the reader's active link. The number of links stopped (0 when none
+// was active), or null when the update failed.
+export async function stopFamilyShare(userId: string): Promise<number | null> {
+  const { data, error } = await serviceClient()
     .from("wishlist_shares")
     .update({ revoked_at: new Date().toISOString() })
     .eq("user_id", userId)
-    .is("revoked_at", null);
-  return !error;
+    .is("revoked_at", null)
+    .select("user_id");
+  return error ? null : (data ?? []).length;
 }
 
 // The parent's page : who the child is and where the link stands. Null

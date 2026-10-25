@@ -40,6 +40,13 @@ export const EVENTS = {
   discover_searched: z.object({}),
   pictures_opened: z.object({}),
   similar_clicked: z.object({}),
+  // Christmas list shared with the family (never the link, the name or a title)
+  family_list_requested: z.object({}), // a child under 15 asked their parent to share
+  family_list_created: z.object({ by: z.enum(["reader", "parent"]) }),
+  family_list_viewed: z.object({}), // a relative opened a live list
+  family_list_offered: z.object({}),
+  family_list_released: z.object({}),
+  family_list_stopped: z.object({ by: z.enum(["reader", "parent"]) }),
   // Wrapped (kept from the earlier version)
 } as const;
 

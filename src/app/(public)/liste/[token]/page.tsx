@@ -5,6 +5,7 @@ import { loadSharedList } from "@/lib/server/wishlist-share";
 import { LinkPageFrame } from "@/components/public/link-page-frame";
 import { NOTICES, SharedWishCard, type Notice } from "@/components/liste/shared-wish-card";
 import { ListNotice } from "@/components/liste/list-notice";
+import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 
 type Props = { params: Promise<{ token: string }>; searchParams: Promise<{ etat?: string; tome?: string }> };
 
@@ -40,6 +41,8 @@ export default async function ListePage({ params, searchParams }: Props) {
 
   return (
     <LinkPageFrame title={`La liste de ${name}`} top wide>
+      {/* A relative opening a live list : the owner checking their own link does not count. */}
+      {!list.owner && <PageViewTracker event="family_list_viewed" />}
       {list.owner ? (
         <p className="rounded-xl px-3 py-2 font-semibold" style={{ background: "var(--pop)", border: "2px solid var(--ink)" }}>
           C&apos;est ta liste. Ce qu&apos;on t&apos;offre reste caché, même ici : envoie ce lien à ta famille.

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { frenchDate } from "@/lib/account/gate";
 import { serviceClient } from "@/lib/server/consent";
 import { familyListReadyEmail, sendEmail } from "@/lib/server/email";
+import { logServerEvent } from "@/lib/server/analytics";
 import { hashLinkToken } from "@/lib/server/link-token";
 import { createFamilyShare, loadParentLink, parentPageUrl, stopFamilyShare } from "@/lib/server/wishlist-share";
 import { DisplayNameSchema } from "@/lib/wishlist/share";
@@ -34,6 +35,7 @@ export async function parentShareList(_prev: ShareState, formData: FormData): Pr
     .eq("user_id", parent.userId)
     .lt("expires_at", share.expiresAt.toISOString());
 
+  await logServerEvent("family_list_created", { by: "parent" });
   const until = frenchDate(share.expiresAt);
   // A copy for the parent, within the same email budget as the others ;
   // the link is on screen anyway.
@@ -55,6 +57,7 @@ export async function parentStopShare(formData: FormData) {
   if (typeof token !== "string") redirect("/famille/invalide");
   const parent = await loadParentLink(token);
   if (!parent) redirect(`/famille/${encodeURIComponent(token)}`);
-  const ok = await stopFamilyShare(parent.userId);
-  redirect(`/famille/${encodeURIComponent(token)}?${ok ? "arrete=1" : "erreur=1"}`);
+  const stopped = await stopFamilyShare(parent.userId);
+  if (stopped) await logServerEvent("family_list_stopped", { by: "parent" });
+  redirect(`/famille/${encodeURIComponent(token)}?${stopped !== null ? "arrete=1" : "erreur=1"}`);
 }

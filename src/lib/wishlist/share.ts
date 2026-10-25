@@ -2,6 +2,12 @@ import { z } from "zod";
 
 const DAY = 86_400_000;
 
+// A stopped or expired link, its reservations and an old parent link are
+// erased this many days after they ended (privacy page, /api/cron/list-purge).
+export const LIST_KEEP_DAYS = 30;
+// The log of consent and list emails only serves the sending limits.
+export const EMAIL_LOG_KEEP_DAYS = 2;
+
 // A Christmas list link ends on the next 31 January, end of day in Paris
 // (UTC+1 in winter). In late January, when that is under a week away,
 // it lasts 30 days instead.
