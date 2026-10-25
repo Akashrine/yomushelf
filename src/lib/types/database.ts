@@ -153,7 +153,6 @@ export type Database = {
           list_price_eur: number | null;
           list_price_ref: string | null;
           list_price_year: number | null;
-          volume_covers_checked_at: string | null;
           audience_age_year: number | null;
           curated: boolean;
           merged_into: string | null;
@@ -189,7 +188,6 @@ export type Database = {
           list_price_eur?: number | null;
           list_price_ref?: string | null;
           list_price_year?: number | null;
-          volume_covers_checked_at?: string | null;
           audience_age_year?: number | null;
           curated?: boolean;
           merged_into?: string | null;
@@ -224,7 +222,6 @@ export type Database = {
           list_price_eur?: number | null;
           list_price_ref?: string | null;
           list_price_year?: number | null;
-          volume_covers_checked_at?: string | null;
           audience_age_year?: number | null;
           curated?: boolean;
           merged_into?: string | null;
