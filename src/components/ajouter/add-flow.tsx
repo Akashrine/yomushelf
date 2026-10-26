@@ -94,6 +94,9 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
     MAX_VOLUME,
     Math.max(series?.total_volumes ?? 0, 30, ...(series?.owned ?? []), ...picked) + extraTiles
   );
+  // A series can run past its catalogue total : warn, never block.
+  const highestOwned = ownedMode === "range" ? rangeTo : ownedMode === "list" ? Math.max(0, ...picked) : 0;
+  const pastTotal = series?.total_volumes != null && highestOwned > series.total_volumes;
   const ownedPreview: number[] =
     ownedMode === "none"
       ? []
@@ -288,6 +291,12 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
                 Ma collection ne commence pas au tome 1
               </label>
             </div>
+          )}
+
+          {pastTotal && series?.total_volumes != null && (
+            <p role="status" className="rounded-xl px-3 py-2 text-sm font-bold" style={{ background: "var(--surface-2, #fff)", color: "var(--ink)" }}>
+              {`Cette série compte ${series.total_volumes} tome${series.total_volumes > 1 ? "s" : ""} parus. Tu en notes ${highestOwned}. Vérifie avant de continuer.`}
+            </p>
           )}
 
           <Choice name="owned" selected={ownedMode === "list"} onSelect={() => setOwnedMode("list")} title="J'ai seulement certains tomes" hint="Il en manque au milieu" />
