@@ -26,11 +26,14 @@ type Props = {
 const MISSING = "#5b6170";
 
 export function VolumeGrid({ count, mode, owned, read, covers, fallbackCover, onTap, onExtend }: Props) {
+  // A volume at home without its own cover wears the series cover, muted so it is not taken for the real one.
+  const standIns = mode === "lectures" || !fallbackCover ? 0 : Array.from({ length: count }, (_, i) => i + 1).filter((n) => owned.has(n) && !covers[n]).length;
   return (
-    <ul className="grid grid-cols-4 gap-3 min-[420px]:grid-cols-5 sm:grid-cols-7 lg:grid-cols-9">
+    <>
+      <ul className="grid grid-cols-4 gap-3 min-[420px]:grid-cols-5 sm:grid-cols-7 lg:grid-cols-9">
       {Array.from({ length: count }, (_, i) => i + 1).map((n) => (
         <li key={n}>
-          <Tile number={n} mode={mode} atHome={owned.has(n)} isRead={read.has(n)} cover={owned.has(n) ? covers[n] ?? fallbackCover : undefined} onTap={() => onTap(n)} />
+          <Tile number={n} mode={mode} atHome={owned.has(n)} isRead={read.has(n)} cover={owned.has(n) ? covers[n] ?? fallbackCover : undefined} standIn={owned.has(n) && !covers[n]} onTap={() => onTap(n)} />
         </li>
       ))}
       {onExtend && (
@@ -46,7 +49,13 @@ export function VolumeGrid({ count, mode, owned, read, covers, fallbackCover, on
           </button>
         </li>
       )}
-    </ul>
+      </ul>
+      {standIns > 0 && (
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
+          Les tomes grisés montrent la couverture de la série, en attendant celle de chaque tome.
+        </p>
+      )}
+    </>
   );
 }
 
@@ -56,6 +65,7 @@ function Tile({
   atHome,
   isRead,
   cover,
+  standIn,
   onTap,
 }: {
   number: number;
@@ -63,6 +73,7 @@ function Tile({
   atHome: boolean;
   isRead: boolean;
   cover?: string;
+  standIn?: boolean;
   onTap: () => void;
 }) {
   const reading = mode === "lectures";
@@ -90,7 +101,7 @@ function Tile({
     >
       {cover && !reading ? (
         <>
-          <Image src={cover} alt="" fill sizes="(min-width: 1024px) 100px, 25vw" className="object-cover object-top" />
+          <Image src={cover} alt="" fill sizes="(min-width: 1024px) 100px, 25vw" className="object-cover object-top" style={standIn ? { filter: "saturate(0.35) brightness(0.92)" } : undefined} />
           <span className="absolute inset-x-0 bottom-0 py-0.5 text-center text-lg leading-tight text-white" style={{ background: "var(--ink)", borderTop: "2px solid var(--ink)" }}>
             {number}
           </span>

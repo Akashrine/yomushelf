@@ -267,17 +267,27 @@ await step("Fiche personnelle : une série introuvable, modifiable, puis supprim
   check("Supprimer définitivement demande le titre", disabledBefore && !/Le Manga De Mon Cousin/.test(await text(page)));
 });
 
-await step("Trop de tomes : un avertissement, sans rien bloquer", async () => {
+await step("Trop de tomes : plafonné si la série est terminée, avertissement si elle est en cours", async () => {
+  // Finished series (7 volumes) : the stepper stops at the total.
   await go(page, "/ajouter?detaille=1");
   await page.getByRole("searchbox").first().fill("Evangelion perfect");
   await page.getByRole("button", { name: /perfect/i }).first().click();
   await page.getByRole("radio", { name: /J'ai les tomes du 1 au/ }).click();
   const stepper = page.getByRole("spinbutton", { name: "Jusqu'au tome" });
   await stepper.fill("20");
+  await stepper.blur();
+  const capped = Number(await stepper.inputValue());
+  // Ongoing series (7 volumes known) : a warning, never a block.
+  await go(page, "/ajouter?detaille=1");
+  await page.getByRole("searchbox").first().fill("Beyblade X");
+  await page.getByRole("button", { name: /Beyblade X/ }).first().click();
+  await page.getByRole("radio", { name: /J'ai les tomes du 1 au/ }).click();
+  const ongoing = page.getByRole("spinbutton", { name: "Jusqu'au tome" });
+  await ongoing.fill("20");
   const warn = await page.getByRole("status").filter({ hasText: /parus\. Tu en notes 20/ }).count();
-  await stepper.fill("2");
+  await ongoing.fill("2");
   const calm = await page.getByRole("status").filter({ hasText: /parus\. Tu en notes/ }).count();
-  check("Trop de tomes : un avertissement au-delà du total, rien en dessous", warn === 1 && calm === 0, `au-delà ${warn}, en dessous ${calm}`);
+  check("Trop de tomes : plafonné à 7 si terminée, avertissement si en cours", capped <= 7 && warn === 1 && calm === 0, `plafond ${capped}, avertissement ${warn}, en dessous ${calm}`);
 });
 
 await step("Les anciens profils publics ne montrent rien", async () => {

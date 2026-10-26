@@ -8,9 +8,9 @@ import { Cover } from "@/components/collection/reader-home";
 import { VolumeFields, type VolumeFieldsValue } from "@/components/collection/volume-fields";
 import { addSeriesToLibrary, type AddSeriesInput } from "@/app/(app)/ajouter/actions";
 import type { SearchHit } from "@/lib/manga-api/merge";
+import { volumeCeiling } from "@/lib/collection/schema";
 import { useSeriesSearch } from "./use-series-search";
 
-const MAX_VOLUME = 500; // same limit as the server
 
 // The series being added, whatever its origin.
 export type FlowSeries = {
@@ -18,6 +18,7 @@ export type FlowSeries = {
   title: string;
   author: string | null;
   total_volumes: number | null;
+  status?: "ongoing" | "completed" | "paused";
   cover_url: string | null;
   source: AddSeriesInput["series"];
   owned: number[]; // volumes already at home (series already on the shelf)
@@ -36,6 +37,7 @@ export function hitToSeries(h: SearchHit): FlowSeries | null {
     title: h.title,
     author: h.author,
     total_volumes: h.total_volumes,
+    status: h.status,
     cover_url: h.cover_url,
     owned: h.owned ?? [],
     read: h.read ?? [],
@@ -58,13 +60,13 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
 
   const [ownedMode, setOwnedMode] = useState<OwnedMode>("range");
   const [rangeFrom, setRangeFrom] = useState(1);
-  const [rangeTo, setRangeTo] = useState(1);
+  const [rangeToTyped, setRangeTo] = useState(1);
   const [startsLater, setStartsLater] = useState(false);
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [extraTiles, setExtraTiles] = useState(0);
 
   const [readingMode, setReadingMode] = useState<ReadingMode | null>(null);
-  const [readTo, setReadTo] = useState(1);
+  const [readToTyped, setReadTo] = useState(1);
 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [when, setWhen] = useState<"unknown" | "today" | "date">("unknown");
@@ -88,10 +90,13 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
   const shownError = search.error;
   const waiting = search.waiting;
 
-  // Catalogue totals lag behind ongoing series : only the server limit applies.
-  const maxVolume = MAX_VOLUME;
+  // Catalogue totals lag behind ongoing series : only a finished series is capped at its total.
+  const maxVolume = volumeCeiling(series?.total_volumes, series?.status);
+  // Switching to a finished series : numbers typed for another one come back under its total.
+  const rangeTo = Math.min(rangeToTyped, maxVolume);
+  const readTo = Math.min(readToTyped, maxVolume);
   const gridSize = Math.min(
-    MAX_VOLUME,
+    maxVolume,
     Math.max(series?.total_volumes ?? 0, 30, ...(series?.owned ?? []), ...picked) + extraTiles
   );
   // A series can run past its catalogue total : warn, never block.
@@ -336,7 +341,7 @@ export function AddFlow({ initial }: { initial: FlowSeries | null }) {
                   );
                 })}
               </div>
-              {gridSize < MAX_VOLUME && (
+              {gridSize < maxVolume && (
                 <button
                   type="button"
                   onClick={() => setExtraTiles((n) => n + 30)}

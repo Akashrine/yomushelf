@@ -17,6 +17,12 @@ export const priceField = z
 // Same bound as the volume_number check in the database : a typo like
 // "2000000000" must not reach a series page that draws one tile per volume.
 export const MAX_VOLUME = 500;
+
+// A finished series with a known count cannot have more volumes than that.
+// An ongoing one can : catalogue totals lag, so only MAX_VOLUME applies.
+export function volumeCeiling(total: number | null | undefined, status: string | null | undefined): number {
+  return status === "completed" && total != null && total > 0 ? Math.min(total, MAX_VOLUME) : MAX_VOLUME;
+}
 export const volumeNumberField = z
   .number({ error: "Numéro de tome invalide." })
   .int("Numéro de tome invalide.")

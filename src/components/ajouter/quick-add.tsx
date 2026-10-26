@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { AppIcon } from "@/components/app/app-icon";
 import { Cover } from "@/components/collection/reader-home";
 import { addSeriesToLibrary } from "@/app/(app)/ajouter/actions";
-import { MAX_VOLUME } from "@/lib/collection/schema";
+import { volumeCeiling } from "@/lib/collection/schema";
 import { hitToSeries, type FlowSeries } from "./add-flow";
 import { useSeriesSearch } from "./use-series-search";
 import { track } from "@/lib/analytics";
@@ -155,7 +155,7 @@ export function QuickAdd({ popular, welcome, name }: { popular: FlowSeries[]; we
                 <VolumeStepper
                   title={p.series.title}
                   value={p.upTo}
-                  max={MAX_VOLUME}
+                  max={volumeCeiling(p.series.total_volumes, p.series.status)}
                   onChange={(upTo) => update(p.series.key, { upTo })}
                 />
               </div>
