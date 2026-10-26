@@ -26,7 +26,7 @@ export default async function AjouterPage({
     Promise.all([
       supabase
         .from("mangas")
-        .select("id, title, author, total_volumes, cover_url, audience_min_age, audience_age_source, audience_age_scope")
+        .select("id, title, author, total_volumes, status, cover_url, audience_min_age, audience_age_source, audience_age_scope")
         .is("created_by", null)
         .is("merged_into", null)
         .eq("curated", true)
@@ -44,7 +44,7 @@ export default async function AjouterPage({
     supabase.from("profiles").select("avatar_initials, username, age_band").eq("id", user.id).single(),
     serieId
       ? Promise.all([
-          supabase.from("mangas").select("id, title, author, total_volumes, cover_url").eq("id", serieId).maybeSingle(),
+          supabase.from("mangas").select("id, title, author, total_volumes, status, cover_url").eq("id", serieId).maybeSingle(),
           getOwnedVolumes(supabase, user.id, serieId),
           getReadings(supabase, user.id, serieId),
         ])
@@ -65,6 +65,7 @@ export default async function AjouterPage({
         title: manga.title,
         author: manga.author,
         total_volumes: manga.total_volumes,
+        status: manga.status,
         cover_url: manga.cover_url,
         source: { source: "db", manga_id: manga.id },
         owned: volumes.map((v) => v.volume_number),
@@ -104,6 +105,7 @@ export default async function AjouterPage({
       title: m.title,
       author: m.author,
       total_volumes: m.total_volumes,
+      status: m.status,
       cover_url: m.cover_url,
       source: { source: "db", manga_id: m.id },
       owned: owned.filter((v) => v.manga_id === m.id).map((v) => v.volume_number),

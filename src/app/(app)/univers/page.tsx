@@ -115,7 +115,7 @@ export default async function UniversPage() {
             <h2 id="h-valeur" className="text-3xl sm:text-4xl" style={{ color: "var(--ink)" }}>Ma collection</h2>
             <Card>
               <p className="font-display text-5xl tabular-nums tracking-wide" style={{ color: "var(--ink)" }}>≈ {formatEur(worth.total)}</p>
-              <p className="mt-1 text-base font-bold" style={{ color: "var(--ink)" }}>ce que valent tes tomes en librairie</p>
+              <p className="mt-1 text-base font-bold" style={{ color: "var(--ink)" }}>ce que tes tomes coûtaient neufs</p>
               <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
                 {[
                   worth.listedCount ? plural(worth.listedCount, "tome au prix de l'éditeur", "tomes au prix de l'éditeur") : null,
@@ -125,7 +125,7 @@ export default async function UniversPage() {
                   .filter(Boolean)
                   .join(" · ")}
               </p>
-              <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>En France, l&apos;éditeur fixe le prix d&apos;un livre : c&apos;est le même partout. Rien à saisir.</p>
+              <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>Une estimation au prix de l&apos;éditeur, pas une valeur de revente : une édition épuisée peut valoir bien plus. Rien à saisir.</p>
             </Card>
           </section>
         )}

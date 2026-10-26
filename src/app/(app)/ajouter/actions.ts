@@ -18,7 +18,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { todayIso } from "@/lib/collection/value";
 import { MINOR_REFUSAL } from "@/lib/discovery/minor-catalogue";
 import { mayHaveSeries, mustFollowYouthSelection } from "@/lib/server/youth-selection";
-import { acquisitionTypeField, MAX_VOLUME, priceField, volumeNumberField } from "@/lib/collection/schema";
+import { acquisitionTypeField, MAX_VOLUME, priceField, volumeCeiling, volumeNumberField } from "@/lib/collection/schema";
 
 function getServiceClient() {
   return createServiceClient(
@@ -483,6 +483,17 @@ export async function addSeriesToLibrary(input: AddSeriesInput): Promise<AddSeri
   const resolved = await resolveSeries(supabase, user.id, d.series);
   if (!resolved.ok) return { success: false, error: resolved.error };
   const manga_id = resolved.manga_id;
+
+  // A finished series has no volume past its total (the screens already stop there).
+  const { data: known } = await supabase.from("mangas").select("total_volumes, status").eq("id", manga_id).maybeSingle();
+  const ceiling = volumeCeiling(known?.total_volumes, known?.status);
+  const highest = Math.max(
+    d.owned.mode === "range" ? d.owned.to : d.owned.mode === "list" ? Math.max(...d.owned.volumes) : 0,
+    d.reading.mode === "up_to" ? d.reading.to : 0
+  );
+  if (highest > ceiling) {
+    return { success: false, error: `Cette série compte ${ceiling} tome${ceiling > 1 ? "s" : ""}. Corrige le numéro.` };
+  }
 
   if (!(await ensureOnShelf(supabase, user.id, manga_id))) {
     return { success: false, error: "Erreur lors de l'ajout. Réessaie." };
