@@ -223,6 +223,7 @@ export function QuickAdd({ popular, welcome, name }: { popular: FlowSeries[]; we
           {search.answered && !search.waiting && search.results.length === 0 && !search.error && (
             <p className="text-sm">
               Rien trouvé.{" "}
+              {search.restricted && <span style={{ color: "var(--muted)" }}>Sur ton compte, la recherche ne montre que les séries avec un âge conseillé. </span>}
               <Link href="/ajouter?detaille=1" className="font-bold underline decoration-2 underline-offset-2" style={{ color: "var(--ink)" }}>L&apos;ajouter quand même</Link>
             </p>
           )}

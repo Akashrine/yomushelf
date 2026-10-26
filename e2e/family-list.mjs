@@ -2,7 +2,7 @@
 // LOCAL ONLY : the app runs without Resend, so emails land in its server
 // log, where this script reads the links.
 // Usage (see docs/tests.md) :
-//   accounts : e2e@yomushelf.local = under 15 with a parent's consent,
+//   accounts : kid@yomushelf.local = under 15 with a parent's consent,
 //              other@yomushelf.local = 15 and over, both with wishes
 //   BASE=http://localhost:3100 LOG=<next dev log> SUPABASE_URL=… SERVICE=<local service key> node e2e/family-list.mjs
 import { chromium } from "playwright-core";
@@ -73,7 +73,7 @@ const visible = (locator, timeout = 20000) => locator.waitFor({ state: "visible"
 try {
   // ── Under 15 : the child asks, the parent shares ──────────
   const kid = await newPage();
-  await login(kid.page, "e2e@yomushelf.local");
+  await login(kid.page, "kid@yomushelf.local");
   await kid.page.goto(`${BASE}/envies`, { waitUntil: "load", timeout: 120000 });
   check("child sees the family panel", await visible(panel(kid.page).getByRole("heading", { name: "Envoie ta liste à ta famille" })));
   check("child has no link form", (await panel(kid.page).locator('input[name="display_name"]').count()) === 0);
@@ -96,7 +96,7 @@ try {
   check("parent page is noindex, no-referrer",
     (await parent.page.locator('meta[name="robots"]').getAttribute("content"))?.includes("noindex") &&
     (await parent.page.locator('meta[name="referrer"]').getAttribute("content")) === "no-referrer");
-  const [kidProfile] = await rest("profiles?select=id&email=eq.e2e@yomushelf.local");
+  const [kidProfile] = await rest("profiles?select=id&email=eq.kid@yomushelf.local");
   check("reading the page creates nothing", (await rest(`wishlist_shares?select=user_id&user_id=eq.${kidProfile.id}`)).length === 0);
   await parent.page.fill('input[name="display_name"]', "Léo");
   const beforeReady = logSize();
@@ -125,7 +125,7 @@ try {
   check("family page is noindex, no-referrer",
     (await aunt.page.locator('meta[name="robots"]').getAttribute("content"))?.includes("noindex") &&
     (await aunt.page.locator('meta[name="referrer"]').getAttribute("content")) === "no-referrer");
-  check("family page lists the 3 wishes, nothing personal", (await aunt.page.locator("li[id^=tome-]").count()) === 3 && !(await aunt.page.content()).includes("e2e@yomushelf.local"));
+  check("family page lists the 3 wishes, nothing personal", (await aunt.page.locator("li[id^=tome-]").count()) === 3 && !(await aunt.page.content()).includes("kid@yomushelf.local"));
   check("no horizontal scroll on a phone", await aunt.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   await first(aunt.page).getByRole("button", { name: /^Je l.offre/ }).click();
   check("relative reserves a volume", await visible(first(aunt.page).getByText("✓ Tu l'offres.")) && (await visible(first(aunt.page).getByRole("status"))));
