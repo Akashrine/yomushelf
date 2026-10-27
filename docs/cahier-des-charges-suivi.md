@@ -16,7 +16,7 @@ Branche `feat/compagnon-lecture`. Légende :
 | Tomes possédés, lus, manquants, souhaités distingués | Fait | cartes de séries (`library-home.tsx`), grille de tomes (légende textuelle) |
 | Accès aux envies, bouton « Ajouter un manga » | Fait, testé | e2e « États vides » |
 | Découvrir : suggestions expliquées, sélections, filtres, ajout | Fait, testé | e2e « Découvrir », `suggest.test.ts` |
-| Mon univers : l'analyse seule (carte des goûts, lectures, dépenses, envies estimées à part) | Fait, testé | e2e « Carte des goûts », « Envies », « Rouage » |
+| Mon univers : les chiffres seuls (lectures, dépenses). Carte des goûts, valeur de la collection, graphiques et envies estimées retirés le 2026-10-27 | Fait, testé | e2e « Envies », « Rouage » |
 | Réglages derrière le rouage de l'en-tête (`/reglages`) | Fait, testé | e2e « Rouage », « Déconnexion » |
 | Mobile d'abord, utilisable sur ordinateur | Fait, testé | e2e en 390×844 et 1280×800 (navigateur, pas appareil réel) |
 | Actions faciles à toucher (44 px) | Fait | tous les contrôles passés à `min-h-11` ou plus |
