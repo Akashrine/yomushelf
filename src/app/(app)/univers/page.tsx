@@ -1,19 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/supabase/session";
 import { getOwnedVolumes, getReadings, getSeriesMeta } from "@/lib/supabase/queries";
-import { loadDiscoveryContext, readerLibrary, withReaderSeries } from "@/lib/supabase/discovery-data";
-import { formatEur, formatMonthShort, lastKnownPrice, todayIso } from "@/lib/collection/value";
-import { collectionValue, readingsOverview, spendingOverview, wishPrice, wishlistEstimate } from "@/lib/univers/stats";
-import { priceIndex } from "@/lib/univers/prices";
-import { loadPriceRows } from "@/lib/supabase/price-data";
-import { contentContext, territoryDiscoveries, territoryTastes } from "@/lib/discovery/suggest";
-import { TERRITORIES, type TerritoryKey } from "@/lib/discovery/territories";
+import { formatEur, todayIso } from "@/lib/collection/value";
+import { readingsOverview, spendingOverview } from "@/lib/univers/stats";
 import { AppShell } from "@/components/app/app-shell";
-import { AppIcon } from "@/components/app/app-icon";
-import { MonthBars } from "@/components/univers/charts";
-import { TasteMap, type MapDiscovery } from "@/components/univers/taste-map";
 
 export const metadata: Metadata = { title: "Mon univers" };
 
@@ -21,50 +12,16 @@ export default async function UniversPage() {
   const { supabase, user } = await getSessionUser();
   if (!user) redirect("/login");
 
-  const [series, volumes, readings, { data: profile }, wishesResult, discovery] = await Promise.all([
+  const [series, volumes, readings, { data: profile }] = await Promise.all([
     getSeriesMeta(supabase, user.id, { includeArchived: true }),
     getOwnedVolumes(supabase, user.id),
     getReadings(supabase, user.id),
     supabase.from("profiles").select("avatar_initials").eq("id", user.id).single(),
-    supabase.from("wishlist_items").select("manga_id, volume_number, target_price").eq("user_id", user.id),
-    loadDiscoveryContext(supabase, user.id),
   ]);
-  if (wishesResult.error) throw new Error("Impossible de charger tes envies.");
 
   const today = todayIso();
-  const library = readerLibrary(series, volumes, readings);
-  const known = withReaderSeries(discovery.catalogue, series);
-
-  // Taste map : territories from real readings, "J'ai aimé" and declared genres.
-  const territories = territoryTastes(library, known, discovery.declared);
-  const excluded = new Set([...series.map((s) => s.manga_id), ...discovery.wished, ...discovery.dismissed]);
-  const ctx = contentContext(library, known, discovery.declared, discovery.scope);
-  const discoveries: Partial<Record<TerritoryKey, MapDiscovery[]>> = Object.fromEntries(
-    TERRITORIES.map((t) => [
-      t.key,
-      territoryDiscoveries(t.key, discovery.catalogue, excluded, ctx, 3).map((c) => ({
-        id: c.id,
-        title: c.title,
-        cover_url: c.cover_url,
-      })),
-    ])
-  );
-  const uncounted = library.filter((l) => (l.read + l.owned > 0 || l.liked) && (known.get(l.manga_id)?.genres.length ?? 0) === 0).length;
-
   const reads = readingsOverview(readings, new Map(series.map((s) => [s.manga_id, s.total_volumes])), today);
   const spend = spendingOverview(volumes, today);
-  const priceOf = priceIndex(await loadPriceRows(supabase, [...series.map((s) => s.manga_id), ...(wishesResult.data ?? []).map((w) => w.manga_id)]));
-  const worth = collectionValue(volumes, priceOf);
-  const wishes = wishlistEstimate(
-    (wishesResult.data ?? []).map((w) =>
-      w.volume_number == null ? ({ kind: "whole_series" } as const) : wishPrice(
-        w.target_price == null ? null : Number(w.target_price),
-        lastKnownPrice(volumes.filter((v) => v.manga_id === w.manga_id && v.acquisition_type === "bought")),
-        spend.averagePaid,
-        priceOf(w.manga_id)?.amount ?? null
-      )
-    )
-  );
   const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
 
   return (
@@ -72,17 +29,8 @@ export default async function UniversPage() {
       <div className="flex flex-col gap-10">
         <header className="manga-halftone rounded-3xl px-4 py-5 sm:px-6">
           <h1 className="text-5xl sm:text-6xl" style={{ color: "var(--ink)" }}>Mon univers</h1>
-          <p className="mt-2 text-base font-medium" style={{ color: "var(--ink)" }}>Ce que tu aimes, ce que tu lis, ce que tu as dépensé.</p>
+          <p className="mt-2 text-base font-medium" style={{ color: "var(--ink)" }}>Ce que tu lis, ce que tu as dépensé.</p>
         </header>
-
-        {/* Taste */}
-        <section aria-labelledby="h-gouts" className="flex flex-col gap-4">
-          <div>
-            <h2 id="h-gouts" className="text-3xl sm:text-4xl" style={{ color: "var(--ink)" }}>Ma carte des goûts</h2>
-            <p className="text-sm" style={{ color: "var(--muted)" }}>Touche un territoire pour voir tes séries et des idées.</p>
-          </div>
-          <TasteMap territories={territories} discoveries={discoveries} uncounted={uncounted} />
-        </section>
 
         {/* Readings */}
         <section aria-labelledby="h-lectures" className="flex flex-col gap-4">
@@ -93,42 +41,7 @@ export default async function UniversPage() {
             <Stat value={String(reads.seriesFinished)} label={reads.seriesFinished > 1 ? "séries terminées" : "série terminée"} />
             <Stat value={String(reads.inProgress)} label="en cours de lecture" />
           </div>
-          <Card>
-            <p className="font-display text-2xl tracking-wide" style={{ color: "var(--ink)" }}>Tomes finis par mois</p>
-            <p className="mb-3 text-xs" style={{ color: "var(--muted)" }}>
-              {reads.undated > 0
-                ? `${plural(reads.undated, "lecture notée sans date n'apparaît", "lectures notées sans date n'apparaissent")} pas ici.`
-                : "Les 12 derniers mois."}
-            </p>
-            <MonthBars
-              data={reads.months.map((m) => ({ key: m.key, label: formatMonthShort(m.key), value: m.count, display: plural(m.count, "tome", "tomes") }))}
-              color="var(--read)"
-              title="Tomes finis par mois, sur les 12 derniers mois"
-              unitLabel="Tomes finis"
-            />
-          </Card>
         </section>
-
-        {/* What the collection is worth : nothing to type */}
-        {worth.typedCount + worth.listedCount + worth.unknownCount > 0 && (
-          <section aria-labelledby="h-valeur" className="flex flex-col gap-4">
-            <h2 id="h-valeur" className="text-3xl sm:text-4xl" style={{ color: "var(--ink)" }}>Ma collection</h2>
-            <Card>
-              <p className="font-display text-5xl tabular-nums tracking-wide" style={{ color: "var(--ink)" }}>≈ {formatEur(worth.total)}</p>
-              <p className="mt-1 text-base font-bold" style={{ color: "var(--ink)" }}>ce que tes tomes coûtaient neufs</p>
-              <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-                {[
-                  worth.listedCount ? plural(worth.listedCount, "tome au prix de l'éditeur", "tomes au prix de l'éditeur") : null,
-                  worth.typedCount ? plural(worth.typedCount, "tome au prix que tu as noté", "tomes au prix que tu as noté") : null,
-                  worth.unknownCount ? `${plural(worth.unknownCount, "tome sans prix connu, non compté", "tomes sans prix connu, non comptés")}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-              <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>Une estimation au prix de l&apos;éditeur, pas une valeur de revente : une édition épuisée peut valoir bien plus. Rien à saisir.</p>
-            </Card>
-          </section>
-        )}
 
         {/* Spending */}
         <section aria-labelledby="h-depenses" className="flex flex-col gap-4">
@@ -139,81 +52,18 @@ export default async function UniversPage() {
               {spend.boughtCount > 0 && ` Prix renseigné pour ${spend.paidCount} tome${spend.paidCount > 1 ? "s" : ""} sur ${spend.boughtCount} achetés.`}
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
             <Stat value={formatEur(spend.paid)} label="payés" hint={plural(spend.paidCount, "tome avec un prix", "tomes avec un prix")} />
             <Stat value={spend.averagePaid != null ? formatEur(spend.averagePaid) : "–"} label="en moyenne par tome" />
             <Stat
               value={spend.giftsPricedCount ? formatEur(spend.gifts) : "–"}
               label={spend.giftsPricedCount ? "de cadeaux (valeur notée)" : "cadeaux"}
-              hint={
-                spend.giftsCount === 0
-                  ? "Aucun tome offert"
-                  : spend.giftsPricedCount === spend.giftsCount
-                    ? `${plural(spend.giftsCount, "tome offert", "tomes offerts")}, pas une dépense`
-                    : `Valeur notée pour ${spend.giftsPricedCount} sur ${plural(spend.giftsCount, "tome offert", "tomes offerts")}, pas une dépense`
-              }
-            />
-            <Stat
-              value={`${spend.paidCount} / ${spend.boughtCount}`}
-              label="tomes achetés avec un prix"
-              hint={[
-                spend.unpricedBought ? plural(spend.unpricedBought, "achat sans prix", "achats sans prix") : null,
-                spend.unknownOrigin ? plural(spend.unknownOrigin, "tome d'origine inconnue", "tomes d'origine inconnue") : null,
-              ].filter(Boolean).join(" · ") || "Tous tes achats ont un prix"}
+              hint={spend.giftsCount === 0 ? "Aucun tome offert" : `${plural(spend.giftsCount, "tome offert", "tomes offerts")}, pas une dépense`}
             />
           </div>
-          <Card>
-            <p className="font-display text-2xl tracking-wide" style={{ color: "var(--ink)" }}>Dépenses par mois</p>
-            <p className="mb-3 text-xs" style={{ color: "var(--muted)" }}>
-              {spend.undatedPaid > 0
-                ? `${formatEur(spend.undatedPaid)} payés à une date inconnue n'apparaissent pas ici.`
-                : "Les 12 derniers mois."}
-            </p>
-            <MonthBars
-              data={spend.months.map((m) => ({ key: m.key, label: formatMonthShort(m.key), value: m.amount, display: formatEur(m.amount) }))}
-              color="var(--gold)"
-              title="Dépenses renseignées par mois, sur les 12 derniers mois"
-              unitLabel="Montant payé"
-            />
-          </Card>
         </section>
-
-        {/* Wishlist estimate : apart from spending, it is not money spent */}
-        {wishes.count > 0 && (
-          <section aria-labelledby="h-envies" className="flex flex-col gap-4">
-            <div>
-              <h2 id="h-envies" className="text-3xl sm:text-4xl" style={{ color: "var(--ink)" }}>Mes envies</h2>
-              <p className="text-sm" style={{ color: "var(--muted)" }}>Une estimation de ce qu&apos;elles coûteraient. Ce n&apos;est pas une dépense.</p>
-            </div>
-            <Card>
-              <p className="font-display text-5xl tabular-nums tracking-wide" style={{ color: "var(--ink)" }}>≈ {formatEur(wishes.total)}</p>
-              <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-                {[
-                  plural(wishes.count, "envie", "envies"),
-                  wishes.knownCount ? `${formatEur(wishes.known)} de prix indicatifs que tu as notés` : null,
-                  wishes.estimatedCount ? `${formatEur(wishes.estimated)} estimés (prix payés ou prix de l'éditeur)` : null,
-                  wishes.unknownCount ? `${plural(wishes.unknownCount, "prix inconnu, non compté", "prix inconnus, non comptés")}` : null,
-                  wishes.wholeSeriesCount ? `${plural(wishes.wholeSeriesCount, "série entière, non chiffrée", "séries entières, non chiffrées")}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-              <Link href="/envies" className="manga-panel-sm manga-press mt-4 inline-flex min-h-12 items-center gap-1 rounded-2xl px-4 text-base font-bold focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]" style={{ background: "var(--pop)", color: "var(--ink)" }}>
-                Voir mes envies <AppIcon name="chevron-right" size={16} />
-              </Link>
-            </Card>
-          </section>
-        )}
       </div>
     </AppShell>
-  );
-}
-
-function Card({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="manga-panel rounded-2xl p-4 sm:p-5">
-      {children}
-    </div>
   );
 }
 

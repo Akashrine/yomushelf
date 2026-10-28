@@ -344,15 +344,8 @@ await step("Envies : acheté avec son prix, ça compte dans Mon univers", async 
   await go(page, "/univers");
   const t = await text(page);
   check("Envies : le prix payé est dans les dépenses", /4,50\s?€ payés/.test(t), t.match(/[\d\s,]+€ payés/)?.[0] ?? "absent");
-  check("Mon univers : ce que vaut la collection, estimé au prix de l'éditeur, sans rien saisir", /Ma collection/.test(t) && /ce que tes tomes coûtaient neufs/.test(t) && /au prix de l'éditeur/.test(t));
+  check("Mon univers : plus de carte de valeur, ni de carte des goûts", !/ce que tes tomes coûtaient neufs|Ma carte des goûts/.test(t) && /Mes lectures/.test(t));
   await shot(page, "04-univers");
-});
-
-await step("Mon univers : la carte des goûts ouvre séries et découvertes", async () => {
-  await go(page, "/univers");
-  await page.getByRole("button", { name: /Rire et quotidien/ }).click();
-  const panel = await text(page, "#taste-panel");
-  check("Carte des goûts : territoires réels, clic qui ouvre séries et découvertes", /Spy x Family|Frieren|Dr\. Stone/.test(panel) && /À découvrir ici/.test(panel), panel.slice(0, 120));
 });
 
 await step("Erreur réseau : message honnête, rien d'annoncé à tort, puis réussite", async () => {
@@ -392,7 +385,7 @@ await step("Rouage : les réglages à part, Mon univers ne garde que les chiffre
   const settings = await text(page);
   check(
     "Rouage : les réglages à part, Mon univers ne garde que les chiffres",
-    /Ma carte des goûts/.test(uni) && /Mes dépenses renseignées/.test(uni) && !/Me déconnecter|Noter d'anciennes lectures/.test(uni) && /Pseudo/.test(settings) && /Me déconnecter/.test(settings),
+    /Mes lectures/.test(uni) && /Mes dépenses renseignées/.test(uni) && !/Me déconnecter|Noter d'anciennes lectures/.test(uni) && /Pseudo/.test(settings) && /Me déconnecter/.test(settings),
     page.url()
   );
   await page.getByLabel("Pseudo").fill("Testeur");

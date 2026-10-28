@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { lastMonths, readingsOverview, spendingOverview, waitingAtHome, wishPrice, wishlistEstimate } from "./stats";
+import { lastMonths, readingsOverview, spendingOverview, waitingAtHome } from "./stats";
 import type { OwnedVolume } from "@/lib/collection/value";
 import type { Reading } from "@/lib/collection/reading";
 
@@ -78,22 +78,6 @@ describe("readingsOverview", () => {
   });
 });
 
-describe("wishlistEstimate", () => {
-  it("separates indicative prices, estimates with their basis, and unknown prices", () => {
-    expect(wishPrice(7.2, 6.9, 7)).toEqual({ kind: "indicative", amount: 7.2 });
-    expect(wishPrice(null, 6.9, 7)).toEqual({ kind: "series", amount: 6.9 });
-    expect(wishPrice(null, null, 7)).toEqual({ kind: "average", amount: 7 });
-    expect(wishPrice(null, null, null)).toEqual({ kind: "unknown" });
-    const w = wishlistEstimate([wishPrice(7.2, null, null), wishPrice(null, 7.5, null), wishPrice(null, null, null)]);
-    expect(w).toMatchObject({ count: 3, known: 7.2, estimated: 7.5, total: 14.7, unknownCount: 1 });
-  });
-
-  it("an unknown price never becomes zero in the total : it is counted apart", () => {
-    const w = wishlistEstimate([wishPrice(null, null, null), wishPrice(null, null, null)]);
-    expect(w).toMatchObject({ total: 0, unknownCount: 2, estimatedCount: 0, knownCount: 0 });
-  });
-});
-
 describe("spending coverage", () => {
   it("counts priced bought volumes out of all bought ones ; gifts and borrowed apart", () => {
     const s = spendingOverview(
@@ -111,10 +95,6 @@ describe("gifts and whole-series wishes", () => {
       "2026-10-15"
     );
     expect(s).toMatchObject({ gifts: 7, giftsCount: 2, giftsPricedCount: 1, paid: 0 });
-  });
-  it("counts a whole-series wish apart, never priced as one volume", () => {
-    const w = wishlistEstimate([{ kind: "whole_series" }, wishPrice(null, 7, null)]);
-    expect(w).toMatchObject({ count: 2, total: 7, wholeSeriesCount: 1, estimatedCount: 1 });
   });
 });
 
