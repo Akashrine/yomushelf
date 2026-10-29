@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { loadNeighbourSlugs, loadPublicSeries, seriesDescription } from "@/lib/catalogue/public-series";
+import { agePageOf, agePageSlug, loadNeighbourSlugs, loadPublicSeries, seriesDescription } from "@/lib/catalogue/public-series";
 import { ageLabel, DEMOGRAPHIC_LABELS, GENRE_LABELS } from "@/lib/discovery/suggest";
 
 export const revalidate = 3600;
@@ -107,6 +107,14 @@ export default async function SeriesPage({ params }: { params: Promise<{ slug: s
             </Link>
           </div>
         </div>
+
+        {agePageOf(series) != null && (
+          <p className="mt-10 text-sm font-bold">
+            <Link href={`/manga/${agePageSlug(agePageOf(series)!)}`} className="underline underline-offset-4">
+              Voir tous les mangas dès {agePageOf(series)} ans
+            </Link>
+          </p>
+        )}
 
         {neighbours.length > 0 && (
           <section className="mt-12" aria-labelledby="proches">

@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { loadPublicSeries } from "@/lib/catalogue/public-series";
+import { AGE_PAGES, agePageSlug, loadPublicSeries } from "@/lib/catalogue/public-series";
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.yomushelf.com").trim();
 
@@ -27,6 +27,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "yearly",
       priority: 0.5,
     },
+    ...AGE_PAGES.map((a) => ({
+      url: `${APP_URL}/manga/${agePageSlug(a)}`,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
     ...series.map((s) => ({
       url: `${APP_URL}/serie/${s.slug}`,
       changeFrequency: "monthly" as const,

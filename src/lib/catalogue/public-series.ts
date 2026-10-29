@@ -76,3 +76,27 @@ export function seriesDescription(s: PublicSeries): string {
   if (genres.length) parts.push(`Genres : ${genres.join(", ")}.`);
   return parts.join(" ");
 }
+
+// Age pages (/manga/des-10-ans) : the series a reader of that age may take,
+// from the verified age of the whole series only (CNLJ), never an estimate.
+export const AGE_PAGES = [8, 10, 12, 14] as const;
+
+export const agePageSlug = (age: number) => `des-${age}-ans`;
+
+export function ageFromSlug(slug: string): number | null {
+  const m = /^des-(\d+)-ans$/.exec(slug);
+  const age = m ? Number(m[1]) : NaN;
+  return (AGE_PAGES as readonly number[]).includes(age) ? age : null;
+}
+
+export function seriesForAge(all: PublicSeries[], age: number): PublicSeries[] {
+  return all
+    .filter((s) => s.audience_age_source === "cnlj" && s.audience_age_scope === "series" && s.audience_min_age != null && s.audience_min_age <= age)
+    .sort((a, b) => (a.top_50_rank ?? 999) - (b.top_50_rank ?? 999) || a.title.localeCompare(b.title));
+}
+
+// The smallest age page a series belongs to, for the link from its own page.
+export function agePageOf(s: PublicSeries): number | null {
+  if (s.audience_age_source !== "cnlj" || s.audience_age_scope !== "series" || s.audience_min_age == null) return null;
+  return AGE_PAGES.find((a) => a >= s.audience_min_age!) ?? null;
+}
